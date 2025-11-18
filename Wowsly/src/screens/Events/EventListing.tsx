@@ -1,7 +1,12 @@
 import { FlatList, Image, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native'
 import React, { useMemo, useState } from 'react'
+import EventCard from '../../components/EventCard'
+import { useNavigation } from '@react-navigation/native'
+
 
 const EventListing = () => {
+  const navigation = useNavigation<any>();
+
   const events = useMemo(() => [
     {
       id: '1',
@@ -87,16 +92,16 @@ const EventListing = () => {
   const renderCard = ({ item }: { item: typeof events[number] }) => {
     const isSelected = item.id === selectedEventId
     return (
-      <TouchableOpacity activeOpacity={0.9} onPress={() => setSelectedEventId(item.id)}>
-        <View style={[styles.card, isSelected && styles.cardSelected]}>
-          <Image source={{ uri: item.image }} style={styles.cardImage} />
-          <View style={styles.cardContent}>
-            <Text style={styles.cardTitle}>{item.title}</Text>
-            <Text style={styles.cardMeta}>{item.date}</Text>
-            <Text style={styles.cardLocation}>{item.location}</Text>
-          </View>
-        </View>
-      </TouchableOpacity>
+      <EventCard
+        title={item.title}
+        date={item.date}
+        location={item.location}
+        image={item.image}
+        selected={isSelected}
+        onPress={() => {
+          navigation.navigate('EventDashboard' as never, { eventData: item } as never)
+        }}
+      />
     )
   }
 
@@ -127,6 +132,8 @@ const EventListing = () => {
           extraData={selectedEventId}
           contentContainerStyle={styles.listContent}
           showsVerticalScrollIndicator={false}
+          
+
         />
         <View style={styles.pagination}>
           <TouchableOpacity
@@ -232,39 +239,6 @@ listContent:{
     paddingHorizontal:20,
     paddingTop:18,
     paddingBottom:90,
-},
-card:{
-    backgroundColor:'white',
-    borderRadius:24,
-    marginBottom:18,
-    borderWidth:1,
-    borderColor:'#FFE0CC',
-},
-cardSelected:{
-    borderColor:'#FF8A3C',
-},
-cardImage:{
-    width:'100%',
-    height:100,
-    borderTopLeftRadius:24,
-    borderTopRightRadius:24,
-},
-cardContent:{
-    padding:18,
-    gap:8,
-},
-cardTitle:{
-    fontSize:17,
-    fontWeight:'700',
-    color:'#1C1C1C',
-},
-cardMeta:{
-    fontSize:14,
-    color:'#6F6F6F',
-},
-cardLocation:{
-    fontSize:12,
-    color:'#383838',
 },
 pagination:{
     flexDirection:'row',
