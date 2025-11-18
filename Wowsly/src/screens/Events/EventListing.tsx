@@ -153,7 +153,7 @@ const EventListing = () => {
 
 const styles = StyleSheet.create({
 container:{
-    backgroundColor:'#F7F7F7',
+    backgroundColor:'white',
     flex:1,
 },
 heading:{
@@ -271,12 +271,13 @@ pagination:{
     justifyContent:'center',
     alignItems:'center',
     gap:16,
-    paddingBottom:20,
+    paddingBottom:4,
+    backgroundColor:'white',
 },
 pageButton:{
     backgroundColor:'#FF8A3C',
-    paddingHorizontal:20,
-    paddingVertical:10,
+    paddingHorizontal:15,
+    paddingVertical:8,
     borderRadius:12,
 },
 pageButtonDisabled:{

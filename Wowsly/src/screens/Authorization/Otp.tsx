@@ -60,7 +60,7 @@ const Otp = () => {
                 <Text style={styles.timerText}>Resend in {resendTimer}s</Text>
 
                 <TouchableOpacity style={styles.verifyButton}
-                onPress={()=>navigation.navigate('EventListing')}>
+                onPress={()=>navigation.navigate('BottomNav')}>
                     <Text style={styles.verifyButtonText}>Verify OTP</Text>
                 </TouchableOpacity>
             </View>
