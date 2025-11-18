@@ -1,10 +1,12 @@
 import { Image, StyleSheet, Text, View, TouchableOpacity } from 'react-native'
 import React, { useState, useEffect } from 'react'
 import { OtpInput } from 'react-native-otp-entry'
+import { useNavigation } from '@react-navigation/native'
 
 const Otp = () => {
     const [otp, setOtp] = useState('')
     const [resendTimer, setResendTimer] = useState(30)
+    const navigation = useNavigation();
 
     useEffect(() => {
         if (resendTimer > 0) {
@@ -57,7 +59,8 @@ const Otp = () => {
                 </View>
                 <Text style={styles.timerText}>Resend in {resendTimer}s</Text>
 
-                <TouchableOpacity style={styles.verifyButton}>
+                <TouchableOpacity style={styles.verifyButton}
+                onPress={()=>navigation.navigate('EventListing')}>
                     <Text style={styles.verifyButtonText}>Verify OTP</Text>
                 </TouchableOpacity>
             </View>

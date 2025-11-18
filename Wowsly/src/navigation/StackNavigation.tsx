@@ -4,6 +4,8 @@ import Splash from '../screens/Splash/Splash';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import Number from '../screens/Authorization/Number';
 import Otp from '../screens/Authorization/Otp';
+import EventListing from '../screens/Events/EventListing';
+import BottomNavigation from './BottomNavigation';
 const Stack = createNativeStackNavigator();
 const StackNavigation = () => {
   return (
@@ -11,6 +13,10 @@ const StackNavigation = () => {
     <Stack.Screen name="Splash" component={Splash} />
     <Stack.Screen name="Number" component={Number} />
     <Stack.Screen name='Otp' component={Otp}/>
+    <Stack.Screen name='EventListing' component={EventListing}/>
+    {/* <Stack.Screen name="BottomNav" component={BottomNavigation} /> */}
+
+    
 </Stack.Navigator>
   )
 }
