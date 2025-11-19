@@ -1,7 +1,7 @@
 import { Modal, StyleSheet, Text, View, Image, TouchableOpacity } from 'react-native'
 import React, { useState } from 'react'
 import { useNavigation } from '@react-navigation/native';
-
+import Grid from '../../components/Grid';
 type EventData = {
     id: string
     title: string
@@ -72,7 +72,6 @@ const EventDashboard = ({ route }: EventDashboardProps) => {
                     </View>
                 )}
             </View>
-
             <Modal
                 transparent
                 animationType="fade"
@@ -94,16 +93,52 @@ const EventDashboard = ({ route }: EventDashboardProps) => {
                 </View>
             </Modal>
             <View style={styles.eventCard}>
-    <Image source={{ uri: eventData.image }} style={styles.eventImage} />
+                <Image source={{ uri: eventData.image }} style={styles.eventImage} />
+                <View style={styles.eventCardContent}>
+                    <Text style={styles.eventCardTitle}>{eventData.title}</Text>
+                    <Text style={styles.eventCardMeta}>
+                        {eventData.date}  •  {eventData.location}
+                    </Text>
+                </View>
+            </View>
+            <View style={styles.grid}>
+                <View style={styles.rowone}>
+                    <Grid
+                        icon={require('../../assets/img/eventdashboard/guests.png')}
+                        title="Guests"
+                        value="852"
+                        onPress={() => navigation.navigate("GuestsScreen")}
+                    />
 
-    <View style={styles.eventCardContent}>
-        <Text style={styles.eventCardTitle}>{eventData.title}</Text>
-        <Text style={styles.eventCardMeta}>
-            {eventData.date}  •  {eventData.location}
-        </Text>
-    </View>
-</View>
+                    <Grid
+                        icon={require('../../assets/img/eventdashboard/checkin.png')}
+                        title="Check-In"
+                        value="671"
+                    //   onPress={() => navigation.navigate("CheckInScreen")}
+                    />
+                </View>
 
+                <View style={styles.rowone}>
+                    <Grid
+                        icon={require('../../assets/img/eventdashboard/ticket.png')}
+                        title="Tickets"
+                        value="1000"
+                    //   onPress={() => navigation.navigate("TicketsScreen")}
+                    />
+
+                    <Grid
+                        icon={require('../../assets/img/eventdashboard/revenue.png')}
+                        title="Revenue"
+                        value="$50k"
+                    //   onPress={() => navigation.navigate("RevenueScreen")}
+                    />
+                </View>
+            </View>
+            <TouchableOpacity style={styles.button}>
+                <Image source={require('./../../assets/img/eventdashboard/scanner.png')}
+                style={styles.scanicon}/>
+                <Text>Start Check-In</Text>
+            </TouchableOpacity>
         </View>
     )
 }
@@ -116,6 +151,10 @@ const styles = StyleSheet.create({
         backgroundColor: 'white',
         // justifyContent: 'center',
         alignContent: 'center',
+        padding: 5,
+        
+
+
     },
     header: {
         width: '100%',
@@ -216,7 +255,7 @@ const styles = StyleSheet.create({
     eventCard: {
         width: '95%',
         alignSelf: 'center',
-        marginTop: 10,
+        marginTop: 5,
         backgroundColor: '#fff',
         borderRadius: 20,
         overflow: 'hidden',
@@ -225,27 +264,69 @@ const styles = StyleSheet.create({
         // shadowOffset: { width: 0, height: 4 },
         // shadowRadius: 8,
         // elevation: 5,
+        borderWidth: 1,
+        borderColor: '#EDEDED',
     },
-    
+
     eventImage: {
         width: '100%',
         height: 120,
     },
-    
+
     eventCardContent: {
         padding: 15,
     },
-    
+
     eventCardTitle: {
         fontSize: 20,
         fontWeight: '700',
         color: '#111',
     },
-    
+
     eventCardMeta: {
         fontSize: 14,
         color: '#6F6F6F',
         marginTop: 5,
     },
-    
+    grid: {
+        // flex:1,
+        flexDirection: 'column',
+        backgroundColor: 'white',
+        height: '20%',
+        width: '90%',
+        alignSelf: 'center',
+        // justifyContent:'center',
+        // alignItems:'center',
+        paddingLeft: 2,
+        gap: 12,
+        marginTop:15,
+    },
+    rowone: {
+        flexDirection: 'row',
+        gap: 20,
+    },
+    button:{
+        height:'7%',
+        width:'90%',
+        backgroundColor:'#FF8A3C',
+        alignSelf:"center",
+        justifyContent:'center',
+        alignItems:'center',
+        borderRadius:10,
+        marginTop:30,
+        flexDirection:'row',
+        gap:10,
+    },
+    scanicon:{
+        height:25,
+        width:25,
+        // padding:10,
+    },
+
+
+
+
+
+
+
 })
