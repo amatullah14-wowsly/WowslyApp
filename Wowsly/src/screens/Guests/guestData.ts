@@ -36,14 +36,14 @@ export const guestListData: Guest[] = [
     id: '6',
     name: 'Dua Lipa',
     group: 'Registered',
-    status: 'Checked In',
+    status: 'Pending',
     avatar: 'https://images.unsplash.com/photo-1545239351-1141bd82e8a6?w=200',
   },
   {
     id: '8',
     name: 'Fergie',
     group: 'Manager',
-    status: 'Checked In',
+    status: 'Pending',
     avatar: 'https://images.unsplash.com/photo-1521737604893-d14cc237f11d?w=200',
   },
 ];

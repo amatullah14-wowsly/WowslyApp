@@ -1,7 +1,21 @@
 import React from "react";
-import { View, Text, Image, TouchableOpacity, StyleSheet } from "react-native";
+import {
+  View,
+  Text,
+  Image,
+  TouchableOpacity,
+  StyleSheet,
+  ImageSourcePropType,
+} from "react-native";
 
-const Grid = ({ icon, title, value, onPress }) => {
+type GridProps = {
+  icon: ImageSourcePropType;
+  title: string;
+  value: string;
+  onPress?: () => void;
+};
+
+const Grid = ({ icon, title, value, onPress }: GridProps) => {
   return (
     <TouchableOpacity style={styles.card} onPress={onPress}>
       <View style={styles.row}>

@@ -11,6 +11,8 @@ import GuestList from '../screens/Guests/GuestList';
 import ManagerGuests from '../screens/Guests/ManagerGuests';
 import InvitedGuests from '../screens/Guests/InvitedGuests';
 import RegisteredGuests from '../screens/Guests/RegisteredGuests';
+import ModeSelection from '../screens/Mode/ModeSelection';
+import HostDashboard from '../screens/DashBoards/HostDashboard';
 const Stack = createNativeStackNavigator();
 const StackNavigation = () => {
   return (
@@ -25,6 +27,8 @@ const StackNavigation = () => {
     <Stack.Screen name='ManagerGuests' component={ManagerGuests}/>
     <Stack.Screen name='InvitedGuests' component={InvitedGuests}/>
     <Stack.Screen name='RegisteredGuests' component={RegisteredGuests}/>
+    <Stack.Screen name='ModeSelection' component={ModeSelection}/>
+    <Stack.Screen name='HostDashboard' component={HostDashboard}/>
 
     
 </Stack.Navigator>

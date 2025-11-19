@@ -20,7 +20,7 @@ type EventDashboardProps = {
 }
 
 const EventDashboard = ({ route }: EventDashboardProps) => {
-    const navigation = useNavigation();
+    const navigation = useNavigation<any>();
     const { eventData } = route.params || {};
     const [menuVisible, setMenuVisible] = useState(false);
     const [confirmVisible, setConfirmVisible] = useState(false);
@@ -123,7 +123,6 @@ const EventDashboard = ({ route }: EventDashboardProps) => {
                         icon={require('../../assets/img/eventdashboard/checkin.png')}
                         title="Check-In"
                         value="671"
-                    //   onPress={() => navigation.navigate("CheckInScreen")}
                     />
                 </View>
 
@@ -143,7 +142,9 @@ const EventDashboard = ({ route }: EventDashboardProps) => {
                     />
                 </View>
             </View>
-            <TouchableOpacity style={styles.button}>
+            <TouchableOpacity style={styles.button}
+            
+            onPress={() => navigation.navigate("ModeSelection", { eventTitle: eventData.title })}>
                 <Image source={require('./../../assets/img/eventdashboard/scanner.png')}
                 style={styles.scanicon}/>
                 <Text style={styles.start}>Start Check-In</Text>
