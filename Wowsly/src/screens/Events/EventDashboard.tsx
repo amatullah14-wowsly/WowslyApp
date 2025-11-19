@@ -1,7 +1,8 @@
-import { Modal, StyleSheet, Text, View, Image, TouchableOpacity } from 'react-native'
-import React, { useState } from 'react'
+import { Modal, StyleSheet, Text, View, Image, TouchableOpacity , ScrollView } from 'react-native'
+import React, { useState  } from 'react'
 import { useNavigation } from '@react-navigation/native';
 import Grid from '../../components/Grid';
+import PieChart from 'react-native-pie-chart'
 type EventData = {
     id: string
     title: string
@@ -23,6 +24,14 @@ const EventDashboard = ({ route }: EventDashboardProps) => {
     const { eventData } = route.params || {};
     const [menuVisible, setMenuVisible] = useState(false);
     const [confirmVisible, setConfirmVisible] = useState(false);
+
+    const widthAndHeight = 100
+
+    const series = [
+      { value: 50, color: '#FF8A3C' },
+      {value: 30, color: '#FFF3E0'},
+      {value: 10 , color:'#969696'},
+    ]
 
     if (!eventData) {
         return null;
@@ -137,8 +146,16 @@ const EventDashboard = ({ route }: EventDashboardProps) => {
             <TouchableOpacity style={styles.button}>
                 <Image source={require('./../../assets/img/eventdashboard/scanner.png')}
                 style={styles.scanicon}/>
-                <Text>Start Check-In</Text>
+                <Text style={styles.start}>Start Check-In</Text>
             </TouchableOpacity>
+            <View style={styles.chartbox}>
+                <Text style={styles.disttxt}>Ticket Distribution</Text>
+        <View style={styles.container}>
+          <PieChart widthAndHeight={widthAndHeight} series={series} cover={0.70} />
+        </View>
+     
+
+            </View>
         </View>
     )
 }
@@ -322,8 +339,36 @@ const styles = StyleSheet.create({
         width:25,
         // padding:10,
     },
+    start:{
+        color:'white',
+        fontWeight:'500',
+        fontSize:15,
+    },
+    chartbox:{
+        height:'22%',
+        width:'90%',
+        borderWidth:1,
+        borderColor:'#EDEDED',
+        alignSelf:'center',
+        borderRadius:8,
+        alignItems:'flex-start',
+        flexDirection:'column',
+        padding:15,
+    },
+    disttxt:{
+        color:'black',
+        fontSize:16,
+        fontWeight:'500',
+    },
 
-
+    container: {
+        flex: 1,
+        alignItems: 'center',
+      },
+      title: {
+        fontSize: 24,
+        margin: 10,
+      },
 
 
 
