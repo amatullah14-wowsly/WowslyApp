@@ -116,7 +116,7 @@ const EventDashboard = ({ route }: EventDashboardProps) => {
                         icon={require('../../assets/img/eventdashboard/guests.png')}
                         title="Guests"
                         value="852"
-                        onPress={() => navigation.navigate("GuestsScreen")}
+                        onPress={() => navigation.navigate("GuestList")}
                     />
 
                     <Grid
@@ -150,8 +150,8 @@ const EventDashboard = ({ route }: EventDashboardProps) => {
             </TouchableOpacity>
             <View style={styles.chartbox}>
                 <Text style={styles.disttxt}>Ticket Distribution</Text>
-        <View style={styles.container}>
-          <PieChart widthAndHeight={widthAndHeight} series={series} cover={0.70} />
+        <View style={styles.chartcontainer}>
+          <PieChart widthAndHeight={widthAndHeight} series={series} cover={0.80} />
         </View>
      
 
@@ -354,6 +354,8 @@ const styles = StyleSheet.create({
         alignItems:'flex-start',
         flexDirection:'column',
         padding:15,
+        gap:15,
+        marginTop:20,
     },
     disttxt:{
         color:'black',
@@ -361,15 +363,12 @@ const styles = StyleSheet.create({
         fontWeight:'500',
     },
 
-    container: {
+    chartcontainer: {
         flex: 1,
         alignItems: 'center',
+        
       },
-      title: {
-        fontSize: 24,
-        margin: 10,
-      },
-
+ 
 
 
 

@@ -7,6 +7,10 @@ import Otp from '../screens/Authorization/Otp';
 import EventListing from '../screens/Events/EventListing';
 import BottomNavigation from './BottomNavigation';
 import EventDashboard from '../screens/Events/EventDashboard';
+import GuestList from '../screens/Guests/GuestList';
+import ManagerGuests from '../screens/Guests/ManagerGuests';
+import InvitedGuests from '../screens/Guests/InvitedGuests';
+import RegisteredGuests from '../screens/Guests/RegisteredGuests';
 const Stack = createNativeStackNavigator();
 const StackNavigation = () => {
   return (
@@ -17,6 +21,10 @@ const StackNavigation = () => {
     <Stack.Screen name='EventListing' component={EventListing}/>
     <Stack.Screen name="BottomNav" component={BottomNavigation} />
     <Stack.Screen name='EventDashboard' component={EventDashboard}/>
+    <Stack.Screen name='GuestList' component={GuestList}/>
+    <Stack.Screen name='ManagerGuests' component={ManagerGuests}/>
+    <Stack.Screen name='InvitedGuests' component={InvitedGuests}/>
+    <Stack.Screen name='RegisteredGuests' component={RegisteredGuests}/>
 
     
 </Stack.Navigator>
