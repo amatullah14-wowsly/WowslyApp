@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   SafeAreaView,
   StyleSheet,
@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   Image,
   ScrollView,
+  Modal,
 } from 'react-native';
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
 
@@ -53,29 +54,40 @@ const actionRows = [
     id: 'download',
     title: 'Download Data',
     icon: require('../../assets/img/Mode/offlinemode.png'),
+    info: 'Download the latest guest list and check-in data for offline use.',
   },
   {
     id: 'count',
     title: 'Get Count',
     icon: require('../../assets/img/eventdashboard/count.png'),
+    info: 'View a combined total of check-ins across all connected devices.',
   },
   {
     id: 'upload',
     title: 'Upload Data',
     icon: require('../../assets/img/eventdashboard/upload.png'),
+    info: 'Send check-in updates captured offline back to the server.',
   },
   {
     id: 'export',
     title: 'Export List',
     icon: require('../../assets/img/eventdashboard/export.png'),
+    info: 'Export the attendee list with current statuses for reporting.',
   },
 ];
+
+const INFO_ICON = require('../../assets/img/common/info.png');
 
 const HostDashboard = () => {
   const navigation = useNavigation<any>();
   const route = useRoute<HostDashboardRoute>();
+  const [infoModal, setInfoModal] = useState<{ visible: boolean; text?: string }>(
+    { visible: false, text: undefined },
+  );
 
   const eventTitle = route.params?.eventTitle ?? 'Host Dashboard';
+  const openInfo = (text: string) => setInfoModal({ visible: true, text });
+  const closeInfo = () => setInfoModal({ visible: false });
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -121,15 +133,38 @@ const HostDashboard = () => {
 
         <View style={styles.actionGrid}>
           {actionRows.map((action) => (
-            <TouchableOpacity key={action.id} style={styles.actionCard}>
+            <View key={action.id} style={styles.actionCard}>
+              <TouchableOpacity
+                style={styles.infoButton}
+                onPress={() => openInfo(action.info)}
+              >
+                <Image source={INFO_ICON} style={styles.infoIconButton} />
+              </TouchableOpacity>
               <View style={styles.actionIconCircle}>
                 <Image source={action.icon} style={styles.actionIcon} />
               </View>
               <Text style={styles.actionLabel}>{action.title}</Text>
-            </TouchableOpacity>
+            </View>
           ))}
         </View>
       </ScrollView>
+
+      <Modal
+        transparent
+        animationType="fade"
+        visible={infoModal.visible}
+        onRequestClose={closeInfo}
+      >
+        <View style={styles.modalBackdrop}>
+          <View style={styles.modalCard}>
+            <Text style={styles.modalTitle}>More Info</Text>
+            <Text style={styles.modalBody}>{infoModal.text}</Text>
+            <TouchableOpacity style={styles.modalButton} onPress={closeInfo}>
+              <Text style={styles.modalButtonText}>Got it</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 };
@@ -251,10 +286,10 @@ const styles = StyleSheet.create({
     rowGap: 16,
   },
   actionCard: {
-    width: '40%',
+    width: '45%',
     backgroundColor: '#FFFFFF',
     borderRadius: 20,
-    paddingVertical: 10,
+    paddingVertical: 14,
     alignItems: 'center',
     gap: 10,
     shadowColor: '#000',
@@ -262,6 +297,7 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     shadowOffset: { width: 0, height: 4 },
     elevation: 2,
+    position: 'relative',
   },
   actionIconCircle: {
     width: 50,
@@ -281,5 +317,52 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '600',
     color: '#1F1F1F',
+  },
+  infoButton: {
+    position: 'absolute',
+    top: 10,
+    right: 10,
+    width: 20,
+    height: 20,
+  },
+  infoIconButton: {
+    width: 15,
+    height: 15,
+    tintColor: '#FF8A3C',
+    resizeMode: 'contain',
+  },
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.4)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 24,
+  },
+  modalCard: {
+    width: '100%',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 24,
+    padding: 24,
+    gap: 16,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#1F1F1F',
+  },
+  modalBody: {
+    fontSize: 14,
+    color: '#555555',
+    lineHeight: 20,
+  },
+  modalButton: {
+    backgroundColor: '#FF8A3C',
+    borderRadius: 14,
+    paddingVertical: 12,
+    alignItems: 'center',
+  },
+  modalButtonText: {
+    color: '#FFFFFF',
+    fontWeight: '600',
   },
 });

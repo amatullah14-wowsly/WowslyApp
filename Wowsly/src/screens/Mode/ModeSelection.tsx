@@ -35,6 +35,7 @@ const MODES: ModeInfo[] = [
     icon: require('../../assets/img/Mode/offlinemode.png'),
     accent: '#FFF3EB',
     accentTint: '#FF8A3C',
+    
   },
   {
     id: 'connection',
@@ -66,6 +67,10 @@ const ModeSelection = () => {
 
   const handleConnectionPress = () => {
     setRoleModalVisible(true);
+  };
+
+  const handleOfflinePress = () => {
+    navigation.navigate('OfflineDashboard', { eventTitle });
   };
 
   const handleRolePick = (role: 'Host' | 'Client') => {
@@ -102,9 +107,15 @@ const ModeSelection = () => {
               key={mode.id}
               activeOpacity={0.9}
               style={styles.card}
-              onPress={
-                mode.id === 'connection' ? handleConnectionPress : undefined
-              }
+              onPress={() => {
+                if (mode.id === 'connection') {
+                  handleConnectionPress();
+                } else if (mode.id === 'offline') {
+                  handleOfflinePress();
+                } else if (mode.id === 'online') {
+                  navigation.navigate('HostDashboard', { eventTitle });
+                }
+              }}
             >
               <View
                 style={[
