@@ -1,18 +1,13 @@
-import { StyleSheet, Text, View, TextInput, TouchableOpacity } from 'react-native'
-import React from 'react'
-import { Image } from 'react-native'
-import { useState } from "react";
+import { StyleSheet, Text, View, TextInput, TouchableOpacity, Image } from 'react-native'
+import React, { useState } from 'react'
 import { useNavigation } from '@react-navigation/native';
-
-
-
-
+import { CountryPicker } from 'react-native-country-codes-picker';
 
 const Number = () => {
   const [selectedCode, setSelectedCode] = useState("+91");
   const [phone, setPhone] = useState("");
+  const [showPicker, setShowPicker] = useState(false);
   const navigation = useNavigation();
-
 
   return (
     <View style={styles.container}>
@@ -33,9 +28,15 @@ const Number = () => {
         <View style={styles.number}>
           <Text style={styles.mobile}>Mobile Number</Text>
           <View style={styles.inputContainer}>
-            <View style={styles.codeBox}>
+            {/* make code box clickable to open picker - UI stays visually same */}
+            <TouchableOpacity
+              style={styles.codeBox}
+              onPress={() => setShowPicker(true)}
+              activeOpacity={0.7}
+            >
               <Text style={styles.codeText}>{selectedCode}</Text>
-            </View>
+            </TouchableOpacity>
+
             <TextInput
               style={styles.input}
               placeholder="Enter your 10-digit number"
@@ -49,10 +50,12 @@ const Number = () => {
           <Text style={styles.infoText}>You’ll receive a 6-digit code via SMS</Text>
         </View>
         <TouchableOpacity style={styles.button}
-        onPress={()=>navigation.navigate('Otp')}>
+          onPress={() => navigation.navigate('Otp')}>
           <Text style={styles.buttonText}>Send OTP</Text>
         </TouchableOpacity>
       </View>
+
+      {/* Keeper footer unchanged */}
       <View style={styles.footer}>
         <Text style={styles.footerText}>Need help?</Text>
         <Text style={styles.dot}>•</Text>
@@ -60,12 +63,22 @@ const Number = () => {
         <Text style={styles.dot}>•</Text>
         <Text style={styles.footerText}>Terms</Text>
       </View>
+
+      {/* Country picker modal - keep it at bottom of JSX */}
+      <CountryPicker
+        show={showPicker}
+        pickerButtonOnPress={(item) => {
+          // item.dial_code typically like "+91"
+          if (item?.dial_code) setSelectedCode(item.dial_code);
+          setShowPicker(false);
+        }}
+        onBackdropPress={() => setShowPicker(false)}
+      />
     </View>
   )
 }
 
-
-
+// (your styles unchanged)
 const styles = StyleSheet.create({
   container: {
     flex: 1,

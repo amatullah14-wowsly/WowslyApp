@@ -154,7 +154,7 @@ const styles = StyleSheet.create({
     },
     resendLinkDisabled: {
         opacity: 0.5,
-        color: 'FFF3E0',
+        color: '#FFF3E0',
     },
     timerText: {
         fontSize: 12,
