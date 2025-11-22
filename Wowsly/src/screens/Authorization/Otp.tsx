@@ -1,13 +1,21 @@
 import { Image, StyleSheet, Text, View, TouchableOpacity } from 'react-native'
 import React, { useState, useEffect } from 'react'
 import { OtpInput } from 'react-native-otp-entry'
-import { useNavigation } from '@react-navigation/native'
+import { useNavigation, useRoute } from '@react-navigation/native'
+import { verifyOTP, sendOTP } from '../../api/api'   // ✅ API IMPORT
 
 const Otp = () => {
     const [otp, setOtp] = useState('')
     const [resendTimer, setResendTimer] = useState(30)
     const navigation = useNavigation();
+    const route = useRoute();
 
+    // Get details from Number screen
+    const { dialing_code, mobile } = route.params;
+
+    // ------------------------------
+    // RESEND TIMER
+    // ------------------------------
     useEffect(() => {
         if (resendTimer > 0) {
             const timer = setInterval(() => {
@@ -17,10 +25,35 @@ const Otp = () => {
         }
     }, [resendTimer])
 
-    const handleResend = () => {
-        if (resendTimer === 0) {
-            setResendTimer(30)
-            // Add resend OTP logic here
+    // ------------------------------
+    // RESEND OTP API
+    // ------------------------------
+    const handleResend = async () => {
+        if (resendTimer > 0) return;
+
+        setResendTimer(30);
+
+        await sendOTP(dialing_code, mobile);
+        alert("OTP resent successfully");
+    }
+
+    // ------------------------------
+    // VERIFY OTP API
+    // ------------------------------
+    const handleVerify = async () => {
+        if (otp.length < 4) {
+            alert("Enter valid OTP");
+            return;
+        }
+
+        const res = await verifyOTP(dialing_code, mobile, otp);
+
+        if (res?.status === true) {
+            alert("OTP Verified!");
+
+            navigation.navigate("BottomNav");
+        } else {
+            alert(res?.message || "Invalid OTP");
         }
     }
 
@@ -31,14 +64,15 @@ const Otp = () => {
                     style={styles.logo} />
                 <Text style={styles.heading}>Wowsly Organizer</Text>
             </View>
+
             <View style={styles.box}>
                 <Text style={styles.title}>Enter OTP</Text>
-                <Text style={styles.instructionText}>We sent a 6-digit code to +91</Text>
-                <Text style={styles.phoneNumber}>98XXXXXXXX</Text>
+                <Text style={styles.instructionText}>We sent a 6-digit code to +{dialing_code}</Text>
+                <Text style={styles.phoneNumber}>{mobile}</Text>
 
                 <View style={styles.otpContainer}>
                     <OtpInput
-                        numberOfDigits={6}
+                        numberOfDigits={4}
                         onTextChange={setOtp}
                         focusColor={'#FF8A3C'}
                         theme={{
@@ -57,14 +91,13 @@ const Otp = () => {
                         </Text>
                     </TouchableOpacity>
                 </View>
+
                 <Text style={styles.timerText}>Resend in {resendTimer}s</Text>
 
-                <TouchableOpacity style={styles.verifyButton}
-                onPress={()=>navigation.navigate('BottomNav')}>
+                <TouchableOpacity style={styles.verifyButton} onPress={handleVerify}>
                     <Text style={styles.verifyButtonText}>Verify OTP</Text>
                 </TouchableOpacity>
             </View>
-
         </View>
     )
 }
@@ -79,7 +112,7 @@ const styles = StyleSheet.create({
     wowsly: {
         flexDirection: 'column',
         gap: 6,
-        marginBottom:'6%',
+        marginBottom: '6%',
     },
     logo: {
         width: 50,
@@ -169,15 +202,12 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         justifyContent: 'center',
         marginTop: 25,
-      
     },
     verifyButtonText: {
         color: '#fff',
         fontSize: 16,
         fontWeight: '700',
     },
-
 })
 
 export default Otp
-
