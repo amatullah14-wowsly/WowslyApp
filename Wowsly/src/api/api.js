@@ -3,11 +3,12 @@ import client from "./client";
 export const sendOTP = async (dialing_code, mobile) => {
   try {
     const response = await client.post("/send-one-time-pass", {
-      dialing_code,
-      mobile,
-      otp_method: "whatsapp",
-      platform: "app",
-      g_recaptcha_response: "mobile_app_bypass", // ✅ ADD THIS
+      "dialing_code": dialing_code,
+      "g_recaptcha_response": "fG9xL3bV7pKzW1qR8dTy",
+      "mobile": mobile,
+      "otp": "",
+      "otp_method": "whatsapp",
+      "platform": "fG9xL3bV7pKzW1qR8dTy"
     });
 
     return response.data;

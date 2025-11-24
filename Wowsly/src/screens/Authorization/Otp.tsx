@@ -1,17 +1,22 @@
-import { Image, StyleSheet, Text, View, TouchableOpacity } from 'react-native'
+import { Image, StyleSheet, Text, View, TouchableOpacity, Alert } from 'react-native'
 import React, { useState, useEffect } from 'react'
 import { OtpInput } from 'react-native-otp-entry'
-import { useNavigation, useRoute } from '@react-navigation/native'
+import { useNavigation, useRoute, RouteProp } from '@react-navigation/native'
 import { verifyOTP, sendOTP } from '../../api/api'   // ✅ API IMPORT
+
+type OtpRouteParams = {
+    dialing_code: string;
+    mobile: string;
+};
 
 const Otp = () => {
     const [otp, setOtp] = useState('')
     const [resendTimer, setResendTimer] = useState(30)
-    const navigation = useNavigation();
-    const route = useRoute();
+    const navigation = useNavigation<any>();
+    const route = useRoute<RouteProp<{ params: OtpRouteParams }, 'params'>>();
 
     // Get details from Number screen
-    const { dialing_code, mobile } = route.params;
+    const { dialing_code = "91", mobile = "" } = route.params || {};
 
     // ------------------------------
     // RESEND TIMER
@@ -34,7 +39,7 @@ const Otp = () => {
         setResendTimer(30);
 
         await sendOTP(dialing_code, mobile);
-        alert("OTP resent successfully");
+        Alert.alert("Success", "OTP resent successfully");
     }
 
     // ------------------------------
@@ -42,18 +47,27 @@ const Otp = () => {
     // ------------------------------
     const handleVerify = async () => {
         if (otp.length < 4) {
-            alert("Enter valid OTP");
+            Alert.alert("Error", "Enter valid OTP");
             return;
         }
 
         const res = await verifyOTP(dialing_code, mobile, otp);
+        console.log("Verify OTP Response:", res);
 
-        if (res?.status === true) {
-            alert("OTP Verified!");
-
-            navigation.navigate("BottomNav");
+        if (res?.status == 200 || res?.status === true || res?.status_code === 200) {
+            console.log("OTP Verified, navigating to EventListing...");
+            Alert.alert("Success", "OTP Verified!", [
+                {
+                    text: "OK",
+                    onPress: () => {
+                        console.log("OK Pressed (Verify), navigating...");
+                        navigation.navigate("BottomNav");
+                    }
+                }
+            ]);
         } else {
-            alert(res?.message || "Invalid OTP");
+            console.log("OTP Verification Failed:", res);
+            Alert.alert("Error", res?.message || "Invalid OTP");
         }
     }
 

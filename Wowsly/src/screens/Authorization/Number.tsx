@@ -22,23 +22,37 @@ const Number = () => {
     setLoading(true);
 
     const callingCode = phoneInput.current?.getCallingCode() || "91";
-    // value should contain just the phone number without country code
-    // Remove any spaces or formatting
-    const phoneNumber = value.replace(/\s/g, "").replace(/-/g, "").replace(/\(/g, "").replace(/\)/g, "");
+    const phoneNumber = value
+      .replace(/\D/g, ""); // Remove all non-numeric characters
+
+    console.log("Sending OTP with:", { callingCode, phoneNumber, originalValue: value });
 
     const res = await sendOTP(callingCode, phoneNumber);
 
     setLoading(false);
 
-    if (res?.status === true) {
-      Alert.alert("Success", "OTP sent successfully!");
+    if (res?.status_code === 200) {
+      console.log("OTP Sent Successfully, navigating to Otp screen with:", { callingCode, phoneNumber });
+      // 🔥 FIXED — navigation must be INSIDE alert button!
+      Alert.alert(
+        "Success",
+        "OTP sent successfully!",
+        [
+          {
+            text: "OK",
+            onPress: () => {
+              console.log("OK Pressed, navigating...");
+              navigation.navigate("Otp", {
+                dialing_code: callingCode,
+                mobile: phoneNumber,
+              });
+            }
+          },
+        ]
+      );
 
-      // navigate with params
-      navigation.navigate("Otp", {
-        dialing_code: callingCode,
-        mobile: phoneNumber,
-      });
     } else {
+      console.log("OTP Send Failed:", res);
       Alert.alert("Error", res?.message || "Failed to send OTP");
     }
   };
@@ -70,9 +84,6 @@ const Number = () => {
             defaultCode="IN"
             layout="first"
             onChangeText={setValue}
-            onChangeFormattedText={(text) => {
-              setValue(text);
-            }}
             containerStyle={styles.phoneContainer}
             textContainerStyle={styles.phoneTextContainer}
             textInputStyle={styles.phoneInput}
@@ -123,7 +134,7 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
     justifyContent: 'center',
     alignItems: 'center',
-    gap:5,
+    gap: 5,
   },
   logo: {
     width: 50,
@@ -166,24 +177,21 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
     paddingHorizontal: 10,
     paddingVertical: 0,
-    height: 50,           // keep ONLY this height
+    height: 50,
     alignItems: 'center',
   },
-  
   phoneTextContainer: {
     backgroundColor: '#fff',
     borderRadius: 15,
     paddingVertical: 0,
-    height: '100%',       // 🔥 MATCH OUTER HEIGHT
+    height: '100%',
     justifyContent: 'center',
   },
-  
   phoneInput: {
     fontSize: 15,
     color: '#000',
     paddingVertical: 0,
   },
-  
   phoneCodeText: {
     fontSize: 14,
     fontWeight: '600',
@@ -203,7 +211,6 @@ const styles = StyleSheet.create({
     top: '5%',
   },
   button: {
-  
     width: '85%',
     height: '14%',
     borderRadius: 15,
