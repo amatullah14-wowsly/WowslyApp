@@ -14,7 +14,7 @@ import { useNavigation } from "@react-navigation/native";
 import { getEvents } from "../../api/event";
 
 const EventListing = () => {
-  const navigation = useNavigation();
+  const navigation = useNavigation<any>();
 
   // 🔥 Live events from API
   const [events, setEvents] = useState([]);
@@ -35,10 +35,14 @@ const EventListing = () => {
     const res = await getEvents();
     const allEvents = res?.data || [];
 
-    // Filter: Show only Active/Upcoming events (End Date >= Today)
+    // Filter: Show only "current" events (events happening today)
+    // Current = event has started AND not yet ended on today's date
     const today = new Date().toISOString().split('T')[0];
     const filteredEvents = allEvents.filter((event: any) => {
-      return event.end_date >= today;
+      const startDate = event.start_date;
+      const endDate = event.end_date;
+      if (!startDate || !endDate) return false;
+      return startDate <= today && endDate >= today;
     });
 
     setEvents(filteredEvents);
@@ -53,7 +57,7 @@ const EventListing = () => {
     return events.slice(startIndex, startIndex + EVENTS_PER_PAGE);
   }, [events, page]);
 
-  const renderCard = ({ item }) => {
+  const renderCard = ({ item }: { item: any }) => {
     const isSelected = item.id === selectedEventId;
 
     // Fallback image if API doesn't provide one
@@ -72,7 +76,7 @@ const EventListing = () => {
         image={imageUri}
         selected={isSelected}
         onPress={() => {
-          navigation.navigate("EventDashboard", { eventData: item });
+          navigation.navigate('EventDashboard' as never, { eventData: item } as never);
         }}
       />
     );

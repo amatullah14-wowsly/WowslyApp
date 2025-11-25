@@ -8,6 +8,7 @@ const Number = () => {
   const phoneInput = useRef<PhoneNumberInput>(null);
   const [value, setValue] = useState("");
   const [sendingVia, setSendingVia] = useState<'whatsapp' | 'sms' | null>(null);
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
 
   const navigation = useNavigation<any>();
 
@@ -68,6 +69,7 @@ const Number = () => {
   const isWhatsAppLoading = sendingVia === 'whatsapp';
   const isSmsLoading = sendingVia === 'sms';
   const isSending = sendingVia !== null;
+  const isSendOtpDisabled = isSending || !acceptedTerms;
 
   return (
     <View style={styles.container}>
@@ -114,11 +116,23 @@ const Number = () => {
           </View>
         </View>
 
+        {/* TERMS CHECKBOX */}
+        <TouchableOpacity
+          style={styles.checkboxRow}
+          onPress={() => setAcceptedTerms((prev) => !prev)}
+          activeOpacity={0.8}
+        >
+          <View style={[styles.checkbox, acceptedTerms && styles.checkboxChecked]}>
+            {acceptedTerms && <View style={styles.checkboxIndicator} />}
+          </View>
+          <Text style={styles.checkboxLabel}>I agree to the Terms & Conditions</Text>
+        </TouchableOpacity>
+
         {/* SEND OTP BUTTON */}
         <TouchableOpacity
-          style={styles.button}
+          style={[styles.button, isSendOtpDisabled && styles.buttonDisabled]}
           onPress={handleSendOTP}
-          disabled={isSending}
+          disabled={isSendOtpDisabled}
         >
           <Text style={styles.buttonText}>
             {isWhatsAppLoading ? "Sending..." : "Send OTP"}
@@ -147,7 +161,7 @@ const styles = StyleSheet.create({
   },
   mainbox: {
     width: '90%',
-    height: '45%',
+    height: '48%',
     backgroundColor: '#fff',
     borderRadius: 25,
     alignSelf: 'center',
@@ -194,7 +208,7 @@ const styles = StyleSheet.create({
     borderColor: '#E0E0E0',
     borderRadius: 15,
     backgroundColor: '#fff',
-    paddingHorizontal: 10,
+    paddingHorizontal: 5,
     paddingVertical: 0,
     height: 50,
     alignItems: 'center',
@@ -240,7 +254,40 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   smsPromptDisabled: {
-    opacity: 0.6,
+    opacity: 0.4,
+  },
+  checkboxRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    alignSelf: 'flex-start',
+    marginLeft: '7%',
+    marginTop: 15,
+  },
+  checkbox: {
+    width: 20,
+    height: 20,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: '#E0E0E0',
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#fff',
+  },
+  checkboxChecked: {
+    borderColor: '#FF8A3C',
+  },
+  checkboxIndicator: {
+    width: 12,
+    height: 12,
+    borderRadius: 4,
+    backgroundColor: '#FF8A3C',
+  },
+  checkboxLabel: {
+    color: '#7E7E7E',
+    fontSize: 12,
+    bottom: 1,
+    
   },
   button: {
     width: '85%',
@@ -249,7 +296,10 @@ const styles = StyleSheet.create({
     backgroundColor: '#FF8A3C',
     alignItems: 'center',
     justifyContent: 'center',
-    top: '6%',
+    top: '3%',
+  },
+  buttonDisabled: {
+    backgroundColor: '#CCCCCC',
   },
   buttonText: {
     color: '#fff',
