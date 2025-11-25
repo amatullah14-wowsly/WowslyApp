@@ -7,55 +7,67 @@ import { sendOTP } from '../../api/api';  // ✅ API IMPORT
 const Number = () => {
   const phoneInput = useRef<PhoneNumberInput>(null);
   const [value, setValue] = useState("");
-  const [loading, setLoading] = useState(false);
+  const [sendingVia, setSendingVia] = useState<'whatsapp' | 'sms' | null>(null);
 
   const navigation = useNavigation<any>();
 
-  // ✅ SEND OTP API INTEGRATION
-  const handleSendOTP = async () => {
+  const triggerOtp = async (method: 'whatsapp' | 'sms') => {
     const checkValid = phoneInput.current?.isValidNumber(value);
     if (!value || !checkValid) {
       Alert.alert("Error", "Please enter a valid phone number");
       return;
     }
 
-    setLoading(true);
+    setSendingVia(method);
 
     const callingCode = phoneInput.current?.getCallingCode() || "91";
     const phoneNumber = value
       .replace(/\D/g, ""); // Remove all non-numeric characters
 
-    console.log("Sending OTP with:", { callingCode, phoneNumber, originalValue: value });
+    console.log("Sending OTP with:", { callingCode, phoneNumber, originalValue: value, method });
 
-    const res = await sendOTP(callingCode, phoneNumber);
+    try {
+      const res = await sendOTP(callingCode, phoneNumber, method);
 
-    setLoading(false);
+      if (res?.status_code === 200) {
+        console.log("OTP Sent Successfully, navigating to Otp screen with:", { callingCode, phoneNumber, method });
+        const channelLabel = method === 'sms' ? 'SMS' : 'WhatsApp';
+        Alert.alert(
+          "Success",
+          `OTP sent via ${channelLabel}!`,
+          [
+            {
+              text: "OK",
+              onPress: () => {
+                console.log("OK Pressed, navigating...");
+                navigation.navigate("Otp", {
+                  dialing_code: callingCode,
+                  mobile: phoneNumber,
+                });
+              }
+            },
+          ]
+        );
 
-    if (res?.status_code === 200) {
-      console.log("OTP Sent Successfully, navigating to Otp screen with:", { callingCode, phoneNumber });
-      // 🔥 FIXED — navigation must be INSIDE alert button!
-      Alert.alert(
-        "Success",
-        "OTP sent successfully!",
-        [
-          {
-            text: "OK",
-            onPress: () => {
-              console.log("OK Pressed, navigating...");
-              navigation.navigate("Otp", {
-                dialing_code: callingCode,
-                mobile: phoneNumber,
-              });
-            }
-          },
-        ]
-      );
-
-    } else {
-      console.log("OTP Send Failed:", res);
-      Alert.alert("Error", res?.message || "Failed to send OTP");
+      } else {
+        console.log("OTP Send Failed:", res);
+        Alert.alert("Error", res?.message || "Failed to send OTP");
+      }
+    } catch (error) {
+      console.log("OTP Send Failed:", error);
+      Alert.alert("Error", "Failed to send OTP");
+    } finally {
+      setSendingVia(null);
     }
   };
+
+  // ✅ SEND OTP API INTEGRATION
+  const handleSendOTP = () => triggerOtp('whatsapp');
+  const handleSendSMS = () => triggerOtp('sms');
+
+  const isWhatsAppLoading = sendingVia === 'whatsapp';
+  const isSmsLoading = sendingVia === 'sms';
+  const isSending = sendingVia !== null;
 
   return (
     <View style={styles.container}>
@@ -92,17 +104,24 @@ const Number = () => {
             countryPickerButtonStyle={styles.phoneCountryButton}
             disableArrowIcon={false}
           />
-          <Text style={styles.infoText}>You'll receive a 6-digit code via SMS</Text>
+          <View style={styles.smsPrompt}>
+            <Text style={styles.smsPromptLabel}>Not using WhatsApp?</Text>
+            <TouchableOpacity onPress={handleSendSMS} disabled={isSending}>
+              <Text style={[styles.smsPromptAction, isSmsLoading && styles.smsPromptDisabled]}>
+                {isSmsLoading ? "Sending..." : "Send SMS"}
+              </Text>
+            </TouchableOpacity>
+          </View>
         </View>
 
         {/* SEND OTP BUTTON */}
         <TouchableOpacity
           style={styles.button}
           onPress={handleSendOTP}
-          disabled={loading}
+          disabled={isSending}
         >
           <Text style={styles.buttonText}>
-            {loading ? "Sending..." : "Send OTP"}
+            {isWhatsAppLoading ? "Sending..." : "Send OTP"}
           </Text>
         </TouchableOpacity>
       </View>
@@ -205,10 +224,23 @@ const styles = StyleSheet.create({
     borderRightWidth: 1,
     borderRightColor: '#E0E0E0',
   },
-  infoText: {
+  smsPrompt: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginTop: 12,
+  },
+  smsPromptLabel: {
     color: '#7E7E7E',
     fontSize: 12,
-    top: '5%',
+  },
+  smsPromptAction: {
+    color: '#FF8A3C',
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  smsPromptDisabled: {
+    opacity: 0.6,
   },
   button: {
     width: '85%',

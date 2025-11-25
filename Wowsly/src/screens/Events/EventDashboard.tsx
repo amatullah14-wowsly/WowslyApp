@@ -1,8 +1,9 @@
-import { Modal, StyleSheet, Text, View, Image, TouchableOpacity , ScrollView } from 'react-native'
-import React, { useState  } from 'react'
+import { Modal, StyleSheet, Text, View, Image, TouchableOpacity, ScrollView } from 'react-native'
+import React, { useState, useEffect } from 'react'
 import { useNavigation } from '@react-navigation/native';
 import Grid from '../../components/Grid';
-// import PieChart from 'react-native-pie-chart'
+import { getEventDetails } from '../../api/event';
+
 type EventData = {
     id: string
     title: string
@@ -24,16 +25,32 @@ const EventDashboard = ({ route }: EventDashboardProps) => {
     const { eventData } = route.params || {};
     const [menuVisible, setMenuVisible] = useState(false);
     const [confirmVisible, setConfirmVisible] = useState(false);
+    const [details, setDetails] = useState<any>(null);
 
-    // const widthAndHeight = 100
+    useEffect(() => {
+        if (eventData?.id) {
+            fetchDetails(eventData.id);
+        }
+    }, [eventData]);
 
-    // const series = [
-    //   { value: 50, color: '#FF8A3C' },
-    //   {value: 30, color: '#FFF3E0'},
-    //   {value: 10 , color:'#969696'},
-    // ]
+    const fetchDetails = async (id: string) => {
+        const res = await getEventDetails(id);
+        if (res?.data) {
+            setDetails(res.data);
+        }
+    };
 
-    if (!eventData) {
+    // Merge params data with fetched details
+    const displayData = {
+        ...eventData,
+        ...details,
+        title: details?.title || eventData?.title,
+        date: details?.start_date_display || eventData?.date,
+        location: details?.address || details?.city || eventData?.location,
+        image: details?.event_main_photo || eventData?.image,
+    };
+
+    if (!displayData) {
         return null;
     }
 
@@ -60,7 +77,7 @@ const EventDashboard = ({ route }: EventDashboardProps) => {
                     />
                 </TouchableOpacity>
                 <Text style={styles.title} numberOfLines={1}>
-                    {eventData.title}
+                    {displayData.title}
                 </Text>
                 <TouchableOpacity onPress={toggleMenu}>
                     <Image
@@ -102,11 +119,11 @@ const EventDashboard = ({ route }: EventDashboardProps) => {
                 </View>
             </Modal>
             <View style={styles.eventCard}>
-                <Image source={{ uri: eventData.image }} style={styles.eventImage} />
+                <Image source={{ uri: displayData.image }} style={styles.eventImage} />
                 <View style={styles.eventCardContent}>
-                    <Text style={styles.eventCardTitle}>{eventData.title}</Text>
+                    <Text style={styles.eventCardTitle}>{displayData.title}</Text>
                     <Text style={styles.eventCardMeta}>
-                        {eventData.date}  •  {eventData.location}
+                        {displayData.date}  •  {displayData.location}
                     </Text>
                 </View>
             </View>
@@ -143,20 +160,12 @@ const EventDashboard = ({ route }: EventDashboardProps) => {
                 </View>
             </View>
             <TouchableOpacity style={styles.button}
-            
-            onPress={() => navigation.navigate("ModeSelection", { eventTitle: eventData.title })}>
+
+                onPress={() => navigation.navigate("ModeSelection", { eventTitle: displayData.title })}>
                 <Image source={require('./../../assets/img/eventdashboard/scanner.png')}
-                style={styles.scanicon}/>
+                    style={styles.scanicon} />
                 <Text style={styles.start}>Start Check-In</Text>
             </TouchableOpacity>
-            {/* <View style={styles.chartbox}>
-                <Text style={styles.disttxt}>Ticket Distribution</Text>
-        <View style={styles.chartcontainer}>
-          <PieChart widthAndHeight={widthAndHeight} series={series} cover={0.80} />
-        </View>
-     
-
-            </View> */}
         </View>
     )
 }
@@ -170,9 +179,6 @@ const styles = StyleSheet.create({
         // justifyContent: 'center',
         alignContent: 'center',
         padding: 5,
-        
-
-
     },
     header: {
         width: '100%',
@@ -317,61 +323,32 @@ const styles = StyleSheet.create({
         // alignItems:'center',
         paddingLeft: 2,
         gap: 12,
-        marginTop:15,
+        marginTop: 15,
     },
     rowone: {
         flexDirection: 'row',
         gap: 20,
     },
-    button:{
-        height:'7%',
-        width:'90%',
-        backgroundColor:'#FF8A3C',
-        alignSelf:"center",
-        justifyContent:'center',
-        alignItems:'center',
-        borderRadius:10,
-        marginTop:30,
-        flexDirection:'row',
-        gap:10,
+    button: {
+        height: '7%',
+        width: '90%',
+        backgroundColor: '#FF8A3C',
+        alignSelf: "center",
+        justifyContent: 'center',
+        alignItems: 'center',
+        borderRadius: 10,
+        marginTop: 30,
+        flexDirection: 'row',
+        gap: 10,
     },
-    scanicon:{
-        height:25,
-        width:25,
+    scanicon: {
+        height: 25,
+        width: 25,
         // padding:10,
     },
-    start:{
-        color:'white',
-        fontWeight:'500',
-        fontSize:15,
+    start: {
+        color: 'white',
+        fontWeight: '500',
+        fontSize: 15,
     },
-    // chartbox:{
-    //     height:'22%',
-    //     width:'90%',
-    //     borderWidth:1,
-    //     borderColor:'#EDEDED',
-    //     alignSelf:'center',
-    //     borderRadius:8,
-    //     alignItems:'flex-start',
-    //     flexDirection:'column',
-    //     padding:15,
-    //     gap:15,
-    //     marginTop:20,
-    // },
-    // disttxt:{
-    //     color:'black',
-    //     fontSize:16,
-    //     fontWeight:'500',
-    // },
-
-    // chartcontainer: {
-    //     flex: 1,
-    //     alignItems: 'center',
-    //     
-    //   },
- 
-
-
-
-
 })

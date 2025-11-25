@@ -1,6 +1,5 @@
 import React from 'react'
 import { Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
-import { useNavigation } from '@react-navigation/native'
 
 export type EventCardProps = {
   title: string
@@ -12,16 +11,26 @@ export type EventCardProps = {
 }
 
 const EventCard = ({ title, date, location, image, selected, onPress }: EventCardProps) => {
- 
+
+  // 🔥 Always ensure image is valid, fallback if null/empty
+  const safeImage =
+    image && image !== "null" && image !== "" && image !== undefined
+      ? { uri: image }
+      : { uri: "https://images.unsplash.com/photo-1515169067865-5387ec356754?auto=format&fit=crop&w=800&q=60" };
+
   return (
     <TouchableOpacity activeOpacity={0.9} onPress={onPress}>
       <View style={[styles.card, selected && styles.cardSelected]}>
-        <Image source={{ uri: image }} style={styles.cardImage} />
+        
+        {/* Safe image applied here */}
+        <Image source={safeImage} style={styles.cardImage} />
+
         <View style={styles.cardContent}>
           <Text style={styles.cardTitle}>{title}</Text>
           <Text style={styles.cardMeta}>{date}</Text>
           <Text style={styles.cardLocation}>{location}</Text>
         </View>
+
       </View>
     </TouchableOpacity>
   )
@@ -64,5 +73,3 @@ const styles = StyleSheet.create({
 })
 
 export default EventCard
-
-
