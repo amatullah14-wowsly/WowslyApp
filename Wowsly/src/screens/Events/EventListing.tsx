@@ -33,7 +33,15 @@ const EventListing = () => {
   const fetchEvents = async () => {
     setLoading(true);
     const res = await getEvents();
-    setEvents(res?.data || []);
+    const allEvents = res?.data || [];
+
+    // Filter: Show only Active/Upcoming events (End Date >= Today)
+    const today = new Date().toISOString().split('T')[0];
+    const filteredEvents = allEvents.filter((event: any) => {
+      return event.end_date >= today;
+    });
+
+    setEvents(filteredEvents);
     setLoading(false);
   };
 
@@ -50,7 +58,9 @@ const EventListing = () => {
 
     // Fallback image if API doesn't provide one
     const imageUri =
-      item.event_main_photo && item.event_main_photo !== ""
+      item.event_main_photo &&
+        item.event_main_photo !== "" &&
+        item.event_main_photo !== "null"
         ? item.event_main_photo
         : "https://images.unsplash.com/photo-1515169067865-5387ec356754?auto=format&fit=crop&w=800&q=60";
 
