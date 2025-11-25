@@ -2,7 +2,9 @@ import { Image, StyleSheet, Text, View, TouchableOpacity, Alert } from 'react-na
 import React, { useState, useEffect } from 'react'
 import { OtpInput } from 'react-native-otp-entry'
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native'
-import { verifyOTP, sendOTP } from '../../api/api'   // ✅ API IMPORT
+import { verifyOTP, sendOTP } from '../../api/api'
+
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 type OtpRouteParams = {
     dialing_code: string;
@@ -15,7 +17,6 @@ const Otp = () => {
     const navigation = useNavigation<any>();
     const route = useRoute<RouteProp<{ params: OtpRouteParams }, 'params'>>();
 
-    // Get details from Number screen
     const { dialing_code = "91", mobile = "" } = route.params || {};
 
     // ------------------------------
@@ -37,8 +38,8 @@ const Otp = () => {
         if (resendTimer > 0) return;
 
         setResendTimer(30);
-
         await sendOTP(dialing_code, mobile);
+
         Alert.alert("Success", "OTP resent successfully");
     }
 
@@ -55,14 +56,21 @@ const Otp = () => {
         console.log("Verify OTP Response:", res);
 
         if (res?.status == 200 || res?.status === true || res?.status_code === 200) {
-            console.log("OTP Verified, navigating to EventListing...");
+
+            // -----------------------------------------
+            // ✅ SAVE TOKEN IN ASYNC STORAGE
+            // -----------------------------------------
+            try {
+                await AsyncStorage.setItem("auth_token", res?.data?.token);
+                console.log("Token saved:", res?.data?.token);
+            } catch (e) {
+                console.log("Token save error:", e);
+            }
+
             Alert.alert("Success", "OTP Verified!", [
                 {
                     text: "OK",
-                    onPress: () => {
-                        console.log("OK Pressed (Verify), navigating...");
-                        navigation.navigate("BottomNav");
-                    }
+                    onPress: () => navigation.navigate("BottomNav")
                 }
             ]);
         } else {
@@ -74,8 +82,10 @@ const Otp = () => {
     return (
         <View style={styles.container}>
             <View style={styles.wowsly}>
-                <Image source={require('../../assets/img/common/logo.png')}
-                    style={styles.logo} />
+                <Image
+                    source={require('../../assets/img/common/logo.png')}
+                    style={styles.logo}
+                />
                 <Text style={styles.heading}>Wowsly Organizer</Text>
             </View>
 
@@ -115,7 +125,6 @@ const Otp = () => {
         </View>
     )
 }
-
 const styles = StyleSheet.create({
     container: {
         flex: 1,
