@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import {
   Image,
   SafeAreaView,
@@ -7,9 +7,13 @@ import {
   Text,
   TouchableOpacity,
   View,
+  ActivityIndicator,
+  Alert,
 } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useRoute } from '@react-navigation/native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import OfflineCard from '../../components/OfflineCard';
+import { downloadOfflineData } from '../../api/event';
 
 const BACK_ICON = require('../../assets/img/common/back.png');
 const OFFLINE_ICON = require('../../assets/img/Mode/offlinemode.png');
@@ -20,7 +24,11 @@ const GUEST_ICON = require('../../assets/img/eventdashboard/guests.png');
 
 const OfflineDashboard = () => {
   const navigation = useNavigation<any>();
+  const route = useRoute<any>();
+  const { eventId } = route.params || {};
   const [selectedCard, setSelectedCard] = useState<'download' | 'scan' | 'upload' | 'guests'>('scan');
+  const [downloading, setDownloading] = useState(false);
+  const [offlineData, setOfflineData] = useState<any>(null);
 
   const totals = useMemo(
     () => ({
@@ -37,6 +45,54 @@ const OfflineDashboard = () => {
     { id: 'vvip', title: 'VVIP', total: 12, checkedIn: 4 },
     { id: 'crew', title: 'Crew', total: 10, checkedIn: 1 },
   ];
+
+  // Load saved offline data on mount
+  useEffect(() => {
+    const loadOfflineData = async () => {
+      if (eventId) {
+        try {
+          const savedData = await AsyncStorage.getItem(`offline_guests_${eventId}`);
+          if (savedData) {
+            const parsedData = JSON.parse(savedData);
+            setOfflineData(parsedData);
+            console.log(`Loaded ${parsedData.length} guests from storage`);
+          }
+        } catch (error) {
+          console.error('Error loading offline data:', error);
+        }
+      }
+    };
+    loadOfflineData();
+  }, [eventId]);
+
+  const handleDownloadData = async () => {
+    if (!eventId) {
+      Alert.alert('Error', 'No event ID provided');
+      return;
+    }
+    setDownloading(true);
+    try {
+      const res = await downloadOfflineData(eventId);
+      console.log('Download response:', res);
+      // API returns guests_list instead of data
+      if (res?.guests_list) {
+        setOfflineData(res.guests_list);
+        // Save to AsyncStorage for persistence
+        await AsyncStorage.setItem(
+          `offline_guests_${eventId}`,
+          JSON.stringify(res.guests_list)
+        );
+        Alert.alert('Success', `Downloaded and saved ${res.guests_list.length || 0} guests to local storage`);
+      } else {
+        Alert.alert('Error', res?.message || 'Failed to download data');
+      }
+    } catch (error) {
+      console.error('Download error:', error);
+      Alert.alert('Error', 'Failed to download data');
+    } finally {
+      setDownloading(false);
+    }
+  };
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -58,7 +114,7 @@ const OfflineDashboard = () => {
             <Image source={OFFLINE_ICON} style={styles.modeIcon} />
             <Text style={styles.modeText}>Offline</Text>
           </View>
-          <Text style={styles.statusInfo}>245 guests saved locally</Text>
+          <Text style={styles.statusInfo}>{offlineData ? `${offlineData.length} guests` : '0 guests'} saved locally</Text>
           <Text style={styles.statusUpdated}>Updated 2h ago</Text>
         </View>
 
@@ -68,10 +124,18 @@ const OfflineDashboard = () => {
               icon={DOWNLOAD_ICON}
               title="Download Data"
               subtitle="Get the latest guest list"
-              meta="245 guests currently stored"
+              meta={offlineData ? `${offlineData.length || 0} guests downloaded` : "Tap to download"}
               isActive={selectedCard === 'download'}
-              onPress={() => setSelectedCard('download')}
+              onPress={() => {
+                setSelectedCard('download');
+                handleDownloadData();
+              }}
             />
+            {downloading && (
+              <View style={styles.downloadingOverlay}>
+                <ActivityIndicator size="small" color="#FF8A3C" />
+              </View>
+            )}
           </View>
           <View style={styles.cardItem}>
             <OfflineCard
@@ -80,7 +144,13 @@ const OfflineDashboard = () => {
               subtitle="Check-in attendees"
               badge="Offline Check-in Mode"
               isActive={selectedCard === 'scan'}
-              onPress={() => setSelectedCard('scan')}
+              onPress={() => {
+                setSelectedCard('scan');
+                navigation.navigate('QrCode', {
+                  modeTitle: 'Offline Mode',
+                  eventTitle: 'Offline Event'
+                });
+              }}
             />
           </View>
           <View style={styles.cardItem}>
@@ -222,7 +292,7 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     shadowOffset: { width: 0, height: 6 },
     elevation: 2,
-  
+
   },
   modeChip: {
     flexDirection: 'row',
@@ -259,10 +329,22 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'center',
-    gap:10,
+    gap: 10,
   },
   cardItem: {
     width: '45%',
+    position: 'relative',
+  },
+  downloadingOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(255, 255, 255, 0.8)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderRadius: 18,
   },
   summaryCard: {
     marginTop: 12,

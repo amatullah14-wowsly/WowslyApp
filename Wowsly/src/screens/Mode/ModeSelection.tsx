@@ -35,7 +35,7 @@ const MODES: ModeInfo[] = [
     icon: require('../../assets/img/Mode/offlinemode.png'),
     accent: '#FFF3EB',
     accentTint: '#FF8A3C',
-    
+
   },
   {
     id: 'connection',
@@ -51,6 +51,7 @@ type ModeSelectionRoute = RouteProp<
   {
     ModeSelection: {
       eventTitle?: string;
+      eventId?: string;
     };
   },
   'ModeSelection'
@@ -64,13 +65,14 @@ const ModeSelection = () => {
   const [roleModalVisible, setRoleModalVisible] = useState(false);
 
   const eventTitle = route.params?.eventTitle ?? 'Selected Event';
+  const eventId = route.params?.eventId;
 
   const handleConnectionPress = () => {
     setRoleModalVisible(true);
   };
 
   const handleOfflinePress = () => {
-    navigation.navigate('OfflineDashboard', { eventTitle });
+    navigation.navigate('OfflineDashboard', { eventTitle, eventId });
   };
 
   const handleRolePick = (role: 'Host' | 'Client') => {

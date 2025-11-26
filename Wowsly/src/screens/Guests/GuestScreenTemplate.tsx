@@ -15,6 +15,7 @@ import { GestureHandlerRootView, Swipeable } from 'react-native-gesture-handler'
 import { useNavigation } from '@react-navigation/native';
 import { Guest, GuestGroup } from './guestData';
 import { getEventUsers } from '../../api/event';
+import GuestDetailsModal from '../../components/GuestDetailsModal';
 
 export type GuestFilter = 'All' | GuestGroup;
 
@@ -52,6 +53,8 @@ const GuestScreenTemplate: React.FC<GuestScreenTemplateProps> = ({
   const [searchQuery, setSearchQuery] = useState('');
   const [guests, setGuests] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
+  const [modalVisible, setModalVisible] = useState(false);
+  const [selectedGuestId, setSelectedGuestId] = useState<string | null>(null);
 
   useEffect(() => {
     if (eventId) {
@@ -125,22 +128,30 @@ const GuestScreenTemplate: React.FC<GuestScreenTemplateProps> = ({
 
     return (
       <Swipeable renderRightActions={renderRightActions} overshootRight={false}>
-        <View style={styles.guestRow}>
-          <Image source={{ uri: avatar }} style={styles.avatar} />
-          <View style={styles.guestInfo}>
-            <Text style={styles.guestName}>{name}</Text>
+        <TouchableOpacity
+          activeOpacity={0.7}
+          onPress={() => {
+            setSelectedGuestId(item.id?.toString());
+            setModalVisible(true);
+          }}
+        >
+          <View style={styles.guestRow}>
+            <Image source={{ uri: avatar }} style={styles.avatar} />
+            <View style={styles.guestInfo}>
+              <Text style={styles.guestName}>{name}</Text>
+            </View>
+            <View style={[styles.statusChip, statusChipStyles[status] || statusChipStyles[status.toLowerCase()] || statusChipStyles['registered']]}>
+              <Text
+                style={[
+                  styles.statusChipText,
+                  { color: (statusChipStyles[status] || statusChipStyles[status.toLowerCase()] || statusChipStyles['registered']).color },
+                ]}
+              >
+                {status}
+              </Text>
+            </View>
           </View>
-          <View style={[styles.statusChip, statusChipStyles[status] || statusChipStyles[status.toLowerCase()] || statusChipStyles['registered']]}>
-            <Text
-              style={[
-                styles.statusChipText,
-                { color: (statusChipStyles[status] || statusChipStyles[status.toLowerCase()] || statusChipStyles['registered']).color },
-              ]}
-            >
-              {status}
-            </Text>
-          </View>
-        </View>
+        </TouchableOpacity>
       </Swipeable>
     );
   };
@@ -220,6 +231,24 @@ const GuestScreenTemplate: React.FC<GuestScreenTemplateProps> = ({
           />
         )}
       </GestureHandlerRootView>
+
+      <GuestDetailsModal
+        visible={modalVisible}
+        onClose={() => {
+          setModalVisible(false);
+          setSelectedGuestId(null);
+        }}
+        eventId={eventId}
+        guestId={selectedGuestId || undefined}
+        onManualCheckIn={(guestId) => {
+          console.log('Manual check-in for guest:', guestId);
+          // TODO: Implement manual check-in API call
+        }}
+        onMakeManager={(guestId) => {
+          console.log('Make manager for guest:', guestId);
+          // TODO: Implement make manager API call
+        }}
+      />
     </SafeAreaView>
   );
 };

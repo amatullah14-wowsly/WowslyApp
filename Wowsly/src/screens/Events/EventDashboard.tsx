@@ -116,7 +116,8 @@ const EventDashboard = ({ route }: EventDashboardProps) => {
             </View>
             <TouchableOpacity style={styles.button}
 
-                onPress={() => navigation.navigate("ModeSelection", { eventTitle: displayData.title })}>
+                onPress={() => navigation.navigate("ModeSelection", { eventTitle: displayData.title, eventId: displayData.id })}>
+
                 <Image source={require('./../../assets/img/eventdashboard/scanner.png')}
                     style={styles.scanicon} />
                 <Text style={styles.start}>Start Check-In</Text>
