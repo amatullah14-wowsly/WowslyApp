@@ -24,8 +24,9 @@ type QrCodeRoute = RouteProp<
   'QrCode'
 >
 
-const OFFLINE_ICON = require('../../assets/img/Mode/offlinemode.png')
-const TORCH_ICON = require('../../assets/img/common/info.png')
+const OFFLINE_ICON = require('../../assets/img/common/offline.png')
+const TORCH_ON_ICON = require('../../assets/img/common/torchon.png')
+const TORCH_OFF_ICON = require('../../assets/img/common/torchoff.png')
 
 const QrCode = () => {
   const route = useRoute<QrCodeRoute>()
@@ -108,7 +109,11 @@ const QrCode = () => {
             activeOpacity={0.8}
             onPress={() => setFlashOn(!flashOn)}
           >
-            <Image source={TORCH_ICON} style={styles.flashIcon} resizeMode="contain" />
+            <Image
+              source={flashOn ? TORCH_ON_ICON : TORCH_OFF_ICON}
+              style={styles.flashIcon}
+              resizeMode="contain"
+            />
           </TouchableOpacity>
         </View>
 
@@ -153,7 +158,7 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     paddingHorizontal: 20,
-    paddingTop: 12,
+    paddingTop: 30,
     backgroundColor: 'transparent', // Changed to transparent to show camera
   },
   topRow: {

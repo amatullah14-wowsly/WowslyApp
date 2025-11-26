@@ -5,25 +5,18 @@ export type EventCardProps = {
   title: string
   date: string
   location: string
-  image: string
+  image: any // Changed to any to support both { uri: string } and require('...')
   selected?: boolean
   onPress?: () => void
 }
 
 const EventCard = ({ title, date, location, image, selected, onPress }: EventCardProps) => {
 
-  // 🔥 Always ensure image is valid, fallback if null/empty
-  const safeImage =
-    image && image !== "null" && image !== "" && image !== undefined
-      ? { uri: image }
-      : { uri: "https://images.unsplash.com/photo-1515169067865-5387ec356754?auto=format&fit=crop&w=800&q=60" };
-
   return (
     <TouchableOpacity activeOpacity={0.9} onPress={onPress}>
       <View style={[styles.card, selected && styles.cardSelected]}>
-        
-        {/* Safe image applied here */}
-        <Image source={safeImage} style={styles.cardImage} />
+
+        <Image source={image} style={styles.cardImage} />
 
         <View style={styles.cardContent}>
           <Text style={styles.cardTitle}>{title}</Text>

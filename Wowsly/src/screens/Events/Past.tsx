@@ -42,17 +42,17 @@ const Past = () => {
     const isSelected = item.id === selectedEventId
 
     // Fallback image
-    const imageUri =
+    const imageSource =
       item.event_main_photo && item.event_main_photo !== ""
-        ? item.event_main_photo
-        : "https://images.unsplash.com/photo-1556761175-4b46a572b786?auto=format&fit=crop&w=800&q=60";
+        ? { uri: item.event_main_photo }
+        : require('../../assets/img/common/noimage.png');
 
     return (
       <EventCard
         title={item.title}
         date={item.start_date_display || "No Date"}
         location={item.address || item.city || "—"}
-        image={imageUri}
+        image={imageSource}
         selected={isSelected}
         onPress={() => {
           setSelectedEventId(item.id)
@@ -182,7 +182,7 @@ const styles = StyleSheet.create({
   logoutIcon: {
     width: 23,
     height: 23,
-    top:5,
+    top: 5,
   },
   searchWrapper: {
     flexDirection: 'row',
