@@ -461,7 +461,7 @@ const styles = StyleSheet.create({
     height: 50,
   },
   editButton: {
-    backgroundColor: '#1D6EF9',
+    backgroundColor: '#FF8A3C',
   },
   actionText: {
     color: '#FFFFFF',
