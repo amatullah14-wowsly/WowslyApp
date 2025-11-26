@@ -17,6 +17,8 @@ type GuestDetailsModalProps = {
     guestId?: string;
     onManualCheckIn?: (guestId: string) => void;
     onMakeManager?: (guestId: string) => void;
+    onMakeGuest?: (guestId: string) => void;
+    guest?: any;
 };
 
 const CLOSE_ICON = require('../assets/img/common/close.png');
@@ -28,6 +30,8 @@ const GuestDetailsModal: React.FC<GuestDetailsModalProps> = ({
     guestId,
     onManualCheckIn,
     onMakeManager,
+    onMakeGuest,
+    guest,
 }) => {
     const [loading, setLoading] = useState(false);
     const [guestData, setGuestData] = useState<any>(null);
@@ -38,14 +42,19 @@ const GuestDetailsModal: React.FC<GuestDetailsModalProps> = ({
         }
     }, [visible, eventId, guestId]);
 
+    useEffect(() => {
+        if (guest) {
+            setGuestData((prev: any) => ({ ...prev, ...guest }));
+        }
+    }, [guest]);
+
     const fetchGuestDetails = async () => {
         setLoading(true);
-        setGuestData(null); // Reset data
         console.log('Fetching guest details for:', { eventId, guestId });
         const res = await getGuestDetails(eventId, guestId);
         console.log('Guest details response:', res);
         if (res?.data) {
-            setGuestData(res.data);
+            setGuestData((prev: any) => ({ ...prev, ...res.data }));
         } else {
             console.error('Failed to fetch guest details:', res);
         }
@@ -65,6 +74,16 @@ const GuestDetailsModal: React.FC<GuestDetailsModalProps> = ({
         }
         onClose();
     };
+
+    const handleMakeGuest = () => {
+        if (onMakeGuest && guestId) {
+            onMakeGuest(guestId);
+        }
+        onClose();
+    };
+
+    const isManager = (guest?.type === 'manager' || guest?.role === 'manager' || guest?.is_manager) ||
+        (guestData?.type === 'manager' || guestData?.is_manager || guestData?.role === 'manager');
 
     return (
         <Modal
@@ -128,13 +147,23 @@ const GuestDetailsModal: React.FC<GuestDetailsModalProps> = ({
                                     <Text style={styles.buttonText}>Manual CheckIn</Text>
                                 </TouchableOpacity>
 
-                                <TouchableOpacity
-                                    style={styles.actionButton}
-                                    onPress={handleMakeManager}
-                                    activeOpacity={0.8}
-                                >
-                                    <Text style={styles.buttonText}>Make Manager</Text>
-                                </TouchableOpacity>
+                                {isManager ? (
+                                    <TouchableOpacity
+                                        style={styles.actionButton}
+                                        onPress={handleMakeGuest}
+                                        activeOpacity={0.8}
+                                    >
+                                        <Text style={styles.buttonText}>Make Guest</Text>
+                                    </TouchableOpacity>
+                                ) : (
+                                    <TouchableOpacity
+                                        style={styles.actionButton}
+                                        onPress={handleMakeManager}
+                                        activeOpacity={0.8}
+                                    >
+                                        <Text style={styles.buttonText}>Make Manager</Text>
+                                    </TouchableOpacity>
+                                )}
                             </View>
                         </>
                     ) : (
@@ -166,9 +195,9 @@ const styles = StyleSheet.create({
         padding: 24,
         shadowColor: '#000',
         shadowOpacity: 0.25,
-        shadowRadius: 12,
+        shadowRadius: 1,
         shadowOffset: { width: 0, height: 4 },
-        elevation: 5,
+        elevation: 2,
     },
     header: {
         flexDirection: 'row',
@@ -250,3 +279,4 @@ const styles = StyleSheet.create({
         color: '#BE2F2F',
     },
 });
+

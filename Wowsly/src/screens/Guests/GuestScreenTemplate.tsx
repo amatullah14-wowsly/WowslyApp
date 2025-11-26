@@ -14,7 +14,7 @@ import {
 import { GestureHandlerRootView, Swipeable } from 'react-native-gesture-handler';
 import { useNavigation } from '@react-navigation/native';
 import { Guest, GuestGroup } from './guestData';
-import { getEventUsers } from '../../api/event';
+import { getEventUsers, makeGuestManager, makeGuestUser } from '../../api/event';
 import GuestDetailsModal from '../../components/GuestDetailsModal';
 
 export type GuestFilter = 'All' | GuestGroup;
@@ -90,7 +90,16 @@ const GuestScreenTemplate: React.FC<GuestScreenTemplateProps> = ({
         // Fetch specific category
         let type = activeFilter.toLowerCase();
         const res = await getEventUsers(eventId, 1, type);
-        setGuests(res?.data || []);
+        let fetchedGuests = res?.data || [];
+
+        // Strict filtering for Manager tab
+        if (activeFilter === 'Manager') {
+          fetchedGuests = fetchedGuests.filter((g: any) =>
+            g.type === 'manager' || g.is_manager || g.group === 'Manager' || g.role === 'manager'
+          );
+        }
+
+        setGuests(fetchedGuests);
       }
     } catch (error) {
       console.error('Error fetching guests:', error);
@@ -240,15 +249,74 @@ const GuestScreenTemplate: React.FC<GuestScreenTemplateProps> = ({
         }}
         eventId={eventId}
         guestId={selectedGuestId || undefined}
+        guest={guests.find(g => g.id.toString() === selectedGuestId?.toString())}
         onManualCheckIn={(guestId) => {
           console.log('Manual check-in for guest:', guestId);
           // TODO: Implement manual check-in API call
         }}
-        onMakeManager={(guestId) => {
+        onMakeManager={async (guestId) => {
           console.log('Make manager for guest:', guestId);
-          // TODO: Implement make manager API call
+          try {
+            const res = await makeGuestManager(eventId, guestId);
+            if (res && (res.status === true || res.success === true || res.data)) {
+              // Update local state
+              setGuests(prevGuests => {
+                if (activeFilter === 'All') {
+                  return prevGuests.map(g =>
+                    g.id.toString() === guestId.toString()
+                      ? { ...g, type: 'manager', role: 'manager' }
+                      : g
+                  );
+                } else if (activeFilter === 'Manager') {
+                  return prevGuests;
+                } else {
+                  return prevGuests.filter(g => g.id.toString() !== guestId.toString());
+                }
+              });
+              setModalVisible(false);
+              setSelectedGuestId(null);
+            } else {
+              console.error('Failed to make guest manager', res);
+            }
+          } catch (err) {
+            console.error('Error making guest manager:', err);
+          }
+        }}
+        onMakeGuest={async (guestId) => {
+          console.log('Make guest for guest:', guestId);
+          try {
+            const guest = guests.find(g => g.id.toString() === guestId.toString());
+            let targetType = 'registered';
+            if (guest && guest.status && guest.status.toLowerCase() === 'invited') {
+              targetType = 'invited';
+            }
+
+            const res = await makeGuestUser(eventId, guestId, targetType);
+            if (res && (res.status === true || res.success === true || res.data)) {
+              setGuests(prevGuests => {
+                if (activeFilter === 'All') {
+                  return prevGuests.map(g =>
+                    g.id.toString() === guestId.toString()
+                      ? { ...g, type: targetType, role: 'guest' }
+                      : g
+                  );
+                } else if (activeFilter === 'Manager') {
+                  return prevGuests.filter(g => g.id.toString() !== guestId.toString());
+                } else {
+                  return prevGuests;
+                }
+              });
+              setModalVisible(false);
+              setSelectedGuestId(null);
+            } else {
+              console.error('Failed to make guest user', res);
+            }
+          } catch (err) {
+            console.error('Error making guest user:', err);
+          }
         }}
       />
+
     </SafeAreaView>
   );
 };
@@ -351,15 +419,15 @@ const styles = StyleSheet.create({
     padding: 16,
     borderWidth: 1,
     borderColor: '#EFEFEF',
-    shadowColor: '#000',
+    shadowColor: '#ffffff',
     shadowOpacity: 0.04,
-    shadowRadius: 6,
-    shadowOffset: { width: 0, height: 3 },
-    elevation: 2,
+    shadowRadius: 4,
+    shadowOffset: { width: 0, height: 1 },
+    elevation: 1,
   },
   avatar: {
-    width: 48,
-    height: 48,
+    width: 40,
+    height: 40,
     borderRadius: 24,
     marginRight: 16,
   },

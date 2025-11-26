@@ -77,3 +77,37 @@ export const downloadOfflineData = async (eventId) => {
         return { status: false, data: null, error: error?.response?.data || error?.message };
     }
 };
+
+export const makeGuestManager = async (eventId, guestId) => {
+    try {
+        console.log('Making guest manager:', { eventId, guestId });
+        const response = await client.put(`/events/${eventId}/eventuser/${guestId}`, {
+            role: 'manager'
+        });
+        console.log('Make manager response:', response.data);
+        return response.data;
+    } catch (error) {
+        console.log(
+            "MAKE MANAGER API ERROR:",
+            error?.response?.data || error?.message || error
+        );
+        return { status: false, data: null };
+    }
+};
+
+export const makeGuestUser = async (eventId, guestId, role = 'guest') => {
+    try {
+        console.log('Making guest user:', { eventId, guestId, role });
+        const payload = { role: 'guest' };
+        const response = await client.put(`/events/${eventId}/eventuser/${guestId}`, payload);
+        console.log('Make guest response:', response.data);
+        return response.data;
+    } catch (error) {
+        console.log(
+            "MAKE GUEST API ERROR:",
+            error?.response?.data || error?.message || error
+        );
+        return { status: false, data: null };
+    }
+};
+
