@@ -25,3 +25,21 @@ export const getEventDetails = async (id) => {
         return { status: false, data: null };
     }
 };
+export const getEventUsers = async (eventId, page = 1, type) => {
+    try {
+        const params = { page };
+        if (type && type !== 'all') {
+            params.type = type;
+        }
+        const response = await client.get(`/events/${eventId}/eventuser`, {
+            params
+        });
+        return response.data;
+    } catch (error) {
+        console.log(
+            "EVENT USERS API ERROR:",
+            error?.response?.data || error?.message || error
+        );
+        return { status: false, data: [] };
+    }
+};

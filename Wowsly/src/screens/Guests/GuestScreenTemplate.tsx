@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import {
   FlatList,
   Image,
@@ -9,26 +9,31 @@ import {
   TextInput,
   TouchableOpacity,
   View,
+  ActivityIndicator,
 } from 'react-native';
 import { GestureHandlerRootView, Swipeable } from 'react-native-gesture-handler';
 import { useNavigation } from '@react-navigation/native';
-import { Guest, GuestGroup, guestListData } from './guestData';
+import { Guest, GuestGroup } from './guestData';
+import { getEventUsers } from '../../api/event';
 
 export type GuestFilter = 'All' | GuestGroup;
 
 type GuestScreenTemplateProps = {
   initialFilter?: GuestFilter;
+  eventId?: string;
 };
 
 const tabs: GuestFilter[] = ['All', 'Manager', 'Invited', 'Registered'];
 
 const statusChipStyles: Record<
-  Guest['status'],
+  string,
   { backgroundColor: string; color: string }
 > = {
   'Checked In': { backgroundColor: '#E3F8EB', color: '#16794C' },
   Pending: { backgroundColor: '#FFF2D4', color: '#A46A00' },
   'No-Show': { backgroundColor: '#FFE2E2', color: '#BE2F2F' },
+  'registered': { backgroundColor: '#E3F8EB', color: '#16794C' },
+  'invited': { backgroundColor: '#E0F2F1', color: '#00695C' },
 };
 
 const BACK_ICON = require('../../assets/img/common/back.png');
@@ -40,23 +45,73 @@ const NOGUESTS_ICON = require('../../assets/img/common/noguests.png');
 
 const GuestScreenTemplate: React.FC<GuestScreenTemplateProps> = ({
   initialFilter = 'All',
+  eventId,
 }) => {
   const navigation = useNavigation();
   const [activeFilter, setActiveFilter] = useState<GuestFilter>(initialFilter);
   const [searchQuery, setSearchQuery] = useState('');
+  const [guests, setGuests] = useState<any[]>([]);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (eventId) {
+      fetchGuests();
+    }
+  }, [eventId, activeFilter]);
+
+  const fetchGuests = async () => {
+    setLoading(true);
+
+    try {
+      if (activeFilter === 'All') {
+        // Fetch all categories and combine them
+        const [managerRes, invitedRes, registeredRes] = await Promise.all([
+          getEventUsers(eventId, 1, 'manager'),
+          getEventUsers(eventId, 1, 'invited'),
+          getEventUsers(eventId, 1, 'registered'),
+        ]);
+
+        const allGuests = [
+          ...(managerRes?.data || []),
+          ...(invitedRes?.data || []),
+          ...(registeredRes?.data || []),
+        ];
+
+        // Remove duplicates based on id
+        const uniqueGuests = allGuests.filter((guest, index, self) =>
+          index === self.findIndex((g) => g.id === guest.id)
+        );
+
+        setGuests(uniqueGuests);
+      } else {
+        // Fetch specific category
+        let type = activeFilter.toLowerCase();
+        const res = await getEventUsers(eventId, 1, type);
+        setGuests(res?.data || []);
+      }
+    } catch (error) {
+      console.error('Error fetching guests:', error);
+      setGuests([]);
+    }
+
+    setLoading(false);
+  };
 
   const filteredGuests = useMemo(() => {
-    return guestListData.filter((guest) => {
-      const matchesFilter =
-        activeFilter === 'All' ? true : guest.group === activeFilter;
-      const matchesSearch = guest.name
+    return guests.filter((guest) => {
+      const name = guest.name || guest.first_name + ' ' + guest.last_name || 'Guest';
+      const matchesSearch = name
         .toLowerCase()
         .includes(searchQuery.trim().toLowerCase());
-      return matchesFilter && matchesSearch;
+      return matchesSearch;
     });
-  }, [activeFilter, searchQuery]);
+  }, [guests, searchQuery]);
 
-  const renderGuest = ({ item }: { item: Guest }) => {
+  const renderGuest = ({ item }: { item: any }) => {
+    const name = item.name || item.first_name + ' ' + item.last_name || 'Guest';
+    const avatar = item.avatar || item.profile_photo || 'https://ui-avatars.com/api/?name=' + name;
+    const status = item.status || 'Registered';
+
     const renderRightActions = () => (
       <View style={styles.rowActions}>
         <TouchableOpacity
@@ -71,18 +126,18 @@ const GuestScreenTemplate: React.FC<GuestScreenTemplateProps> = ({
     return (
       <Swipeable renderRightActions={renderRightActions} overshootRight={false}>
         <View style={styles.guestRow}>
-          <Image source={{ uri: item.avatar }} style={styles.avatar} />
+          <Image source={{ uri: avatar }} style={styles.avatar} />
           <View style={styles.guestInfo}>
-            <Text style={styles.guestName}>{item.name}</Text>
+            <Text style={styles.guestName}>{name}</Text>
           </View>
-          <View style={[styles.statusChip, statusChipStyles[item.status]]}>
+          <View style={[styles.statusChip, statusChipStyles[status] || statusChipStyles[status.toLowerCase()] || statusChipStyles['registered']]}>
             <Text
               style={[
                 styles.statusChipText,
-                { color: statusChipStyles[item.status].color },
+                { color: (statusChipStyles[status] || statusChipStyles[status.toLowerCase()] || statusChipStyles['registered']).color },
               ]}
             >
-              {item.status}
+              {status}
             </Text>
           </View>
         </View>
@@ -142,22 +197,28 @@ const GuestScreenTemplate: React.FC<GuestScreenTemplateProps> = ({
       </View>
 
       <GestureHandlerRootView style={styles.listWrapper}>
-        <FlatList
-          data={filteredGuests}
-          keyExtractor={(item) => item.id}
-          contentContainerStyle={styles.listContent}
-          ItemSeparatorComponent={() => <View style={styles.separator} />}
-          renderItem={renderGuest}
-          ListEmptyComponent={
-            <View style={styles.emptyState}>
-              <Image source={NOGUESTS_ICON} style={styles.emptyIcon} />
-              <Text style={styles.emptyTitle}>No guests found</Text>
-              <Text style={styles.emptySubtitle}>
-                Try a different name or category.
-              </Text>
-            </View>
-          }
-        />
+        {loading ? (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color="#FF8A3C" />
+          </View>
+        ) : (
+          <FlatList
+            data={filteredGuests}
+            keyExtractor={(item, index) => `${item.id}-${index}`}
+            contentContainerStyle={styles.listContent}
+            ItemSeparatorComponent={() => <View style={styles.separator} />}
+            renderItem={renderGuest}
+            ListEmptyComponent={
+              <View style={styles.emptyState}>
+                <Image source={NOGUESTS_ICON} style={styles.emptyIcon} />
+                <Text style={styles.emptyTitle}>No guests found</Text>
+                <Text style={styles.emptySubtitle}>
+                  Try a different name or category.
+                </Text>
+              </View>
+            }
+          />
+        )}
       </GestureHandlerRootView>
     </SafeAreaView>
   );
@@ -300,12 +361,10 @@ const styles = StyleSheet.create({
     width: 70,
     justifyContent: 'center',
     alignItems: 'center',
-    height:50,
+    height: 50,
   },
   editButton: {
     backgroundColor: '#1D6EF9',
-    // borderTopLeftRadius: 16,
-    // borderBottomLeftRadius: 16,
   },
   actionText: {
     color: '#FFFFFF',
@@ -330,5 +389,9 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#7A7A7A',
   },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
 });
-

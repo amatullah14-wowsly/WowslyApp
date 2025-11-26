@@ -1,8 +1,12 @@
 import React from 'react';
+import { useRoute } from '@react-navigation/native';
 import GuestScreenTemplate from './GuestScreenTemplate';
 
 const GuestList = () => {
-  return <GuestScreenTemplate initialFilter="All" />;
+  const route = useRoute<any>();
+  const { eventId } = route.params || {};
+
+  return <GuestScreenTemplate initialFilter="All" eventId={eventId} />;
 };
 
 export default GuestList;

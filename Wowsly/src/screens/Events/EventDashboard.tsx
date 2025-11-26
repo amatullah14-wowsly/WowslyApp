@@ -66,14 +66,14 @@ const EventDashboard = ({ route }: EventDashboardProps) => {
                 </Text>
             </View>
             <View style={styles.eventCard}>
-            <Image 
-  source={
-    displayData.image
-      ? { uri: displayData.image }
-      : require('../../assets/img/common/noimage.png')  // <-- add a placeholder
-  }
-  style={styles.eventImage}
-/>
+                <Image
+                    source={
+                        displayData.image
+                            ? { uri: displayData.image }
+                            : require('../../assets/img/common/noimage.png')  // <-- add a placeholder
+                    }
+                    style={styles.eventImage}
+                />
 
                 <View style={styles.eventCardContent}>
                     <Text style={styles.eventCardTitle}>{displayData.title}</Text>
@@ -88,7 +88,7 @@ const EventDashboard = ({ route }: EventDashboardProps) => {
                         icon={require('../../assets/img/eventdashboard/guests.png')}
                         title="Guests"
                         value="852"
-                        onPress={() => navigation.navigate("GuestList")}
+                        onPress={() => navigation.navigate("GuestList", { eventId: displayData.id })}
                     />
 
                     <Grid
