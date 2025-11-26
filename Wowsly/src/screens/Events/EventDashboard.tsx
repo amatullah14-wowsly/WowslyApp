@@ -1,4 +1,4 @@
-import { Modal, StyleSheet, Text, View, Image, TouchableOpacity, ScrollView } from 'react-native'
+import { StyleSheet, Text, View, Image, TouchableOpacity } from 'react-native'
 import React, { useState, useEffect } from 'react'
 import { useNavigation } from '@react-navigation/native';
 import Grid from '../../components/Grid';
@@ -23,8 +23,6 @@ type EventDashboardProps = {
 const EventDashboard = ({ route }: EventDashboardProps) => {
     const navigation = useNavigation<any>();
     const { eventData } = route.params || {};
-    const [menuVisible, setMenuVisible] = useState(false);
-    const [confirmVisible, setConfirmVisible] = useState(false);
     const [details, setDetails] = useState<any>(null);
 
     useEffect(() => {
@@ -54,19 +52,6 @@ const EventDashboard = ({ route }: EventDashboardProps) => {
         return null;
     }
 
-    const toggleMenu = () => setMenuVisible(prev => !prev);
-
-    const handleLogoutPress = () => {
-        setMenuVisible(false);
-        setConfirmVisible(true);
-    };
-
-    const closeModal = () => setConfirmVisible(false);
-    const handleConfirmLogout = () => {
-        setConfirmVisible(false);
-        // TODO: integrate actual logout functionality
-    };
-
     return (
         <View style={styles.container}>
             <View style={styles.header}>
@@ -79,47 +64,17 @@ const EventDashboard = ({ route }: EventDashboardProps) => {
                 <Text style={styles.title} numberOfLines={1}>
                     {displayData.title}
                 </Text>
-                <TouchableOpacity onPress={toggleMenu}>
-                    <Image
-                        source={
-                            menuVisible
-                                ? require('../../assets/img/common/close.png')
-                                : require('../../assets/img/common/dots.png')
-                        }
-                        style={styles.menuIcon}
-                    />
-                </TouchableOpacity>
-
-                {menuVisible && (
-                    <View style={styles.dropdown}>
-                        <TouchableOpacity style={styles.dropdownItem} onPress={handleLogoutPress}>
-                            <Text style={styles.dropdownText}>Logout</Text>
-                        </TouchableOpacity>
-                    </View>
-                )}
             </View>
-            <Modal
-                transparent
-                animationType="fade"
-                visible={confirmVisible}
-                onRequestClose={closeModal}
-            >
-                <View style={styles.modalBackdrop}>
-                    <View style={styles.modalCard}>
-                        <Text style={styles.modalTitle}>Are you sure you want to log out?</Text>
-                        <View style={styles.modalActions}>
-                            <TouchableOpacity style={styles.modalButtonSecondary} onPress={closeModal}>
-                                <Text style={styles.modalSecondaryText}>Cancel</Text>
-                            </TouchableOpacity>
-                            <TouchableOpacity style={styles.modalButtonPrimary} onPress={handleConfirmLogout}>
-                                <Text style={styles.modalPrimaryText}>Log out</Text>
-                            </TouchableOpacity>
-                        </View>
-                    </View>
-                </View>
-            </Modal>
             <View style={styles.eventCard}>
-                <Image source={{ uri: displayData.image }} style={styles.eventImage} />
+            <Image 
+  source={
+    displayData.image
+      ? { uri: displayData.image }
+      : require('../../assets/img/common/noimage.png')  // <-- add a placeholder
+  }
+  style={styles.eventImage}
+/>
+
                 <View style={styles.eventCardContent}>
                     <Text style={styles.eventCardTitle}>{displayData.title}</Text>
                     <Text style={styles.eventCardMeta}>

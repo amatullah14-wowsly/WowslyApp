@@ -113,7 +113,7 @@ const ModeSelection = () => {
                 } else if (mode.id === 'offline') {
                   handleOfflinePress();
                 } else if (mode.id === 'online') {
-                  navigation.navigate('HostDashboard', { eventTitle });
+                  navigation.navigate('QrCode', { eventTitle, modeTitle: 'Online Mode' });
                 }
               }}
             >

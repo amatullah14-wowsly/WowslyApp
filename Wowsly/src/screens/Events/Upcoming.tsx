@@ -72,11 +72,41 @@ const Upcoming = () => {
     );
   }
 
+  // 🌀 Empty state UI when there are no upcoming events
+  if (!loading && events.length === 0) {
+    return (
+      <View style={styles.emptyContainer}>
+        <Image
+          source={require('../../assets/img/common/noguests.png')}
+          style={styles.emptyImage}
+          resizeMode="contain"
+        />
+      </View>
+    );
+  }
+
   return (
     <View style={styles.container}>
       <StatusBar hidden />
       <View style={styles.heading}>
-        <Text style={styles.headingtxt}>Upcoming Events</Text>
+        <View style={styles.headingRow}>
+          <Text style={styles.headingtxt}>Upcoming Events</Text>
+          <TouchableOpacity
+            activeOpacity={0.8}
+            onPress={() =>
+              navigation.reset({
+                index: 0,
+                routes: [{ name: 'Number' as never }],
+              })
+            }
+          >
+            <Image
+              source={require('../../assets/img/common/logout.png')}
+              style={styles.logoutIcon}
+              resizeMode="contain"
+            />
+          </TouchableOpacity>
+        </View>
       </View>
       <View style={styles.searchWrapper}>
         <View style={styles.searchField}>
@@ -129,7 +159,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     backgroundColor: '#FF8A3C',
     width: '100%',
-    height: '9%',
+    height: '10%',
     borderBottomLeftRadius: 20,
     borderBottomRightRadius: 20,
     shadowColor: '#FF8A3C',
@@ -139,11 +169,20 @@ const styles = StyleSheet.create({
     elevation: 6,
   },
   headingtxt: {
-    alignSelf: 'center',
     color: 'white',
-    fontSize: 22,
+    fontSize: 20,
     fontWeight: '700',
-    top: '5%',
+  },
+  headingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+  },
+  logoutIcon: {
+    width: 23,
+    height: 23,
+    top:5,
   },
   searchWrapper: {
     flexDirection: 'row',
@@ -208,5 +247,15 @@ const styles = StyleSheet.create({
   pageIndicator: {
     fontWeight: '600',
     color: '#333',
+  },
+  emptyContainer: {
+    flex: 1,
+    backgroundColor: 'white',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  emptyImage: {
+    width: 220,
+    height: 220,
   },
 })

@@ -14,6 +14,7 @@ import RegisteredGuests from '../screens/Guests/RegisteredGuests';
 import ModeSelection from '../screens/Mode/ModeSelection';
 import HostDashboard from '../screens/DashBoards/HostDashboard';
 import OfflineDashboard from '../screens/DashBoards/OfflineDashboard';
+import QrCode from '../screens/Scanner/QrCode';
 const Stack = createNativeStackNavigator();
 const StackNavigation = () => {
   return (
@@ -31,6 +32,7 @@ const StackNavigation = () => {
     <Stack.Screen name='ModeSelection' component={ModeSelection}/>
     <Stack.Screen name='HostDashboard' component={HostDashboard}/>
     <Stack.Screen name='OfflineDashboard' component={OfflineDashboard}/>
+    <Stack.Screen name='QrCode' component={QrCode}/>
 
     
 </Stack.Navigator>
