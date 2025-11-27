@@ -16,6 +16,7 @@ import HostDashboard from '../screens/DashBoards/HostDashboard';
 import OfflineDashboard from '../screens/DashBoards/OfflineDashboard';
 import QrCode from '../screens/Scanner/QrCode';
 import OnlineGuestList from '../screens/GuestList/OnlineGuestList';
+import OfflineGuestList from '../screens/GuestList/OfflineGuestList';
 const Stack = createNativeStackNavigator();
 const StackNavigation = () => {
   return (
@@ -35,6 +36,7 @@ const StackNavigation = () => {
       <Stack.Screen name='OfflineDashboard' component={OfflineDashboard} />
       <Stack.Screen name='QrCode' component={QrCode} />
       <Stack.Screen name='OnlineGuestList' component={OnlineGuestList} />
+      <Stack.Screen name='OfflineGuestList' component={OfflineGuestList} />
 
 
     </Stack.Navigator>

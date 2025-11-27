@@ -169,7 +169,13 @@ const OfflineDashboard = () => {
               subtitle="View downloaded guests"
               meta={`Total: ${totals.total} | Checked: ${totals.checkedIn}`}
               isActive={selectedCard === 'guests'}
-              onPress={() => setSelectedCard('guests')}
+              onPress={() => {
+                setSelectedCard('guests');
+                navigation.navigate('OfflineGuestList', {
+                  eventId,
+                  offlineData,
+                });
+              }}
             />
           </View>
         </View>
