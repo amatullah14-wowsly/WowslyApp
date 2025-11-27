@@ -94,22 +94,17 @@ const OfflineDashboard = () => {
 
         {/* HEADER */}
         <View style={styles.header}>
-          <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
+          <TouchableOpacity
+            style={styles.backButton}
+            onPress={() => navigation.goBack()}
+            activeOpacity={0.7}
+          >
             <Image source={BACK_ICON} style={styles.backIcon} />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Offline Mode</Text>
         </View>
 
         <Text style={styles.subHeader}>Last synced: 2 hours ago | 245 guests downloaded</Text>
-
-        {/* <View style={styles.statusRow}>
-          <View style={styles.modeChip}>
-            <Image source={OFFLINE_ICON} style={styles.modeIcon} />
-            <Text style={styles.modeText}>Offline</Text>
-          </View>
-          <Text style={styles.statusInfo}>{offlineData ? `${offlineData.length} guests` : '0 guests'} saved</Text>
-          <Text style={styles.statusUpdated}>Updated 2h ago</Text>
-        </View> */}
 
         {/* CARDS */}
         <View style={styles.cardGrid}>
@@ -255,6 +250,7 @@ const styles = StyleSheet.create({
     borderColor: '#EFE2D9',
     alignItems: 'center',
     justifyContent: 'center',
+    zIndex: 10,
   },
   backIcon: {
     width: 14,
@@ -275,52 +271,6 @@ const styles = StyleSheet.create({
     color: '#7A6255',
     fontSize: 12,
   },
-  // statusRow: {
-  //   marginTop: 18,
-  //   borderRadius: 24,
-  //   backgroundColor: '#FFFFFF',
-  //   paddingHorizontal: 18,
-  //   // paddingVertical: 14,
-  //   flexDirection: 'row',
-  //   alignItems: 'center',
-  //   justifyContent: 'space-between',
-  //   shadowColor: '#D7C5BA',
-  //   shadowOpacity: 0.25,
-  //   shadowRadius: 8,
-  //   shadowOffset: { width: 0, height: 6 },
-  //   elevation: 2,
-
-  // },
-  // modeChip: {
-  //   flexDirection: 'row',
-  //   alignItems: 'center',
-  //   backgroundColor: '#FFE4D2',
-  //   borderRadius: 8,
-  //   paddingHorizontal: 8,
-  //   paddingVertical: 5,
-  //   alignSelf: 'flex-start',
-  //   gap: 6,
-  // },
-  // modeIcon: {
-  //   width: 12,
-  //   height: 12,
-  //   resizeMode: 'contain',
-  // },
-  // modeText: {
-  //   fontWeight: '600',
-  //   color: '#FF8A3C',
-  //   fontSize: 12,
-  // },
-  // statusInfo: {
-  //   marginTop: 0,
-  //   fontSize: 12,
-  //   color: '#2B1D16',
-  //   fontWeight: '600',
-  // },
-  // statusUpdated: {
-  //   fontSize: 12,
-  //   color: '#9C8479',
-  // },
   cardGrid: {
     marginTop: 22,
     flexDirection: 'row',

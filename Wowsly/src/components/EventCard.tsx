@@ -48,7 +48,7 @@ const styles = StyleSheet.create({
   },
   cardContent: {
     padding: 18,
-    gap: 5,
+    // gap: 2,
   },
   cardTitle: {
     fontSize: 17,

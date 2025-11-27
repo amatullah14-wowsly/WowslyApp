@@ -11,6 +11,7 @@ import {
   PermissionsAndroid,
   Platform,
 } from 'react-native'
+import AsyncStorage from '@react-native-async-storage/async-storage'
 import { RouteProp, useRoute } from '@react-navigation/native'
 import { Camera } from 'react-native-camera-kit'
 import { verifyQRCode } from '../../api/api'
@@ -21,7 +22,8 @@ type QrCodeRoute = RouteProp<
     QrCode: {
       eventTitle?: string
       modeTitle?: string
-      eventId: number          // 👈 ADDED DYNAMIC EVENT ID
+      eventId: number
+      offline?: boolean        // 👈 ADDED OFFLINE FLAG
     }
   },
   'QrCode'
@@ -85,19 +87,70 @@ const QrCode = () => {
 
   // ----------------- QR SCAN HANDLER -----------------
   const onReadCode = (event: any) => {
-    const code = event.nativeEvent.codeStringValue
+    const rawCode = event.nativeEvent.codeStringValue
+    if (!rawCode) return
 
-    if (!code) return
+    const code = rawCode.trim()
     if (code === scannedValue) return // avoid duplicate scans
 
     setScannedValue(code)
     handleVerifyQR(code)
   }
 
+  // ----------------- OFFLINE DATA STATE -----------------
+  const isOfflineMode = route.params?.offline ?? false
+  const [offlineGuests, setOfflineGuests] = useState<any[]>([])
+
+  useEffect(() => {
+    if (isOfflineMode && eventId) {
+      loadOfflineData()
+    }
+  }, [isOfflineMode, eventId])
+
+  const loadOfflineData = async () => {
+    try {
+      const savedData = await AsyncStorage.getItem(`offline_guests_${eventId}`)
+      if (savedData) {
+        setOfflineGuests(JSON.parse(savedData))
+      }
+    } catch (error) {
+      console.error("Error loading offline guests:", error)
+    }
+  }
+
   // ----------------- VERIFY QR FUNCTION -----------------
   const handleVerifyQR = async (qrGuestUuid: string) => {
     setIsVerifying(true)
 
+    // 🔴 OFFLINE VERIFICATION
+    if (isOfflineMode) {
+      console.log("Verifying offline:", qrGuestUuid)
+
+      // Simulate a small delay for UX
+      setTimeout(() => {
+        const foundGuest = offlineGuests.find((g: any) => g.guest_uuid === qrGuestUuid)
+
+        if (foundGuest) {
+          setGuestData({
+            name: foundGuest.name || "Guest",
+            ticketId: foundGuest.guest_uuid || "N/A", // Using UUID as ticket ID for display
+            status: "VALID ENTRY (OFFLINE)",
+            isValid: true,
+          })
+        } else {
+          Alert.alert(
+            "Invalid QR Code",
+            "Guest not found in offline database",
+            [{ text: "OK", onPress: () => setScannedValue(null) }]
+          )
+          setGuestData(null)
+        }
+        setIsVerifying(false)
+      }, 500)
+      return
+    }
+
+    // 🟢 ONLINE VERIFICATION (API)
     try {
       const response = await verifyQRCode(eventId, qrGuestUuid)
       console.log("QR Verification Response:", response)
