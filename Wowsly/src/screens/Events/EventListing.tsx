@@ -7,6 +7,7 @@ import {
   TextInput,
   TouchableOpacity,
   View,
+  Modal,
 } from "react-native";
 import React, { useEffect, useMemo, useState } from "react";
 import EventCard from "../../components/EventCard";
@@ -22,6 +23,7 @@ const EventListing = () => {
 
   const [page, setPage] = useState(1);
   const [selectedEventId, setSelectedEventId] = useState(null);
+  const [logoutModalVisible, setLogoutModalVisible] = useState(false);
 
   const EVENTS_PER_PAGE = 8;
 
@@ -120,12 +122,7 @@ const EventListing = () => {
           <Text style={styles.headingtxt}>Current Events</Text>
           <TouchableOpacity
             activeOpacity={0.8}
-            onPress={() =>
-              navigation.reset({
-                index: 0,
-                routes: [{ name: 'Number' as never }],
-              })
-            }
+            onPress={() => setLogoutModalVisible(true)}
           >
             <Image
               source={require('../../assets/img/common/logout.png')}
@@ -135,6 +132,45 @@ const EventListing = () => {
           </TouchableOpacity>
         </View>
       </View>
+
+      {/* Logout Confirmation Modal */}
+      <Modal
+        transparent
+        visible={logoutModalVisible}
+        animationType="fade"
+        onRequestClose={() => setLogoutModalVisible(false)}
+      >
+        <View style={styles.modalBackdrop}>
+          <View style={styles.modalCard}>
+            <Text style={styles.modalTitle}>Logout</Text>
+            <Text style={styles.modalMessage}>
+              Are you sure you want to logout?
+            </Text>
+            <View style={styles.modalButtons}>
+              <TouchableOpacity
+                style={[styles.modalButton, styles.modalButtonCancel]}
+                onPress={() => setLogoutModalVisible(false)}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.modalButtonTextCancel}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.modalButton, styles.modalButtonConfirm]}
+                onPress={() => {
+                  setLogoutModalVisible(false);
+                  navigation.reset({
+                    index: 0,
+                    routes: [{ name: 'Number' as never }],
+                  });
+                }}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.modalButtonTextConfirm}>Logout</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
 
       {/* Search Bar */}
       <View style={styles.searchWrapper}>
@@ -337,6 +373,68 @@ const styles = StyleSheet.create({
   emptyImage: {
     width: 220,
     height: 220,
+  },
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  modalCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    padding: 24,
+    width: '100%',
+    maxWidth: 340,
+    shadowColor: '#000',
+    shadowOpacity: 0.25,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 8,
+  },
+  modalTitle: {
+    fontSize: 22,
+    fontWeight: '700',
+    color: '#1C1C1C',
+    marginBottom: 12,
+    textAlign: 'center',
+  },
+  modalMessage: {
+    fontSize: 15,
+    color: '#6F6F6F',
+    textAlign: 'center',
+    marginBottom: 24,
+    lineHeight: 22,
+  },
+  modalButtons: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  modalButton: {
+    flex: 1,
+    paddingVertical: 14,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  modalButtonCancel: {
+    backgroundColor: '#F5F5F5',
+    borderWidth: 1,
+    borderColor: '#E0E0E0',
+  },
+  modalButtonConfirm: {
+    backgroundColor: '#FF8A3C',
+  },
+  modalButtonTextCancel: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#6F6F6F',
+  },
+  modalButtonTextConfirm: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#FFFFFF',
   },
 })
 

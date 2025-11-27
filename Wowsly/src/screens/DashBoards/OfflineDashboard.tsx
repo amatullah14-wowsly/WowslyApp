@@ -46,7 +46,7 @@ const OfflineDashboard = () => {
     { id: 'crew', title: 'Crew', total: 10, checkedIn: 1 },
   ];
 
-  // Load saved offline data on mount
+  // Load saved offline data
   useEffect(() => {
     const loadOfflineData = async () => {
       if (eventId) {
@@ -55,7 +55,7 @@ const OfflineDashboard = () => {
           if (savedData) {
             const parsedData = JSON.parse(savedData);
             setOfflineData(parsedData);
-            console.log(`Loaded ${parsedData.length} guests from storage`);
+            console.log(`Loaded ${parsedData.length} guests`);
           }
         } catch (error) {
           console.error('Error loading offline data:', error);
@@ -67,28 +67,22 @@ const OfflineDashboard = () => {
 
   const handleDownloadData = async () => {
     if (!eventId) {
-      Alert.alert('Error', 'No event ID provided');
+      Alert.alert('Error', 'No event ID');
       return;
     }
     setDownloading(true);
     try {
       const res = await downloadOfflineData(eventId);
-      console.log('Download response:', res);
-      // API returns guests_list instead of data
       if (res?.guests_list) {
         setOfflineData(res.guests_list);
-        // Save to AsyncStorage for persistence
-        await AsyncStorage.setItem(
-          `offline_guests_${eventId}`,
-          JSON.stringify(res.guests_list)
-        );
-        Alert.alert('Success', `Downloaded and saved ${res.guests_list.length || 0} guests to local storage`);
+        await AsyncStorage.setItem(`offline_guests_${eventId}`, JSON.stringify(res.guests_list));
+        Alert.alert('Success', `Downloaded ${res.guests_list.length} guests`);
       } else {
-        Alert.alert('Error', res?.message || 'Failed to download data');
+        Alert.alert('Error', res?.message || 'Failed to download');
       }
-    } catch (error) {
-      console.error('Download error:', error);
-      Alert.alert('Error', 'Failed to download data');
+    } catch (err) {
+      console.error(err);
+      Alert.alert('Error', 'Download failed');
     } finally {
       setDownloading(false);
     }
@@ -96,35 +90,37 @@ const OfflineDashboard = () => {
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <ScrollView
-        style={styles.scroll}
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-      >
+      <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent}>
+
+        {/* HEADER */}
         <View style={styles.header}>
           <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
             <Image source={BACK_ICON} style={styles.backIcon} />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Offline Mode</Text>
         </View>
+
         <Text style={styles.subHeader}>Last synced: 2 hours ago | 245 guests downloaded</Text>
 
-        <View style={styles.statusRow}>
+        {/* <View style={styles.statusRow}>
           <View style={styles.modeChip}>
             <Image source={OFFLINE_ICON} style={styles.modeIcon} />
             <Text style={styles.modeText}>Offline</Text>
           </View>
-          <Text style={styles.statusInfo}>{offlineData ? `${offlineData.length} guests` : '0 guests'} saved locally</Text>
+          <Text style={styles.statusInfo}>{offlineData ? `${offlineData.length} guests` : '0 guests'} saved</Text>
           <Text style={styles.statusUpdated}>Updated 2h ago</Text>
-        </View>
+        </View> */}
 
+        {/* CARDS */}
         <View style={styles.cardGrid}>
+
+          {/* Download */}
           <View style={styles.cardItem}>
             <OfflineCard
               icon={DOWNLOAD_ICON}
               title="Download Data"
               subtitle="Get the latest guest list"
-              meta={offlineData ? `${offlineData.length || 0} guests downloaded` : "Tap to download"}
+              meta={offlineData ? `${offlineData.length} guests downloaded` : 'Tap to download'}
               isActive={selectedCard === 'download'}
               onPress={() => {
                 setSelectedCard('download');
@@ -137,25 +133,28 @@ const OfflineDashboard = () => {
               </View>
             )}
           </View>
+
+          {/* Scan */}
           <View style={styles.cardItem}>
             <OfflineCard
               icon={QR_ICON}
               title="Scan Ticket"
               subtitle="Check-in attendees"
-              badge="Offline Check-in Mode"
+              badge="Offline Check-in"
               isActive={selectedCard === 'scan'}
               onPress={() => {
                 setSelectedCard('scan');
                 navigation.navigate('QrCode', {
                   modeTitle: 'Offline Mode',
                   eventTitle: 'Offline Event',
-                  eventId: eventId,   // 👈 Pass correct event ID
-                  offline: true       // 👈 Tell QR screen that this is offline mode
+                  eventId,
+                  offline: true,
                 });
               }}
             />
-
           </View>
+
+          {/* Upload */}
           <View style={styles.cardItem}>
             <OfflineCard
               icon={UPLOAD_ICON}
@@ -166,45 +165,38 @@ const OfflineDashboard = () => {
               onPress={() => setSelectedCard('upload')}
             />
           </View>
+
+          {/* Guests */}
           <View style={styles.cardItem}>
             <OfflineCard
               icon={GUEST_ICON}
               title="Guest List"
               subtitle="View downloaded guests"
-              meta={`Total: ${totals.total} | Checked-in: ${totals.checkedIn}`}
+              meta={`Total: ${totals.total} | Checked: ${totals.checkedIn}`}
               isActive={selectedCard === 'guests'}
               onPress={() => setSelectedCard('guests')}
             />
           </View>
         </View>
 
+        {/* SUMMARY */}
         <View style={styles.summaryCard}>
           <Text style={styles.summaryTitle}>Offline Guest Summary</Text>
+
           <View style={styles.summaryRow}>
-            <Text style={styles.summaryStat}>
-              Total Guests: <Text style={styles.summaryValue}>{totals.total}</Text>
-            </Text>
-            <Text style={styles.summaryStat}>
-              Checked-in: <Text style={styles.summaryValue}>{totals.checkedIn}</Text>
-            </Text>
-            <Text style={styles.summaryStat}>
-              Remaining: <Text style={styles.summaryValue}>{totals.remaining}</Text>
-            </Text>
+            <Text style={styles.summaryStat}>Total Guests: <Text style={styles.summaryValue}>{totals.total}</Text></Text>
+            <Text style={styles.summaryStat}>Checked-in: <Text style={styles.summaryValue}>{totals.checkedIn}</Text></Text>
+            <Text style={styles.summaryStat}>Remaining: <Text style={styles.summaryValue}>{totals.remaining}</Text></Text>
           </View>
 
           <View style={styles.bucketGrid}>
-            {guestBuckets.map((bucket) => {
-              const remaining = bucket.total - bucket.checkedIn;
-              return (
-                <View key={bucket.id} style={styles.bucketCard}>
-                  <Text style={styles.bucketTitle}>{bucket.title}</Text>
-                  <Text style={styles.bucketMeta}>
-                    Total: {bucket.total} | Checked-in: {bucket.checkedIn}
-                  </Text>
-                  <Text style={styles.bucketRemaining}>Remaining: {remaining}</Text>
-                </View>
-              );
-            })}
+            {guestBuckets.map(b => (
+              <View key={b.id} style={styles.bucketCard}>
+                <Text style={styles.bucketTitle}>{b.title}</Text>
+                <Text style={styles.bucketMeta}>Total: {b.total} | Checked: {b.checkedIn}</Text>
+                <Text style={styles.bucketRemaining}>Remaining: {b.total - b.checkedIn}</Text>
+              </View>
+            ))}
           </View>
 
           <View style={styles.pendingRow}>
@@ -213,6 +205,7 @@ const OfflineDashboard = () => {
           </View>
         </View>
 
+        {/* ACTIONS */}
         <View style={styles.bottomActions}>
           <TouchableOpacity style={[styles.ctaButton, styles.ctaGhost]}>
             <Text style={[styles.ctaText, styles.ctaGhostText]}># Get Count</Text>
@@ -221,6 +214,7 @@ const OfflineDashboard = () => {
             <Text style={styles.ctaText}>Export List</Text>
           </TouchableOpacity>
         </View>
+
       </ScrollView>
     </SafeAreaView>
   );
@@ -253,8 +247,8 @@ const styles = StyleSheet.create({
     position: 'absolute',
     left: 20,
     top: 0,
-    width: 35,
-    height: 35,
+    width: 38,
+    height: 38,
     borderRadius: 20,
     backgroundColor: '#FFFFFF',
     borderWidth: 1,
@@ -281,52 +275,52 @@ const styles = StyleSheet.create({
     color: '#7A6255',
     fontSize: 12,
   },
-  statusRow: {
-    marginTop: 18,
-    borderRadius: 24,
-    backgroundColor: '#FFFFFF',
-    paddingHorizontal: 18,
-    // paddingVertical: 14,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    shadowColor: '#D7C5BA',
-    shadowOpacity: 0.25,
-    shadowRadius: 8,
-    shadowOffset: { width: 0, height: 6 },
-    elevation: 2,
+  // statusRow: {
+  //   marginTop: 18,
+  //   borderRadius: 24,
+  //   backgroundColor: '#FFFFFF',
+  //   paddingHorizontal: 18,
+  //   // paddingVertical: 14,
+  //   flexDirection: 'row',
+  //   alignItems: 'center',
+  //   justifyContent: 'space-between',
+  //   shadowColor: '#D7C5BA',
+  //   shadowOpacity: 0.25,
+  //   shadowRadius: 8,
+  //   shadowOffset: { width: 0, height: 6 },
+  //   elevation: 2,
 
-  },
-  modeChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#FFE4D2',
-    borderRadius: 8,
-    paddingHorizontal: 8,
-    paddingVertical: 5,
-    alignSelf: 'flex-start',
-    gap: 6,
-  },
-  modeIcon: {
-    width: 12,
-    height: 12,
-    resizeMode: 'contain',
-  },
-  modeText: {
-    fontWeight: '600',
-    color: '#FF8A3C',
-    fontSize: 12,
-  },
-  statusInfo: {
-    marginTop: 0,
-    fontSize: 12,
-    color: '#2B1D16',
-    fontWeight: '600',
-  },
-  statusUpdated: {
-    fontSize: 12,
-    color: '#9C8479',
-  },
+  // },
+  // modeChip: {
+  //   flexDirection: 'row',
+  //   alignItems: 'center',
+  //   backgroundColor: '#FFE4D2',
+  //   borderRadius: 8,
+  //   paddingHorizontal: 8,
+  //   paddingVertical: 5,
+  //   alignSelf: 'flex-start',
+  //   gap: 6,
+  // },
+  // modeIcon: {
+  //   width: 12,
+  //   height: 12,
+  //   resizeMode: 'contain',
+  // },
+  // modeText: {
+  //   fontWeight: '600',
+  //   color: '#FF8A3C',
+  //   fontSize: 12,
+  // },
+  // statusInfo: {
+  //   marginTop: 0,
+  //   fontSize: 12,
+  //   color: '#2B1D16',
+  //   fontWeight: '600',
+  // },
+  // statusUpdated: {
+  //   fontSize: 12,
+  //   color: '#9C8479',
+  // },
   cardGrid: {
     marginTop: 22,
     flexDirection: 'row',

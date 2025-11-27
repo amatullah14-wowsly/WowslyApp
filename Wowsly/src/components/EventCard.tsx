@@ -42,13 +42,13 @@ const styles = StyleSheet.create({
   },
   cardImage: {
     width: '100%',
-    height: 100,
+    height: 140,
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
   },
   cardContent: {
     padding: 18,
-    gap: 8,
+    gap: 5,
   },
   cardTitle: {
     fontSize: 17,

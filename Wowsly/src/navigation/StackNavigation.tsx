@@ -15,29 +15,30 @@ import ModeSelection from '../screens/Mode/ModeSelection';
 import HostDashboard from '../screens/DashBoards/HostDashboard';
 import OfflineDashboard from '../screens/DashBoards/OfflineDashboard';
 import QrCode from '../screens/Scanner/QrCode';
+import OnlineGuestList from '../screens/GuestList/OnlineGuestList';
 const Stack = createNativeStackNavigator();
 const StackNavigation = () => {
   return (
-<Stack.Navigator screenOptions={{ headerShown: false }}>
-    <Stack.Screen name="Splash" component={Splash} />
-    <Stack.Screen name="Number" component={Number} />
-    <Stack.Screen name='Otp' component={Otp}/>
-    <Stack.Screen name='EventListing' component={EventListing}/>
-    <Stack.Screen name="BottomNav" component={BottomNavigation} />
-    <Stack.Screen name='EventDashboard' component={EventDashboard}/>
-    <Stack.Screen name='GuestList' component={GuestList}/>
-    <Stack.Screen name='ManagerGuests' component={ManagerGuests}/>
-    <Stack.Screen name='InvitedGuests' component={InvitedGuests}/>
-    <Stack.Screen name='RegisteredGuests' component={RegisteredGuests}/>
-    <Stack.Screen name='ModeSelection' component={ModeSelection}/>
-    <Stack.Screen name='HostDashboard' component={HostDashboard}/>
-    <Stack.Screen name='OfflineDashboard' component={OfflineDashboard}/>
-    <Stack.Screen name='QrCode' component={QrCode}/>
+    <Stack.Navigator screenOptions={{ headerShown: false }}>
+      <Stack.Screen name="Splash" component={Splash} />
+      <Stack.Screen name="Number" component={Number} />
+      <Stack.Screen name='Otp' component={Otp} />
+      <Stack.Screen name='EventListing' component={EventListing} />
+      <Stack.Screen name="BottomNav" component={BottomNavigation} />
+      <Stack.Screen name='EventDashboard' component={EventDashboard} />
+      <Stack.Screen name='GuestList' component={GuestList} />
+      <Stack.Screen name='ManagerGuests' component={ManagerGuests} />
+      <Stack.Screen name='InvitedGuests' component={InvitedGuests} />
+      <Stack.Screen name='RegisteredGuests' component={RegisteredGuests} />
+      <Stack.Screen name='ModeSelection' component={ModeSelection} />
+      <Stack.Screen name='HostDashboard' component={HostDashboard} />
+      <Stack.Screen name='OfflineDashboard' component={OfflineDashboard} />
+      <Stack.Screen name='QrCode' component={QrCode} />
+      <Stack.Screen name='OnlineGuestList' component={OnlineGuestList} />
 
-    
-</Stack.Navigator>
+
+    </Stack.Navigator>
   )
 }
 
 export default StackNavigation
-

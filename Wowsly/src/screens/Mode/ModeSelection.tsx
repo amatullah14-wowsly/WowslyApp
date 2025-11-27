@@ -63,6 +63,7 @@ const ModeSelection = () => {
   const navigation = useNavigation<any>();
   const route = useRoute<ModeSelectionRoute>();
   const [roleModalVisible, setRoleModalVisible] = useState(false);
+  const [onlineModeModalVisible, setOnlineModeModalVisible] = useState(false);
 
   const eventTitle = route.params?.eventTitle ?? 'Selected Event';
   const eventId = route.params?.eventId;
@@ -73,6 +74,19 @@ const ModeSelection = () => {
 
   const handleOfflinePress = () => {
     navigation.navigate('OfflineDashboard', { eventTitle, eventId });
+  };
+
+  const handleOnlinePress = () => {
+    setOnlineModeModalVisible(true);
+  };
+
+  const handleOnlineOptionPick = (option: 'QR_SCAN' | 'GUEST_LIST') => {
+    setOnlineModeModalVisible(false);
+    if (option === 'QR_SCAN') {
+      navigation.navigate('QrCode', { eventTitle, modeTitle: 'Online Mode', eventId });
+    } else if (option === 'GUEST_LIST') {
+      navigation.navigate('OnlineGuestList', { eventTitle, eventId });
+    }
   };
 
   const handleRolePick = (role: 'Host' | 'Client') => {
@@ -115,7 +129,7 @@ const ModeSelection = () => {
                 } else if (mode.id === 'offline') {
                   handleOfflinePress();
                 } else if (mode.id === 'online') {
-                  navigation.navigate('QrCode', { eventTitle, modeTitle: 'Online Mode' });
+                  handleOnlinePress();
                 }
               }}
             >
@@ -181,6 +195,48 @@ const ModeSelection = () => {
             <TouchableOpacity
               style={styles.modalCancel}
               onPress={() => setRoleModalVisible(false)}
+            >
+              <Text style={styles.modalCancelText}>Cancel</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      <Modal
+        transparent
+        visible={onlineModeModalVisible}
+        animationType="fade"
+        onRequestClose={() => setOnlineModeModalVisible(false)}
+      >
+        <View style={styles.modalBackdrop}>
+          <View style={styles.modalCard}>
+            <Text style={styles.modalTitle}>Online Mode Options</Text>
+            <Text style={styles.modalSubtitle}>
+              Choose how you want to proceed
+            </Text>
+            <View style={styles.modalOptions}>
+              <TouchableOpacity
+                style={styles.modalOption}
+                onPress={() => handleOnlineOptionPick('QR_SCAN')}
+              >
+                <Text style={styles.modalOptionTitle}>QR Scan</Text>
+                <Text style={styles.modalOptionSubtitle}>
+                  Start scanning QR codes for real-time validation.
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.modalOption}
+                onPress={() => handleOnlineOptionPick('GUEST_LIST')}
+              >
+                <Text style={styles.modalOptionTitle}>Get Guest List</Text>
+                <Text style={styles.modalOptionSubtitle}>
+                  View invited and registered guests for this event.
+                </Text>
+              </TouchableOpacity>
+            </View>
+            <TouchableOpacity
+              style={styles.modalCancel}
+              onPress={() => setOnlineModeModalVisible(false)}
             >
               <Text style={styles.modalCancelText}>Cancel</Text>
             </TouchableOpacity>

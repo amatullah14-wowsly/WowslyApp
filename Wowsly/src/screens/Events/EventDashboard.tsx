@@ -258,7 +258,7 @@ const styles = StyleSheet.create({
     },
 
     eventCardTitle: {
-        fontSize: 20,
+        fontSize: 18,
         fontWeight: '700',
         color: '#111',
     },
