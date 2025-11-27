@@ -23,9 +23,13 @@ const Past = () => {
     const allEvents = res?.data || []
 
     // Filter: Show only Past events (End Date < Today)
-    const today = new Date().toISOString().split('T')[0]
+    const date = new Date();
+    const today = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+
     const filteredEvents = allEvents.filter((event: any) => {
-      return event.end_date < today
+      if (!event.end_date) return false;
+      const endDate = event.end_date.split('T')[0];
+      return endDate < today;
     })
 
     setEvents(filteredEvents)

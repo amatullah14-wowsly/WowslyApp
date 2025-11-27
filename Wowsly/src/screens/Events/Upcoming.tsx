@@ -23,9 +23,13 @@ const Upcoming = () => {
     const allEvents = res?.data || []
 
     // Filter: Show only Future events (Start Date > Today)
-    const today = new Date().toISOString().split('T')[0]
+    const date = new Date();
+    const today = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+
     const filteredEvents = allEvents.filter((event: any) => {
-      return event.start_date > today
+      if (!event.start_date) return false;
+      const startDate = event.start_date.split('T')[0];
+      return startDate > today;
     })
 
     setEvents(filteredEvents)

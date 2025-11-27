@@ -33,3 +33,22 @@ export const verifyOTP = async (dialing_code, mobile, otp) => {
     return { status: false, message: "Verify API failed" };
   }
 };
+export const verifyQRCode = async (eventId, qrGuestUuid) => {
+  try {
+    const response = await client.post(
+      `/events/${eventId}/eventuser/verifyqrcode`,
+      {
+        qrGuestUuid: qrGuestUuid
+      }
+    );
+
+    return response.data;
+  } catch (error) {
+    console.log(
+      "VERIFY QR CODE ERROR:",
+      error.response?.data || error.message
+    );
+    return { status: false, message: "QR verification failed" };
+  }
+};
+

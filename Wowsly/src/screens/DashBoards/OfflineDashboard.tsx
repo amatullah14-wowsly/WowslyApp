@@ -148,10 +148,13 @@ const OfflineDashboard = () => {
                 setSelectedCard('scan');
                 navigation.navigate('QrCode', {
                   modeTitle: 'Offline Mode',
-                  eventTitle: 'Offline Event'
+                  eventTitle: 'Offline Event',
+                  eventId: eventId,   // 👈 Pass correct event ID
+                  offline: true       // 👈 Tell QR screen that this is offline mode
                 });
               }}
             />
+
           </View>
           <View style={styles.cardItem}>
             <OfflineCard

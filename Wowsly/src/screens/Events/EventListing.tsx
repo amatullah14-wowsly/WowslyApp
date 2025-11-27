@@ -36,12 +36,16 @@ const EventListing = () => {
     const allEvents = res?.data || [];
 
     // Filter: Show only "current" events (events happening today)
-    // Current = event has started AND not yet ended on today's date
-    const today = new Date().toISOString().split('T')[0];
+    // Current = event has started AND not yet ended (inclusive of today)
+    const date = new Date();
+    const today = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+
     const filteredEvents = allEvents.filter((event: any) => {
-      const startDate = event.start_date;
-      const endDate = event.end_date;
+      const startDate = event.start_date ? event.start_date.split('T')[0] : null;
+      const endDate = event.end_date ? event.end_date.split('T')[0] : null;
+
       if (!startDate || !endDate) return false;
+
       return startDate <= today && endDate >= today;
     });
 

@@ -12,30 +12,46 @@ import {
   Platform,
 } from 'react-native'
 import { RouteProp, useRoute } from '@react-navigation/native'
-import { Camera, CameraType } from 'react-native-camera-kit'
+import { Camera } from 'react-native-camera-kit'
+import { verifyQRCode } from '../../api/api'
 
+// --------------- ROUTE TYPE UPDATED ----------------
 type QrCodeRoute = RouteProp<
   {
     QrCode: {
       eventTitle?: string
       modeTitle?: string
+      eventId: number          // 👈 ADDED DYNAMIC EVENT ID
     }
   },
   'QrCode'
 >
 
+// Icons
 const OFFLINE_ICON = require('../../assets/img/common/offline.png')
 const TORCH_ON_ICON = require('../../assets/img/common/torchon.png')
 const TORCH_OFF_ICON = require('../../assets/img/common/torchoff.png')
 
 const QrCode = () => {
   const route = useRoute<QrCodeRoute>()
+
   const [flashOn, setFlashOn] = useState(false)
   const [hasPermission, setHasPermission] = useState(false)
   const [scannedValue, setScannedValue] = useState<string | null>(null)
+  const [guestData, setGuestData] = useState<any>(null)
+  const [isVerifying, setIsVerifying] = useState(false)
 
   const modeTitle = route.params?.modeTitle ?? 'Offline Mode'
   const eventTitle = route.params?.eventTitle ?? 'Untitled Event'
+
+  // ⭐⭐⭐ DYNAMIC EVENT ID ⭐⭐⭐
+  const eventId = route.params?.eventId ?? 0
+
+  useEffect(() => {
+    if (!eventId) {
+      Alert.alert("Error", "Invalid Event ID passed to QR scanner")
+    }
+  }, [eventId])
 
   useEffect(() => {
     const requestCameraPermission = async () => {
@@ -67,13 +83,50 @@ const QrCode = () => {
     requestCameraPermission()
   }, [])
 
+  // ----------------- QR SCAN HANDLER -----------------
   const onReadCode = (event: any) => {
     const code = event.nativeEvent.codeStringValue
-    if (code && code !== scannedValue) {
-      setScannedValue(code)
-      Alert.alert('QR Code Scanned', `Value: ${code}`, [
-        { text: 'OK', onPress: () => setScannedValue(null) }
-      ])
+
+    if (!code) return
+    if (code === scannedValue) return // avoid duplicate scans
+
+    setScannedValue(code)
+    handleVerifyQR(code)
+  }
+
+  // ----------------- VERIFY QR FUNCTION -----------------
+  const handleVerifyQR = async (qrGuestUuid: string) => {
+    setIsVerifying(true)
+
+    try {
+      const response = await verifyQRCode(eventId, qrGuestUuid)
+      console.log("QR Verification Response:", response)
+
+      if (response?.message === "QR code verified") {
+        const guest = response?.guest_data?.[0] || {}
+
+        setGuestData({
+          name: guest?.name || "Guest",
+          ticketId: guest?.ticket_id || "N/A",
+          status: "VALID ENTRY",
+          isValid: true,
+        })
+      } else {
+        Alert.alert(
+          "Invalid QR Code",
+          response?.message || "QR verification failed",
+          [{ text: "OK", onPress: () => setScannedValue(null) }]
+        )
+        setGuestData(null)
+      }
+    } catch (error) {
+      console.error("QR Verification Error:", error)
+      Alert.alert("Error", "Failed to verify QR code", [
+        { text: "OK", onPress: () => setScannedValue(null) }],
+      )
+      setGuestData(null)
+    } finally {
+      setIsVerifying(false)
     }
   }
 
@@ -131,16 +184,35 @@ const QrCode = () => {
           <View style={styles.sheetHandle} />
           <View style={styles.guestRow}>
             <View>
-              <Text style={styles.guestName}>Alex Johnson</Text>
-              <Text style={styles.ticketId}>Ticket ID: WXYZ-1234</Text>
+              <Text style={styles.guestName}>
+                {isVerifying ? 'Verifying...' : (guestData?.name || 'Alex Johnson')}
+              </Text>
+              <Text style={styles.ticketId}>
+                Ticket ID: {guestData?.ticketId || 'WXYZ-1234'}
+              </Text>
             </View>
-            <View style={styles.statusPill}>
-              <Text style={styles.statusPillText}>VALID ENTRY</Text>
+            <View style={[
+              styles.statusPill,
+              !guestData?.isValid && styles.statusPillInvalid
+            ]}>
+              <Text style={styles.statusPillText}>
+                {guestData?.status || 'VALID ENTRY'}
+              </Text>
             </View>
           </View>
 
-          <TouchableOpacity style={styles.primaryButton} activeOpacity={0.9}>
-            <Text style={styles.primaryButtonText}>Scan Next</Text>
+          <TouchableOpacity
+            style={[styles.primaryButton, isVerifying && styles.primaryButtonDisabled]}
+            activeOpacity={0.9}
+            disabled={isVerifying}
+            onPress={() => {
+              setScannedValue(null)
+              setGuestData(null)
+            }}
+          >
+            <Text style={styles.primaryButtonText}>
+              {isVerifying ? 'Verifying...' : 'Scan Next'}
+            </Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -150,6 +222,7 @@ const QrCode = () => {
 
 export default QrCode
 
+// ----------------- STYLES (UNCHANGED) -----------------
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
@@ -158,14 +231,14 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     paddingHorizontal: 20,
-    paddingTop: 30,
-    backgroundColor: 'transparent', // Changed to transparent to show camera
+    paddingTop: 20,
+    backgroundColor: 'transparent',
   },
   topRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    zIndex: 10, // Ensure it's above camera
+    zIndex: 10,
   },
   modeRow: {
     flexDirection: 'row',
@@ -209,7 +282,7 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    zIndex: 10, // Ensure it's above camera
+    zIndex: 10,
   },
   dashedBox: {
     width: '80%',
@@ -266,7 +339,7 @@ const styles = StyleSheet.create({
     paddingTop: 24,
     paddingBottom: 32,
     gap: 16,
-    zIndex: 10, // Ensure it's above camera
+    zIndex: 10,
   },
   sheetHandle: {
     alignSelf: 'center',
@@ -296,6 +369,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 6,
   },
+  statusPillInvalid: {
+    backgroundColor: '#E74C3C',
+  },
   statusPillText: {
     color: '#FFFFFF',
     fontWeight: '700',
@@ -309,10 +385,12 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingVertical: 14,
   },
+  primaryButtonDisabled: {
+    backgroundColor: '#CCCCCC',
+  },
   primaryButtonText: {
     color: '#FFFFFF',
     fontSize: 16,
     fontWeight: '700',
   },
 })
-
