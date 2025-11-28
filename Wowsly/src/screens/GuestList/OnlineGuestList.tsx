@@ -91,7 +91,7 @@ const OnlineGuestList = () => {
 
     const renderGuest = ({ item }: { item: any }) => {
         const name = item.name || item.first_name + ' ' + item.last_name || 'Guest';
-        const avatar = item.avatar || item.profile_photo || 'https://ui-avatars.com/api/?name=' + name;
+        const avatar = item.avatar || item.profile_photo;
         const status = item.status || activeTab;
 
         const renderRightActions = () => (
@@ -115,7 +115,15 @@ const OnlineGuestList = () => {
                     }}
                 >
                     <View style={styles.guestRow}>
-                        <Image source={{ uri: avatar }} style={styles.avatar} />
+                        {avatar ? (
+                            <Image source={{ uri: avatar }} style={styles.avatar} />
+                        ) : (
+                            <View style={[styles.avatar, styles.avatarPlaceholder]}>
+                                <Text style={styles.avatarPlaceholderText}>
+                                    {name.charAt(0).toUpperCase()}
+                                </Text>
+                            </View>
+                        )}
                         <View style={styles.guestInfo}>
                             <Text style={styles.guestName}>{name}</Text>
                         </View>
@@ -361,10 +369,15 @@ const styles = StyleSheet.create({
     },
     tabContainer: {
         flexDirection: 'row',
-        backgroundColor: '#F5F5F5',
+        backgroundColor: '#FFFFFF',
         borderRadius: 16,
         padding: 4,
         marginBottom: 16,
+        shadowColor: '#000000',
+        shadowOpacity: 0.08,
+        shadowRadius: 8,
+        shadowOffset: { width: 0, height: 2 },
+        elevation: 2,
     },
     tab: {
         flex: 1,
@@ -375,7 +388,7 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
     },
     activeTab: {
-        backgroundColor: '#FFFFFF',
+        backgroundColor: '#FF8A3C',
         shadowColor: '#000000',
         shadowOpacity: 0.08,
         shadowRadius: 8,
@@ -385,20 +398,25 @@ const styles = StyleSheet.create({
     tabText: {
         fontSize: 15,
         fontWeight: '600',
-        color: '#807A74',
+        color: '#FF8A3C',
     },
     activeTabText: {
-        color: '#FF8A3C',
+        color: '#FFFFFF',
         fontWeight: '700',
     },
     searchContainer: {
         flexDirection: 'row',
         alignItems: 'center',
-        backgroundColor: '#F6F6F6',
+        backgroundColor: '#FFFFFF',
         borderRadius: 12,
         paddingHorizontal: 14,
         height: 48,
         marginBottom: 16,
+        shadowColor: '#000000',
+        shadowOpacity: 0.05,
+        shadowRadius: 8,
+        shadowOffset: { width: 0, height: 2 },
+        elevation: 1,
     },
     searchIcon: {
         width: 16,
@@ -439,6 +457,16 @@ const styles = StyleSheet.create({
         height: 40,
         borderRadius: 24,
         marginRight: 16,
+    },
+    avatarPlaceholder: {
+        backgroundColor: '#FF8A3C',
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    avatarPlaceholderText: {
+        fontSize: 18,
+        fontWeight: '600',
+        color: '#FFFFFF',
     },
     guestInfo: {
         flex: 1,

@@ -19,6 +19,11 @@ const Number = () => {
       return;
     }
 
+    if (!acceptedTerms) {
+      Alert.alert("Terms Required", "Please accept the Terms & Conditions to proceed.");
+      return;
+    }
+
     setSendingVia(method);
 
     const callingCode = phoneInput.current?.getCallingCode() || "91";
@@ -287,7 +292,7 @@ const styles = StyleSheet.create({
     color: '#7E7E7E',
     fontSize: 12,
     bottom: 1,
-    
+
   },
   button: {
     width: '85%',

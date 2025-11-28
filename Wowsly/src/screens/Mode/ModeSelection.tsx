@@ -59,29 +59,33 @@ type ModeSelectionRoute = RouteProp<
 
 const BACK_ICON = require('../../assets/img/common/back.png');
 
+const HOST_ICON = require('../../assets/img/Mode/host.png');
+const CLIENT_ICON = require('../../assets/img/Mode/client.png');
+const SCANNER_ICON = require('../../assets/img/Mode/scanner.png');
+const GUEST_LIST_ICON = require('../../assets/img/eventdashboard/guests.png');
+
 const ModeSelection = () => {
   const navigation = useNavigation<any>();
   const route = useRoute<ModeSelectionRoute>();
-  const [roleModalVisible, setRoleModalVisible] = useState(false);
-  const [onlineModeModalVisible, setOnlineModeModalVisible] = useState(false);
+
+  // Track which mode is currently expanded
+  const [expandedMode, setExpandedMode] = useState<string | null>(null);
 
   const eventTitle = route.params?.eventTitle ?? 'Selected Event';
   const eventId = route.params?.eventId;
 
-  const handleConnectionPress = () => {
-    setRoleModalVisible(true);
-  };
-
-  const handleOfflinePress = () => {
-    navigation.navigate('OfflineDashboard', { eventTitle, eventId });
-  };
-
-  const handleOnlinePress = () => {
-    setOnlineModeModalVisible(true);
+  const handleModePress = (modeId: string) => {
+    if (modeId === 'offline') {
+      // Offline mode navigates immediately
+      navigation.navigate('OfflineDashboard', { eventTitle, eventId });
+      setExpandedMode(null);
+    } else {
+      // Toggle expansion for Online and Connection modes
+      setExpandedMode(prev => (prev === modeId ? null : modeId));
+    }
   };
 
   const handleOnlineOptionPick = (option: 'QR_SCAN' | 'GUEST_LIST') => {
-    setOnlineModeModalVisible(false);
     if (option === 'QR_SCAN') {
       navigation.navigate('QrCode', { eventTitle, modeTitle: 'Online Mode', eventId });
     } else if (option === 'GUEST_LIST') {
@@ -90,10 +94,79 @@ const ModeSelection = () => {
   };
 
   const handleRolePick = (role: 'Host' | 'Client') => {
-    setRoleModalVisible(false);
     if (role === 'Host') {
       navigation.navigate('HostDashboard', { eventTitle });
     }
+    // Client logic placeholder
+  };
+
+  const renderSubOptions = (modeId: string) => {
+    if (modeId === 'online') {
+      return (
+        <View style={styles.subOptionsContainer}>
+          <TouchableOpacity
+            style={styles.subOptionCard}
+            onPress={() => handleOnlineOptionPick('QR_SCAN')}
+          >
+            <View style={styles.subOptionIconWrapper}>
+              <Image source={SCANNER_ICON} style={styles.subOptionIcon} />
+            </View>
+            <View style={styles.subOptionText}>
+              <Text style={styles.subOptionTitle}>QR Scan</Text>
+              <Text style={styles.subOptionSubtitle}>Real-time validation</Text>
+            </View>
+            <Text style={styles.subOptionArrow}>→</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.subOptionCard}
+            onPress={() => handleOnlineOptionPick('GUEST_LIST')}
+          >
+            <View style={styles.subOptionIconWrapper}>
+              <Image source={GUEST_LIST_ICON} style={styles.subOptionIcon} />
+            </View>
+            <View style={styles.subOptionText}>
+              <Text style={styles.subOptionTitle}>Get Guest List</Text>
+              <Text style={styles.subOptionSubtitle}>View invited guests</Text>
+            </View>
+            <Text style={styles.subOptionArrow}>→</Text>
+          </TouchableOpacity>
+        </View>
+      );
+    } else if (modeId === 'connection') {
+      return (
+        <View style={styles.subOptionsContainer}>
+          <TouchableOpacity
+            style={styles.subOptionCard}
+            onPress={() => handleRolePick('Host')}
+          >
+            <View style={styles.subOptionIconWrapper}>
+              <Image source={HOST_ICON} style={styles.subOptionIcon} />
+            </View>
+            <View style={styles.subOptionText}>
+              <Text style={styles.subOptionTitle}>Host</Text>
+              <Text style={styles.subOptionSubtitle}>Create local network</Text>
+            </View>
+            <Text style={styles.subOptionArrow}>→</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.subOptionCard}
+            onPress={() => handleRolePick('Client')}
+          >
+            <View style={styles.subOptionIconWrapper}>
+              <Image source={CLIENT_ICON} style={styles.subOptionIcon} />
+            </View>
+            <View style={styles.subOptionText}>
+              <Text style={styles.subOptionTitle}>Client</Text>
+              <Text style={styles.subOptionSubtitle}>Join existing host</Text>
+            </View>
+            <Text style={styles.subOptionArrow}>→</Text>
+          </TouchableOpacity>
+        </View>
+      );
+    }
+    return null;
   };
 
   return (
@@ -118,131 +191,47 @@ const ModeSelection = () => {
         </View>
 
         <View style={styles.cardStack}>
-          {MODES.map((mode) => (
-            <TouchableOpacity
-              key={mode.id}
-              activeOpacity={0.9}
-              style={styles.card}
-              onPress={() => {
-                if (mode.id === 'connection') {
-                  handleConnectionPress();
-                } else if (mode.id === 'offline') {
-                  handleOfflinePress();
-                } else if (mode.id === 'online') {
-                  handleOnlinePress();
-                }
-              }}
-            >
-              <View
-                style={[
-                  styles.modeIconWrapper,
-                  { backgroundColor: mode.accent },
-                ]}
-              >
-                <Image
-                  source={mode.icon}
-                  style={[styles.modeIcon, { tintColor: mode.accentTint }]}
-                />
-              </View>
+          {MODES.map((mode) => {
+            const isExpanded = expandedMode === mode.id;
+            return (
+              <View key={mode.id} style={styles.cardWrapper}>
+                <TouchableOpacity
+                  activeOpacity={0.9}
+                  style={[styles.card, isExpanded && styles.cardExpanded]}
+                  onPress={() => handleModePress(mode.id)}
+                >
+                  <View
+                    style={[
+                      styles.modeIconWrapper,
+                      { backgroundColor: mode.accent },
+                    ]}
+                  >
+                    <Image
+                      source={mode.icon}
+                      style={[styles.modeIcon, { tintColor: mode.accentTint }]}
+                    />
+                  </View>
 
-              <View style={styles.cardText}>
-                <Text style={styles.cardTitle}>{mode.title}</Text>
-                <Text style={styles.cardSubtitle}>{mode.subtitle}</Text>
-              </View>
+                  <View style={styles.cardText}>
+                    <Text style={styles.cardTitle}>{mode.title}</Text>
+                    <Text style={styles.cardSubtitle}>{mode.subtitle}</Text>
+                  </View>
 
-              <Text style={styles.chevron}>›</Text>
-            </TouchableOpacity>
-          ))}
+                  <Text style={[styles.chevron, isExpanded && styles.chevronRotated]}>
+                    ›
+                  </Text>
+                </TouchableOpacity>
+
+                {isExpanded && renderSubOptions(mode.id)}
+              </View>
+            );
+          })}
         </View>
 
         <Text style={styles.footerNote}>
           Most users choose ‘Online’ when internet is stable.
         </Text>
       </View>
-
-      <Modal
-        transparent
-        visible={roleModalVisible}
-        animationType="fade"
-        onRequestClose={() => setRoleModalVisible(false)}
-      >
-        <View style={styles.modalBackdrop}>
-          <View style={styles.modalCard}>
-            <Text style={styles.modalTitle}>Continue as</Text>
-            <Text style={styles.modalSubtitle}>
-              Choose how you want to connect
-            </Text>
-            <View style={styles.modalOptions}>
-              <TouchableOpacity
-                style={styles.modalOption}
-                onPress={() => handleRolePick('Host')}
-              >
-                <Text style={styles.modalOptionTitle}>Host</Text>
-                <Text style={styles.modalOptionSubtitle}>
-                  Create a local network and invite check-in devices.
-                </Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={styles.modalOption}
-                onPress={() => handleRolePick('Client')}
-              >
-                <Text style={styles.modalOptionTitle}>Client</Text>
-                <Text style={styles.modalOptionSubtitle}>
-                  Join an existing host to sync check-in data.
-                </Text>
-              </TouchableOpacity>
-            </View>
-            <TouchableOpacity
-              style={styles.modalCancel}
-              onPress={() => setRoleModalVisible(false)}
-            >
-              <Text style={styles.modalCancelText}>Cancel</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
-
-      <Modal
-        transparent
-        visible={onlineModeModalVisible}
-        animationType="fade"
-        onRequestClose={() => setOnlineModeModalVisible(false)}
-      >
-        <View style={styles.modalBackdrop}>
-          <View style={styles.modalCard}>
-            <Text style={styles.modalTitle}>Online Mode Options</Text>
-            <Text style={styles.modalSubtitle}>
-              Choose how you want to proceed
-            </Text>
-            <View style={styles.modalOptions}>
-              <TouchableOpacity
-                style={styles.modalOption}
-                onPress={() => handleOnlineOptionPick('QR_SCAN')}
-              >
-                <Text style={styles.modalOptionTitle}>QR Scan</Text>
-                <Text style={styles.modalOptionSubtitle}>
-                  Start scanning QR codes for real-time validation.
-                </Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={styles.modalOption}
-                onPress={() => handleOnlineOptionPick('GUEST_LIST')}
-              >
-                <Text style={styles.modalOptionTitle}>Get Guest List</Text>
-                <Text style={styles.modalOptionSubtitle}>
-                  View invited and registered guests for this event.
-                </Text>
-              </TouchableOpacity>
-            </View>
-            <TouchableOpacity
-              style={styles.modalCancel}
-              onPress={() => setOnlineModeModalVisible(false)}
-            >
-              <Text style={styles.modalCancelText}>Cancel</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
     </SafeAreaView>
   );
 };
@@ -252,7 +241,7 @@ export default ModeSelection;
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: 'white',
+    backgroundColor: '#FAFAFA', // Slightly off-white for better contrast
   },
   container: {
     flex: 1,
@@ -307,106 +296,116 @@ const styles = StyleSheet.create({
   cardStack: {
     gap: 16,
   },
-  card: {
-    flexDirection: 'row',
-    alignItems: 'center',
+  cardWrapper: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 28,
-    paddingHorizontal: 20,
-    paddingVertical: 16,
+    borderRadius: 24,
+    overflow: 'hidden',
     shadowColor: '#000000',
-    shadowOpacity: 0.04,
+    shadowOpacity: 0.05,
     shadowRadius: 12,
     shadowOffset: { width: 0, height: 4 },
     elevation: 3,
+    marginBottom: 4, // Spacing between cards
+  },
+  card: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 18,
+  },
+  cardExpanded: {
+    borderBottomWidth: 1,
+    borderBottomColor: '#F5F5F5',
   },
   modeIconWrapper: {
-    width: 64,
-    height: 64,
-    borderRadius: 20,
+    width: 56,
+    height: 56,
+    borderRadius: 18,
     alignItems: 'center',
     justifyContent: 'center',
   },
   modeIcon: {
-    width: 36,
-    height: 36,
+    width: 32,
+    height: 32,
     resizeMode: 'contain',
   },
   cardText: {
     flex: 1,
-    marginHorizontal: 18,
+    marginHorizontal: 16,
   },
   cardTitle: {
-    fontSize: 18,
+    fontSize: 17,
     fontWeight: '700',
     color: '#1F1F1F',
   },
   cardSubtitle: {
     marginTop: 4,
-    fontSize: 14,
+    fontSize: 13,
     color: '#807A74',
+    lineHeight: 18,
   },
   chevron: {
-    fontSize: 28,
+    fontSize: 24,
     color: '#B8B1AA',
+    transform: [{ rotate: '0deg' }],
+  },
+  chevronRotated: {
+    transform: [{ rotate: '90deg' }],
+  },
+  subOptionsContainer: {
+    backgroundColor: '#FAFAFA',
+    padding: 16,
+    gap: 12,
+  },
+  subOptionCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    padding: 14,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#EFEFEF',
+  },
+  subOptionIconWrapper: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    backgroundColor: '#FFF3EB',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 14,
+  },
+  subOptionEmoji: {
+    fontSize: 20,
+  },
+  subOptionIcon: {
+    width: 22,
+    height: 22,
+    resizeMode: 'contain',
+    tintColor: '#FF8A3C',
+  },
+  subOptionText: {
+    flex: 1,
+  },
+  subOptionTitle: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#1F1F1F',
+  },
+  subOptionSubtitle: {
+    fontSize: 12,
+    color: '#888888',
+    marginTop: 2,
+  },
+  subOptionArrow: {
+    fontSize: 18,
+    color: '#FF8A3C',
+    fontWeight: '600',
   },
   footerNote: {
     marginTop: 'auto',
     textAlign: 'center',
     fontSize: 14,
     color: '#A8734A',
-  },
-  modalBackdrop: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.35)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 24,
-  },
-  modalCard: {
-    width: '100%',
-    backgroundColor: '#FFFFFF',
-    borderRadius: 24,
-    padding: 24,
-    gap: 18,
-  },
-  modalTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#1F1F1F',
-  },
-  modalSubtitle: {
-    fontSize: 14,
-    color: '#7C7C7C',
-  },
-  modalOptions: {
-    gap: 12,
-  },
-  modalOption: {
-    borderRadius: 18,
-    borderWidth: 1,
-    borderColor: '#F1E9E1',
-    padding: 16,
-    backgroundColor: '#FFF9F5',
-  },
-  modalOptionTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#1F1F1F',
-    marginBottom: 6,
-  },
-  modalOptionSubtitle: {
-    fontSize: 13,
-    color: '#7C7268',
-    lineHeight: 18,
-  },
-  modalCancel: {
-    alignSelf: 'center',
-    marginTop: 6,
-  },
-  modalCancelText: {
-    fontSize: 15,
-    color: '#FF8A3C',
-    fontWeight: '600',
   },
 });

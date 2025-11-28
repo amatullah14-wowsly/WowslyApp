@@ -1,26 +1,36 @@
-import { FlatList, Image, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native'
-import React, { useMemo, useState, useEffect } from 'react'
-import { useNavigation } from '@react-navigation/native'
-import EventCard from '../../components/EventCard'
-import { getEvents } from '../../api/event'
+import React, { useEffect, useState, useMemo } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  FlatList,
+  TouchableOpacity,
+  Image,
+  TextInput,
+  StatusBar,
+} from 'react-native';
+import { useNavigation } from '@react-navigation/native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import EventCard from '../../components/EventCard';
+import { getEvents } from '../../api/event';
 
 const Past = () => {
-  const navigation = useNavigation<any>()
-  const [events, setEvents] = useState([])
-  const [loading, setLoading] = useState(true)
-  const [page, setPage] = useState(1)
-  const [selectedEventId, setSelectedEventId] = useState<string | null>(null)
+  const navigation = useNavigation<any>();
+  const [events, setEvents] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [page, setPage] = useState(1);
+  const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
 
-  const EVENTS_PER_PAGE = 8
+  const EVENTS_PER_PAGE = 8;
 
   useEffect(() => {
-    fetchEvents()
-  }, [])
+    fetchEvents();
+  }, []);
 
   const fetchEvents = async () => {
-    setLoading(true)
-    const res = await getEvents()
-    const allEvents = res?.data || []
+    setLoading(true);
+    const res = await getEvents();
+    const allEvents = res?.data || [];
 
     // Filter: Show only Past events (End Date < Today)
     const date = new Date();
@@ -30,20 +40,20 @@ const Past = () => {
       if (!event.end_date) return false;
       const endDate = event.end_date.split('T')[0];
       return endDate < today;
-    })
+    });
 
-    setEvents(filteredEvents)
-    setLoading(false)
-  }
+    setEvents(filteredEvents);
+    setLoading(false);
+  };
 
-  const totalPages = Math.ceil(events.length / EVENTS_PER_PAGE)
+  const totalPages = Math.ceil(events.length / EVENTS_PER_PAGE);
   const paginatedEvents = useMemo(() => {
-    const startIndex = (page - 1) * EVENTS_PER_PAGE
-    return events.slice(startIndex, startIndex + EVENTS_PER_PAGE)
-  }, [events, page])
+    const startIndex = (page - 1) * EVENTS_PER_PAGE;
+    return events.slice(startIndex, startIndex + EVENTS_PER_PAGE);
+  }, [events, page]);
 
   const renderCard = ({ item }: { item: any }) => {
-    const isSelected = item.id === selectedEventId
+    const isSelected = item.id === selectedEventId;
 
     // Fallback image
     const imageSource =
@@ -59,12 +69,12 @@ const Past = () => {
         image={imageSource}
         selected={isSelected}
         onPress={() => {
-          setSelectedEventId(item.id)
-          navigation.navigate('EventDashboard' as never, { eventData: item } as never)
+          setSelectedEventId(item.id);
+          navigation.navigate('EventDashboard' as never, { eventData: item } as never);
         }}
       />
-    )
-  }
+    );
+  };
 
   if (loading) {
     return (
@@ -85,6 +95,7 @@ const Past = () => {
           style={styles.emptyImage}
           resizeMode="contain"
         />
+        <Text style={{ fontSize: 16, color: '#888', marginTop: 10 }}>No past events found</Text>
       </View>
     );
   }
@@ -97,12 +108,18 @@ const Past = () => {
           <Text style={styles.headingtxt}>Past Events</Text>
           <TouchableOpacity
             activeOpacity={0.8}
-            onPress={() =>
+            onPress={async () => {
+              try {
+                await AsyncStorage.clear();
+                console.log('AsyncStorage cleared');
+              } catch (e) {
+                console.error('Error clearing storage:', e);
+              }
               navigation.reset({
                 index: 0,
                 routes: [{ name: 'Number' as never }],
-              })
-            }
+              });
+            }}
           >
             <Image
               source={require('../../assets/img/common/logout.png')}
@@ -112,6 +129,7 @@ const Past = () => {
           </TouchableOpacity>
         </View>
       </View>
+
       <View style={styles.searchWrapper}>
         <View style={styles.searchField}>
           <Image
@@ -121,14 +139,16 @@ const Past = () => {
           <TextInput placeholder="Search Event Name" placeholderTextColor="#9E9E9E" style={styles.searchInput} />
         </View>
       </View>
+
       <FlatList
         data={paginatedEvents}
-        keyExtractor={(item) => item.id.toString()}
+        keyExtractor={(item: any) => item.id.toString()}
         renderItem={renderCard}
         extraData={selectedEventId}
         contentContainerStyle={styles.listContent}
         showsVerticalScrollIndicator={false}
       />
+
       <View style={styles.pagination}>
         <TouchableOpacity
           style={[styles.pageButton, page === 1 && styles.pageButtonDisabled]}
@@ -149,8 +169,8 @@ const Past = () => {
         </TouchableOpacity>
       </View>
     </View>
-  )
-}
+  );
+};
 
 export default Past;
 
@@ -262,4 +282,4 @@ const styles = StyleSheet.create({
     width: 220,
     height: 220,
   },
-})
+});

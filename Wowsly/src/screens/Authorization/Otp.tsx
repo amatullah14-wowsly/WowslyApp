@@ -61,6 +61,7 @@ const Otp = () => {
             // ✅ SAVE TOKEN IN ASYNC STORAGE
             // -----------------------------------------
             try {
+                await AsyncStorage.removeItem("auth_token");
                 await AsyncStorage.setItem("auth_token", res?.data?.token);
                 console.log("Token saved:", res?.data?.token);
             } catch (e) {

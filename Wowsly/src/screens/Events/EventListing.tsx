@@ -9,6 +9,7 @@ import {
   View,
   Modal,
 } from "react-native";
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import React, { useEffect, useMemo, useState } from "react";
 import EventCard from "../../components/EventCard";
 import { useNavigation } from "@react-navigation/native";
@@ -36,6 +37,11 @@ const EventListing = () => {
     setLoading(true);
     const res = await getEvents();
     const allEvents = res?.data || [];
+    console.log('Fetched events count:', allEvents.length);
+    if (allEvents.length > 0) {
+      console.log('First event title:', allEvents[0].title);
+      console.log('First event ID:', allEvents[0].id);
+    }
 
     // Filter: Show only "current" events (events happening today)
     // Current = event has started AND not yet ended (inclusive of today)
@@ -156,7 +162,14 @@ const EventListing = () => {
               </TouchableOpacity>
               <TouchableOpacity
                 style={[styles.modalButton, styles.modalButtonConfirm]}
-                onPress={() => {
+                onPress={async () => {
+                  try {
+                    await AsyncStorage.clear();
+                    console.log('AsyncStorage cleared');
+                  } catch (e) {
+                    console.error('Error clearing storage:', e);
+                  }
+
                   setLogoutModalVisible(false);
                   navigation.reset({
                     index: 0,

@@ -69,13 +69,21 @@ const OfflineGuestList = () => {
 
     const renderGuest = ({ item }: { item: any }) => {
         const name = item.name || item.first_name + ' ' + item.last_name || 'Guest';
-        const avatar = item.avatar || item.profile_photo || 'https://ui-avatars.com/api/?name=' + name;
+        const avatar = item.avatar || item.profile_photo;
         // In offline mode, we might not have real-time status, but we can show what we have
         const status = item.status || 'Offline';
 
         return (
             <View style={styles.guestRow}>
-                <Image source={{ uri: avatar }} style={styles.avatar} />
+                {avatar ? (
+                    <Image source={{ uri: avatar }} style={styles.avatar} />
+                ) : (
+                    <View style={[styles.avatar, styles.avatarPlaceholder]}>
+                        <Text style={styles.avatarPlaceholderText}>
+                            {name.charAt(0).toUpperCase()}
+                        </Text>
+                    </View>
+                )}
                 <View style={styles.guestInfo}>
                     <Text style={styles.guestName}>{name}</Text>
                     <Text style={styles.guestDetails}>Ticket ID: {item.ticket_id || item.guest_uuid || 'N/A'}</Text>
@@ -234,6 +242,16 @@ const styles = StyleSheet.create({
         height: 40,
         borderRadius: 24,
         marginRight: 16,
+    },
+    avatarPlaceholder: {
+        backgroundColor: '#FF8A3C',
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    avatarPlaceholderText: {
+        fontSize: 18,
+        fontWeight: '600',
+        color: '#FFFFFF',
     },
     guestInfo: {
         flex: 1,
