@@ -122,6 +122,10 @@ const Number = () => {
             flagButtonStyle={styles.phoneFlagButton}
             countryPickerButtonStyle={styles.phoneCountryButton}
             disableArrowIcon={false}
+            textInputProps={{
+              returnKeyType: 'done',
+              onSubmitEditing: handleSendOTP,
+            }}
           />
           <View style={styles.smsPrompt}>
             <Text style={styles.smsPromptLabel}>Not using WhatsApp?</Text>

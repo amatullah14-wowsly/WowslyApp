@@ -12,10 +12,11 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { GestureHandlerRootView, Swipeable } from 'react-native-gesture-handler';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { Guest, GuestGroup } from './guestData';
 import { getEventUsers, makeGuestManager, makeGuestUser } from '../../api/event';
 import GuestDetailsModal from '../../components/GuestDetailsModal';
+import BackButton from '../../components/BackButton';
 
 export type GuestFilter = 'All' | GuestGroup;
 
@@ -37,7 +38,6 @@ const statusChipStyles: Record<
   'invited': { backgroundColor: '#E0F2F1', color: '#00695C' },
 };
 
-const BACK_ICON = require('../../assets/img/common/back.png');
 const SEARCH_ICON = {
   uri: 'https://img.icons8.com/ios-glyphs/30/969696/search--v1.png',
 };
@@ -61,6 +61,16 @@ const GuestScreenTemplate: React.FC<GuestScreenTemplateProps> = ({
       fetchGuests();
     }
   }, [eventId, activeFilter]);
+
+  // Refresh guest list when screen comes into focus (after QR scanning)
+  useFocusEffect(
+    React.useCallback(() => {
+      if (eventId) {
+        console.log('GuestScreenTemplate focused - refreshing guest data');
+        fetchGuests();
+      }
+    }, [eventId, activeFilter])
+  );
 
   const fetchGuests = async () => {
     setLoading(true);
@@ -177,12 +187,7 @@ const GuestScreenTemplate: React.FC<GuestScreenTemplateProps> = ({
     <SafeAreaView style={styles.safeArea}>
       <StatusBar barStyle="dark-content" backgroundColor="#ffffff" />
       <View style={styles.header}>
-        <TouchableOpacity
-          style={styles.headerButton}
-          onPress={() => navigation.canGoBack() && navigation.goBack()}
-        >
-          <Image source={BACK_ICON} style={styles.headerIcon} />
-        </TouchableOpacity>
+        <BackButton onPress={() => navigation.canGoBack() && navigation.goBack()} />
         <Text style={styles.headerTitle}>Guest List</Text>
         <TouchableOpacity style={styles.headerButton}>
           <Image source={SEARCH_ICON} style={styles.headerIcon} />

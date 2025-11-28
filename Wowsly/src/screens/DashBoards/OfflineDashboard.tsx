@@ -10,12 +10,12 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import OfflineCard from '../../components/OfflineCard';
 import { downloadOfflineData } from '../../api/event';
 import Toast from 'react-native-toast-message';
+import { initDB, insertOrReplaceGuests, getTicketsForEvent } from '../../db';
+import BackButton from '../../components/BackButton';
 
-const BACK_ICON = require('../../assets/img/common/back.png');
 const OFFLINE_ICON = require('../../assets/img/Mode/offlinemode.png');
 const QR_ICON = require('../../assets/img/common/qrcode.png');
 const DOWNLOAD_ICON = require('../../assets/img/Mode/offlinemode.png');
@@ -46,16 +46,16 @@ const OfflineDashboard = () => {
     { id: 'crew', title: 'Crew', total: 10, checkedIn: 1 },
   ];
 
-  // Load saved offline data
+  // Initialize database and load saved offline data
   useEffect(() => {
     const loadOfflineData = async () => {
       if (eventId) {
         try {
-          const savedData = await AsyncStorage.getItem(`offline_guests_${eventId}`);
-          if (savedData) {
-            const parsedData = JSON.parse(savedData);
-            setOfflineData(parsedData);
-            console.log(`Loaded ${parsedData.length} guests`);
+          await initDB();
+          const tickets = await getTicketsForEvent(eventId);
+          if (tickets && tickets.length > 0) {
+            setOfflineData(tickets);
+            console.log(`Loaded ${tickets.length} guests from database`);
           }
         } catch (error) {
           console.error('Error loading offline data:', error);
@@ -76,10 +76,16 @@ const OfflineDashboard = () => {
     }
     setDownloading(true);
     try {
+      await initDB();
       const res = await downloadOfflineData(eventId);
       if (res?.guests_list) {
-        setOfflineData(res.guests_list);
-        await AsyncStorage.setItem(`offline_guests_${eventId}`, JSON.stringify(res.guests_list));
+        // Save to SQLite database
+        await insertOrReplaceGuests(eventId, res.guests_list);
+
+        // Reload from database to update UI
+        const tickets = await getTicketsForEvent(eventId);
+        setOfflineData(tickets);
+
         Toast.show({
           type: 'success',
           text1: 'Success',
@@ -110,13 +116,9 @@ const OfflineDashboard = () => {
 
         {/* HEADER */}
         <View style={styles.header}>
-          <TouchableOpacity
-            style={styles.backButton}
-            onPress={() => navigation.goBack()}
-            activeOpacity={0.7}
-          >
-            <Image source={BACK_ICON} style={styles.backIcon} />
-          </TouchableOpacity>
+          <View style={styles.backButtonContainer}>
+            <BackButton onPress={() => navigation.goBack()} />
+          </View>
           <Text style={styles.headerTitle}>Offline Mode</Text>
         </View>
 
@@ -260,25 +262,11 @@ const styles = StyleSheet.create({
     position: 'relative',
     paddingHorizontal: 20,
   },
-  backButton: {
+  backButtonContainer: {
     position: 'absolute',
     left: 20,
     top: 0,
-    width: 38,
-    height: 38,
-    borderRadius: 20,
-    backgroundColor: '#FFFFFF',
-    borderWidth: 1,
-    borderColor: '#EFE2D9',
-    alignItems: 'center',
-    justifyContent: 'center',
     zIndex: 10,
-  },
-  backIcon: {
-    width: 14,
-    height: 22,
-    resizeMode: 'contain',
-    tintColor: '#1F1F1F',
   },
   headerTitle: {
     fontSize: 20,

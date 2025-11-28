@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react'
 import { useNavigation } from '@react-navigation/native';
 import Grid from '../../components/Grid';
 import { getEventDetails } from '../../api/event';
+import BackButton from '../../components/BackButton';
 
 type EventData = {
     id: string
@@ -55,12 +56,7 @@ const EventDashboard = ({ route }: EventDashboardProps) => {
     return (
         <View style={styles.container}>
             <View style={styles.header}>
-                <TouchableOpacity onPress={() => navigation.goBack()}>
-                    <Image
-                        source={require('../../assets/img/common/back.png')}
-                        style={styles.back}
-                    />
-                </TouchableOpacity>
+                <BackButton onPress={() => navigation.goBack()} />
                 <Text style={styles.title} numberOfLines={1}>
                     {displayData.title}
                 </Text>
@@ -146,10 +142,7 @@ const styles = StyleSheet.create({
         paddingHorizontal: 20,
         position: 'relative',
     },
-    back: {
-        width: 20,
-        height: 30,
-    },
+
     title: {
         fontSize: 20,
         fontWeight: '600',

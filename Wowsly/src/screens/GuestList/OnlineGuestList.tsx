@@ -10,10 +10,11 @@ import {
     TextInput,
     ActivityIndicator,
 } from 'react-native';
-import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
+import { RouteProp, useNavigation, useRoute, useFocusEffect } from '@react-navigation/native';
 import { GestureHandlerRootView, Swipeable } from 'react-native-gesture-handler';
 import { getEventUsers, makeGuestManager, makeGuestUser } from '../../api/event';
 import GuestDetailsModal from '../../components/GuestDetailsModal';
+import BackButton from '../../components/BackButton';
 
 type GuestListRoute = RouteProp<
     {
@@ -25,7 +26,7 @@ type GuestListRoute = RouteProp<
     'OnlineGuestList'
 >;
 
-const BACK_ICON = require('../../assets/img/common/back.png');
+
 const SEARCH_ICON = {
     uri: 'https://img.icons8.com/ios-glyphs/30/969696/search--v1.png',
 };
@@ -62,6 +63,16 @@ const OnlineGuestList = () => {
             fetchGuests();
         }
     }, [eventId, activeTab]);
+
+    // Refresh guest list when screen comes into focus (after QR scanning)
+    useFocusEffect(
+        React.useCallback(() => {
+            if (eventId) {
+                console.log('OnlineGuestList focused - refreshing guest data');
+                fetchGuests();
+            }
+        }, [eventId, activeTab])
+    );
 
     const fetchGuests = async () => {
         setLoading(true);
@@ -147,13 +158,7 @@ const OnlineGuestList = () => {
         <SafeAreaView style={styles.safeArea}>
             <View style={styles.container}>
                 <View style={styles.header}>
-                    <TouchableOpacity
-                        activeOpacity={0.8}
-                        style={styles.iconButton}
-                        onPress={() => navigation.goBack()}
-                    >
-                        <Image source={BACK_ICON} style={styles.backIcon} />
-                    </TouchableOpacity>
+                    <BackButton onPress={() => navigation.goBack()} />
 
                     <Text style={styles.title} numberOfLines={1}>
                         {eventTitle}
@@ -323,22 +328,7 @@ const styles = StyleSheet.create({
         justifyContent: 'space-between',
         marginBottom: 24,
     },
-    iconButton: {
-        width: 40,
-        height: 40,
-        borderRadius: 20,
-        backgroundColor: '#FFFFFF',
-        borderWidth: 1,
-        borderColor: '#EFE8DE',
-        alignItems: 'center',
-        justifyContent: 'center',
-    },
-    backIcon: {
-        width: 14,
-        height: 22,
-        resizeMode: 'contain',
-        tintColor: '#1F1F1F',
-    },
+
     title: {
         flex: 1,
         marginHorizontal: 16,

@@ -11,10 +11,11 @@ import {
   Platform,
 } from 'react-native'
 import Toast from 'react-native-toast-message';
-import AsyncStorage from '@react-native-async-storage/async-storage'
-import { RouteProp, useRoute } from '@react-navigation/native'
+import { initDB, findTicketByQr, updateTicketStatusLocal, getTicketsForEvent } from '../../db'
+import { RouteProp, useRoute, useNavigation } from '@react-navigation/native'
 import { Camera } from 'react-native-camera-kit'
-import { verifyQRCode } from '../../api/api'
+import { verifyQRCode, checkInGuest } from '../../api/api'
+import BackButton from '../../components/BackButton'
 
 // --------------- ROUTE TYPE UPDATED ----------------
 type QrCodeRoute = RouteProp<
@@ -35,6 +36,7 @@ const TORCH_ON_ICON = require('../../assets/img/common/torchon.png')
 const TORCH_OFF_ICON = require('../../assets/img/common/torchoff.png')
 
 const QrCode = () => {
+  const navigation = useNavigation()
   const route = useRoute<QrCodeRoute>()
 
   const [flashOn, setFlashOn] = useState(false)
@@ -117,9 +119,11 @@ const QrCode = () => {
 
   const loadOfflineData = async () => {
     try {
-      const savedData = await AsyncStorage.getItem(`offline_guests_${eventId}`)
-      if (savedData) {
-        setOfflineGuests(JSON.parse(savedData))
+      await initDB()
+      const tickets = await getTicketsForEvent(eventId)
+      if (tickets && tickets.length > 0) {
+        setOfflineGuests(tickets)
+        console.log(`Loaded ${tickets.length} guests from database for offline scanning`)
       }
     } catch (error) {
       console.error("Error loading offline guests:", error)
@@ -130,19 +134,20 @@ const QrCode = () => {
   const handleVerifyQR = async (qrGuestUuid: string) => {
     setIsVerifying(true)
 
-    // 🔴 OFFLINE VERIFICATION
-    // 🔴 OFFLINE VERIFICATION
+    // 🔴 OFFLINE VERIFICATION (SQLite)
     if (isOfflineMode) {
-      console.log("Verifying offline:", qrGuestUuid)
+      console.log("Verifying offline with SQLite:", qrGuestUuid)
 
-      // Simulate a small delay for UX
-      setTimeout(() => {
-        const foundGuest = offlineGuests.find((g: any) => g.guest_uuid === qrGuestUuid)
+      try {
+        const ticket = await findTicketByQr(qrGuestUuid)
 
-        if (foundGuest) {
+        if (ticket) {
+          // Mark as checked-in in local database
+          await updateTicketStatusLocal(qrGuestUuid, 'checked_in')
+
           setGuestData({
-            name: foundGuest.name || "Guest",
-            ticketId: foundGuest.guest_uuid || "N/A", // Using UUID as ticket ID for display
+            name: ticket.guest_name || "Guest",
+            ticketId: ticket.qr_code || "N/A",
             status: "VALID ENTRY (OFFLINE)",
             isValid: true,
           })
@@ -156,8 +161,18 @@ const QrCode = () => {
           setTimeout(() => setScannedValue(null), 2000);
           setGuestData(null)
         }
+      } catch (error) {
+        console.error("Offline verification error:", error)
+        Toast.show({
+          type: 'error',
+          text1: 'Error',
+          text2: 'Failed to verify ticket'
+        });
+        setTimeout(() => setScannedValue(null), 2000);
+        setGuestData(null)
+      } finally {
         setIsVerifying(false)
-      }, 500)
+      }
       return
     }
 
@@ -168,6 +183,14 @@ const QrCode = () => {
 
       if (response?.message === "QR code verified") {
         const guest = response?.guest_data?.[0] || {}
+
+        // Call check-in API to update guest status
+        try {
+          const checkInResponse = await checkInGuest(eventId, guest.id || guest.guest_id)
+          console.log("Check-in Response:", checkInResponse)
+        } catch (checkInError) {
+          console.warn("Check-in API failed, but QR is valid:", checkInError)
+        }
 
         setGuestData({
           name: guest?.name || "Guest",
@@ -217,11 +240,14 @@ const QrCode = () => {
         )}
 
         <View style={styles.topRow}>
-          <View style={styles.modeRow}>
-            <Image source={OFFLINE_ICON} style={styles.modeIcon} />
-            <View>
-              <Text style={styles.modeTitle}>{modeTitle}</Text>
-              <Text style={styles.eventName}>{eventTitle}</Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+            <BackButton onPress={() => navigation.goBack()} />
+            <View style={styles.modeRow}>
+              <Image source={OFFLINE_ICON} style={styles.modeIcon} />
+              <View>
+                <Text style={styles.modeTitle}>{modeTitle}</Text>
+                <Text style={styles.eventName}>{eventTitle}</Text>
+              </View>
             </View>
           </View>
 

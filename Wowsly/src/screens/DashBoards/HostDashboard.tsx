@@ -10,6 +10,7 @@ import {
   Modal,
 } from 'react-native';
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
+import BackButton from '../../components/BackButton';
 
 type HostDashboardRoute = RouteProp<
   {
@@ -20,7 +21,6 @@ type HostDashboardRoute = RouteProp<
   'HostDashboard'
 >;
 
-const BACK_ICON = require('../../assets/img/common/back.png');
 const QR_PLACEHOLDER =
   'https://upload.wikimedia.org/wikipedia/commons/5/5c/Qr-2.png';
 
@@ -97,12 +97,7 @@ const HostDashboard = () => {
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.header}>
-          <TouchableOpacity
-            style={styles.backButton}
-            onPress={() => navigation.goBack()}
-          >
-            <Image source={BACK_ICON} style={styles.backIcon} />
-          </TouchableOpacity>
+          <BackButton onPress={() => navigation.goBack()} />
           <Text style={styles.headerTitle}>{eventTitle}</Text>
           <View style={{ width: 40 }} />
         </View>
@@ -188,25 +183,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     // marginBottom: 15,
-    gap:8,
-    marginTop:15,
-    marginBottom:20,
-  },
-  backButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: '#FFFFFF',
-    borderWidth: 1,
-    borderColor: '#EFE8DE',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  backIcon: {
-    width: 14,
-    height: 22,
-    tintColor: '#1F1F1F',
-    resizeMode: 'contain',
+    gap: 8,
+    marginTop: 15,
+    marginBottom: 20,
   },
   headerTitle: {
     flex: 1,

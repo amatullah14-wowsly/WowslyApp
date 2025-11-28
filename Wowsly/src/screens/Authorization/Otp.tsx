@@ -118,6 +118,10 @@ const Otp = () => {
                             pinCodeContainerStyle: styles.otpBox,
                             pinCodeTextStyle: styles.otpText,
                         }}
+                        onFilled={(code) => {
+                            setOtp(code);
+                            handleVerify();
+                        }}
                     />
                 </View>
 

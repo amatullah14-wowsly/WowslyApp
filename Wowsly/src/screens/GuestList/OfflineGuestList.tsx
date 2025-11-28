@@ -10,8 +10,9 @@ import {
     TextInput,
     ActivityIndicator,
 } from 'react-native';
-import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { RouteProp, useNavigation, useRoute, useFocusEffect } from '@react-navigation/native';
+import { initDB, getTicketsForEvent } from '../../db';
+import BackButton from '../../components/BackButton';
 
 type OfflineGuestListRoute = RouteProp<
     {
@@ -23,7 +24,7 @@ type OfflineGuestListRoute = RouteProp<
     'OfflineGuestList'
 >;
 
-const BACK_ICON = require('../../assets/img/common/back.png');
+
 const SEARCH_ICON = {
     uri: 'https://img.icons8.com/ios-glyphs/30/969696/search--v1.png',
 };
@@ -46,9 +47,11 @@ const OfflineGuestList = () => {
 
     const loadOfflineData = async () => {
         try {
-            const savedData = await AsyncStorage.getItem(`offline_guests_${eventId}`);
-            if (savedData) {
-                setGuests(JSON.parse(savedData));
+            await initDB();
+            const tickets = await getTicketsForEvent(eventId);
+            if (tickets && tickets.length > 0) {
+                setGuests(tickets);
+                console.log(`Loaded ${tickets.length} guests from database for offline guest list`);
             }
         } catch (error) {
             console.error('Error loading offline guests:', error);
@@ -56,6 +59,17 @@ const OfflineGuestList = () => {
             setLoading(false);
         }
     };
+
+    // Refresh guest list when screen comes into focus (after QR scanning)
+    useFocusEffect(
+        React.useCallback(() => {
+            if (eventId) {
+                console.log('OfflineGuestList focused - refreshing guest data from database');
+                setLoading(true);
+                loadOfflineData();
+            }
+        }, [eventId])
+    );
 
     const filteredGuests = useMemo(() => {
         return guests.filter((guest) => {
@@ -68,10 +82,10 @@ const OfflineGuestList = () => {
     }, [guests, searchQuery]);
 
     const renderGuest = ({ item }: { item: any }) => {
-        const name = item.name || item.first_name + ' ' + item.last_name || 'Guest';
+        const name = item.guest_name || item.name || item.first_name + ' ' + item.last_name || 'Guest';
         const avatar = item.avatar || item.profile_photo;
-        // In offline mode, we might not have real-time status, but we can show what we have
-        const status = item.status || 'Offline';
+        // Show status from database
+        const status = item.status === 'checked_in' ? 'Checked In' : 'Pending';
 
         return (
             <View style={styles.guestRow}>
@@ -86,7 +100,7 @@ const OfflineGuestList = () => {
                 )}
                 <View style={styles.guestInfo}>
                     <Text style={styles.guestName}>{name}</Text>
-                    <Text style={styles.guestDetails}>Ticket ID: {item.ticket_id || item.guest_uuid || 'N/A'}</Text>
+                    <Text style={styles.guestDetails}>Ticket ID: {item.qr_code || item.ticket_id || item.guest_uuid || 'N/A'}</Text>
                 </View>
                 <View style={styles.statusChip}>
                     <Text style={styles.statusChipText}>{status}</Text>
@@ -99,13 +113,7 @@ const OfflineGuestList = () => {
         <SafeAreaView style={styles.safeArea}>
             <View style={styles.container}>
                 <View style={styles.header}>
-                    <TouchableOpacity
-                        activeOpacity={0.8}
-                        style={styles.iconButton}
-                        onPress={() => navigation.goBack()}
-                    >
-                        <Image source={BACK_ICON} style={styles.backIcon} />
-                    </TouchableOpacity>
+                    <BackButton onPress={() => navigation.goBack()} />
 
                     <Text style={styles.title} numberOfLines={1}>
                         Offline Guest List
@@ -173,22 +181,7 @@ const styles = StyleSheet.create({
         justifyContent: 'space-between',
         marginBottom: 24,
     },
-    iconButton: {
-        width: 40,
-        height: 40,
-        borderRadius: 20,
-        backgroundColor: '#FFFFFF',
-        borderWidth: 1,
-        borderColor: '#EFE8DE',
-        alignItems: 'center',
-        justifyContent: 'center',
-    },
-    backIcon: {
-        width: 14,
-        height: 22,
-        resizeMode: 'contain',
-        tintColor: '#1F1F1F',
-    },
+
     title: {
         flex: 1,
         marginHorizontal: 16,

@@ -9,6 +9,7 @@ import {
   Modal,
 } from 'react-native';
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
+import BackButton from '../../components/BackButton';
 
 type ModeInfo = {
   id: string;
@@ -56,8 +57,6 @@ type ModeSelectionRoute = RouteProp<
   },
   'ModeSelection'
 >;
-
-const BACK_ICON = require('../../assets/img/common/back.png');
 
 const HOST_ICON = require('../../assets/img/Mode/host.png');
 const CLIENT_ICON = require('../../assets/img/Mode/client.png');
@@ -173,13 +172,7 @@ const ModeSelection = () => {
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.container}>
         <View style={styles.header}>
-          <TouchableOpacity
-            activeOpacity={0.8}
-            style={styles.iconButton}
-            onPress={() => navigation.goBack()}
-          >
-            <Image source={BACK_ICON} style={styles.backIcon} />
-          </TouchableOpacity>
+          <BackButton onPress={() => navigation.goBack()} />
 
           <Text style={styles.title} numberOfLines={1}>
             {eventTitle}
@@ -254,22 +247,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     marginBottom: 32,
-  },
-  iconButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: '#FFFFFF',
-    borderWidth: 1,
-    borderColor: '#EFE8DE',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  backIcon: {
-    width: 14,
-    height: 22,
-    resizeMode: 'contain',
-    tintColor: '#1F1F1F',
   },
   title: {
     flex: 1,
