@@ -8,12 +8,12 @@ import {
   TouchableOpacity,
   View,
   ActivityIndicator,
-  Alert,
 } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import OfflineCard from '../../components/OfflineCard';
 import { downloadOfflineData } from '../../api/event';
+import Toast from 'react-native-toast-message';
 
 const BACK_ICON = require('../../assets/img/common/back.png');
 const OFFLINE_ICON = require('../../assets/img/Mode/offlinemode.png');
@@ -67,7 +67,11 @@ const OfflineDashboard = () => {
 
   const handleDownloadData = async () => {
     if (!eventId) {
-      Alert.alert('Error', 'No event ID');
+      Toast.show({
+        type: 'error',
+        text1: 'Error',
+        text2: 'No event ID'
+      });
       return;
     }
     setDownloading(true);
@@ -76,13 +80,25 @@ const OfflineDashboard = () => {
       if (res?.guests_list) {
         setOfflineData(res.guests_list);
         await AsyncStorage.setItem(`offline_guests_${eventId}`, JSON.stringify(res.guests_list));
-        Alert.alert('Success', `Downloaded ${res.guests_list.length} guests`);
+        Toast.show({
+          type: 'success',
+          text1: 'Success',
+          text2: `Downloaded ${res.guests_list.length} guests`
+        });
       } else {
-        Alert.alert('Error', res?.message || 'Failed to download');
+        Toast.show({
+          type: 'error',
+          text1: 'Error',
+          text2: res?.message || 'Failed to download'
+        });
       }
     } catch (err) {
       console.error(err);
-      Alert.alert('Error', 'Download failed');
+      Toast.show({
+        type: 'error',
+        text1: 'Error',
+        text2: 'Download failed'
+      });
     } finally {
       setDownloading(false);
     }

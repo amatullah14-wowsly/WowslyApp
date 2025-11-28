@@ -1,4 +1,5 @@
-import { Image, StyleSheet, Text, View, TouchableOpacity, Alert } from 'react-native'
+import { Image, StyleSheet, Text, View, TouchableOpacity } from 'react-native'
+import Toast from 'react-native-toast-message';
 import React, { useState, useEffect } from 'react'
 import { OtpInput } from 'react-native-otp-entry'
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native'
@@ -40,7 +41,11 @@ const Otp = () => {
         setResendTimer(30);
         await sendOTP(dialing_code, mobile);
 
-        Alert.alert("Success", "OTP resent successfully");
+        Toast.show({
+            type: 'success',
+            text1: 'Success',
+            text2: 'OTP resent successfully'
+        });
     }
 
     // ------------------------------
@@ -48,7 +53,11 @@ const Otp = () => {
     // ------------------------------
     const handleVerify = async () => {
         if (otp.length < 4) {
-            Alert.alert("Error", "Enter valid OTP");
+            Toast.show({
+                type: 'error',
+                text1: 'Error',
+                text2: 'Enter valid OTP'
+            });
             return;
         }
 
@@ -68,15 +77,19 @@ const Otp = () => {
                 console.log("Token save error:", e);
             }
 
-            Alert.alert("Success", "OTP Verified!", [
-                {
-                    text: "OK",
-                    onPress: () => navigation.navigate("BottomNav")
-                }
-            ]);
+            Toast.show({
+                type: 'success',
+                text1: 'Success',
+                text2: 'OTP Verified!'
+            });
+            navigation.navigate("BottomNav");
         } else {
             console.log("OTP Verification Failed:", res);
-            Alert.alert("Error", res?.message || "Invalid OTP");
+            Toast.show({
+                type: 'error',
+                text1: 'Error',
+                text2: res?.message || "Invalid OTP"
+            });
         }
     }
 

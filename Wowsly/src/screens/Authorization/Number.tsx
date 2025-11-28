@@ -1,4 +1,5 @@
-import { StyleSheet, Text, View, TouchableOpacity, Image, Alert } from 'react-native'
+import { StyleSheet, Text, View, TouchableOpacity, Image } from 'react-native'
+import Toast from 'react-native-toast-message';
 import React, { useRef, useState } from 'react'
 import { useNavigation } from '@react-navigation/native';
 import PhoneNumberInput from 'react-native-phone-number-input';
@@ -15,12 +16,20 @@ const Number = () => {
   const triggerOtp = async (method: 'whatsapp' | 'sms') => {
     const checkValid = phoneInput.current?.isValidNumber(value);
     if (!value || !checkValid) {
-      Alert.alert("Error", "Please enter a valid phone number");
+      Toast.show({
+        type: 'error',
+        text1: 'Error',
+        text2: 'Please enter a valid phone number'
+      });
       return;
     }
 
     if (!acceptedTerms) {
-      Alert.alert("Terms Required", "Please accept the Terms & Conditions to proceed.");
+      Toast.show({
+        type: 'error',
+        text1: 'Terms Required',
+        text2: 'Please accept the Terms & Conditions to proceed.'
+      });
       return;
     }
 
@@ -38,30 +47,33 @@ const Number = () => {
       if (res?.status_code === 200) {
         console.log("OTP Sent Successfully, navigating to Otp screen with:", { callingCode, phoneNumber, method });
         const channelLabel = method === 'sms' ? 'SMS' : 'WhatsApp';
-        Alert.alert(
-          "Success",
-          `OTP sent via ${channelLabel}!`,
-          [
-            {
-              text: "OK",
-              onPress: () => {
-                console.log("OK Pressed, navigating...");
-                navigation.navigate("Otp", {
-                  dialing_code: callingCode,
-                  mobile: phoneNumber,
-                });
-              }
-            },
-          ]
-        );
+
+        Toast.show({
+          type: 'success',
+          text1: 'Success',
+          text2: `OTP sent via ${channelLabel}!`
+        });
+
+        navigation.navigate("Otp", {
+          dialing_code: callingCode,
+          mobile: phoneNumber,
+        });
 
       } else {
         console.log("OTP Send Failed:", res);
-        Alert.alert("Error", res?.message || "Failed to send OTP");
+        Toast.show({
+          type: 'error',
+          text1: 'Error',
+          text2: res?.message || "Failed to send OTP"
+        });
       }
     } catch (error) {
       console.log("OTP Send Failed:", error);
-      Alert.alert("Error", "Failed to send OTP");
+      Toast.show({
+        type: 'error',
+        text1: 'Error',
+        text2: "Failed to send OTP"
+      });
     } finally {
       setSendingVia(null);
     }

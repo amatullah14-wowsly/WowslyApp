@@ -7,10 +7,10 @@ import {
   TouchableOpacity,
   View,
   Image,
-  Alert,
   PermissionsAndroid,
   Platform,
 } from 'react-native'
+import Toast from 'react-native-toast-message';
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import { RouteProp, useRoute } from '@react-navigation/native'
 import { Camera } from 'react-native-camera-kit'
@@ -51,7 +51,11 @@ const QrCode = () => {
 
   useEffect(() => {
     if (!eventId) {
-      Alert.alert("Error", "Invalid Event ID passed to QR scanner")
+      Toast.show({
+        type: 'error',
+        text1: 'Error',
+        text2: 'Invalid Event ID passed to QR scanner'
+      });
     }
   }, [eventId])
 
@@ -72,7 +76,11 @@ const QrCode = () => {
           if (granted === PermissionsAndroid.RESULTS.GRANTED) {
             setHasPermission(true)
           } else {
-            Alert.alert('Permission Denied', 'Camera permission is required to scan QR codes.')
+            Toast.show({
+              type: 'error',
+              text1: 'Permission Denied',
+              text2: 'Camera permission is required to scan QR codes.'
+            });
           }
         } catch (err) {
           console.warn(err)
@@ -123,6 +131,7 @@ const QrCode = () => {
     setIsVerifying(true)
 
     // 🔴 OFFLINE VERIFICATION
+    // 🔴 OFFLINE VERIFICATION
     if (isOfflineMode) {
       console.log("Verifying offline:", qrGuestUuid)
 
@@ -138,11 +147,13 @@ const QrCode = () => {
             isValid: true,
           })
         } else {
-          Alert.alert(
-            "Invalid QR Code",
-            "Guest not found in offline database",
-            [{ text: "OK", onPress: () => setScannedValue(null) }]
-          )
+          Toast.show({
+            type: 'error',
+            text1: 'Invalid QR Code',
+            text2: 'Guest not found in offline database'
+          });
+          // Reset scan after delay to allow reading toast
+          setTimeout(() => setScannedValue(null), 2000);
           setGuestData(null)
         }
         setIsVerifying(false)
@@ -165,18 +176,22 @@ const QrCode = () => {
           isValid: true,
         })
       } else {
-        Alert.alert(
-          "Invalid QR Code",
-          response?.message || "QR verification failed",
-          [{ text: "OK", onPress: () => setScannedValue(null) }]
-        )
+        Toast.show({
+          type: 'error',
+          text1: 'Invalid QR Code',
+          text2: response?.message || "QR verification failed"
+        });
+        setTimeout(() => setScannedValue(null), 2000);
         setGuestData(null)
       }
     } catch (error) {
       console.error("QR Verification Error:", error)
-      Alert.alert("Error", "Failed to verify QR code", [
-        { text: "OK", onPress: () => setScannedValue(null) }],
-      )
+      Toast.show({
+        type: 'error',
+        text1: 'Error',
+        text2: 'Failed to verify QR code'
+      });
+      setTimeout(() => setScannedValue(null), 2000);
       setGuestData(null)
     } finally {
       setIsVerifying(false)

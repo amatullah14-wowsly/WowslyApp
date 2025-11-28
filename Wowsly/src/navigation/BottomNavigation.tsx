@@ -1,5 +1,5 @@
 import React from "react";
-import { Text } from "react-native";
+import { Image } from "react-native";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import EventListing from "../screens/Events/EventListing";
 import Upcoming from "../screens/Events/Upcoming";
@@ -13,18 +13,24 @@ const BottomNavigation = () => {
             screenOptions={({ route }) => ({
                 headerShown: false,
                 tabBarIcon: ({ color, size }) => {
-                    let iconChar = "●";
+                    let iconSource;
                     if (route.name === "Current") {
-                        iconChar = "📅";
+                        iconSource = require('../assets/img/bottombar/current.png');
                     } else if (route.name === "Upcoming") {
-                        iconChar = "⏳";
+                        iconSource = require('../assets/img/bottombar/upcoming.png');
                     } else if (route.name === "Past") {
-                        iconChar = "🕓";
+                        iconSource = require('../assets/img/bottombar/past.png');
                     }
                     return (
-                        <Text style={{ fontSize: 15, color }}>
-                            {iconChar}
-                        </Text>
+                        <Image
+                            source={iconSource}
+                            style={{
+                                width: 20,
+                                height: 20 ,
+                                tintColor: color,
+                                resizeMode: 'contain'
+                            }}
+                        />
                     );
                 },
                 tabBarActiveTintColor: "#FF8A3C",
