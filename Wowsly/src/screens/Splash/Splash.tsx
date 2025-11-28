@@ -1,6 +1,7 @@
 import React, { useEffect, useRef } from 'react';
 import { View, Image, ImageBackground, StyleSheet, Animated } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
+import { initDB } from '../../db';
 
 const Splash = () => {
 
@@ -8,14 +9,22 @@ const Splash = () => {
   const navigation = useNavigation();
 
   useEffect(() => {
-    Animated.timing(fadeAnim, {
-      toValue: 1,
-      duration: 3500,   // slow fade
-      useNativeDriver: true,
-    }).start(() => {
-      // 🔥 Runs AFTER fade is complete
-        navigation.replace('Number');  
-    });
+    const startApp = async () => {
+      const animPromise = new Promise<void>(resolve => {
+        Animated.timing(fadeAnim, {
+          toValue: 1,
+          duration: 1000,
+          useNativeDriver: true,
+        }).start(() => resolve());
+      });
+
+      const dbPromise = initDB().catch(err => console.error('DB Init Failed:', err));
+
+      await Promise.all([animPromise, dbPromise]);
+      navigation.replace('Number');
+    };
+
+    startApp();
   }, []);
 
   return (

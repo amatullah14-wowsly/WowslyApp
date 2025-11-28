@@ -8,6 +8,7 @@ import {
   TouchableOpacity,
   View,
   Modal,
+  RefreshControl,
 } from "react-native";
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import React, { useEffect, useMemo, useState } from "react";
@@ -21,6 +22,7 @@ const EventListing = () => {
   // 🔥 Live events from API
   const [events, setEvents] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
 
   const [page, setPage] = useState(1);
   const [selectedEventId, setSelectedEventId] = useState(null);
@@ -33,9 +35,9 @@ const EventListing = () => {
     fetchEvents();
   }, []);
 
-  const fetchEvents = async () => {
-    setLoading(true);
-    const res = await getEvents();
+  const fetchEvents = async (force = false) => {
+    if (!force) setLoading(true);
+    const res = await getEvents(force);
     const allEvents = res?.data || [];
     console.log('Fetched events count:', allEvents.length);
     if (allEvents.length > 0) {
@@ -59,6 +61,12 @@ const EventListing = () => {
 
     setEvents(filteredEvents);
     setLoading(false);
+    setRefreshing(false);
+  };
+
+  const onRefresh = () => {
+    setRefreshing(true);
+    fetchEvents(true);
   };
 
   // Pagination
@@ -214,6 +222,9 @@ const EventListing = () => {
         renderItem={renderCard}
         contentContainerStyle={styles.listContent}
         showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#FF8A3C']} />
+        }
       />
 
       {/* Pagination */}

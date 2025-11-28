@@ -1,8 +1,21 @@
 import client from "./client";
 
-export const getEvents = async () => {
+// Simple in-memory cache
+let eventsCache = null;
+let lastFetchTime = 0;
+const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
+
+export const getEvents = async (forceRefresh = false) => {
+    const now = Date.now();
+    if (!forceRefresh && eventsCache && (now - lastFetchTime < CACHE_DURATION)) {
+        console.log("Serving events from cache");
+        return eventsCache;
+    }
+
     try {
         const response = await client.get("/events");
+        eventsCache = response.data;
+        lastFetchTime = now;
         return response.data;
     } catch (error) {
         console.log(

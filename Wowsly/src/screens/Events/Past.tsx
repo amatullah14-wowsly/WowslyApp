@@ -8,6 +8,7 @@ import {
   Image,
   TextInput,
   StatusBar,
+  RefreshControl,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -18,6 +19,7 @@ const Past = () => {
   const navigation = useNavigation<any>();
   const [events, setEvents] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [page, setPage] = useState(1);
   const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
 
@@ -27,9 +29,9 @@ const Past = () => {
     fetchEvents();
   }, []);
 
-  const fetchEvents = async () => {
-    setLoading(true);
-    const res = await getEvents();
+  const fetchEvents = async (force = false) => {
+    if (!force) setLoading(true);
+    const res = await getEvents(force);
     const allEvents = res?.data || [];
 
     // Filter: Show only Past events (End Date < Today)
@@ -44,6 +46,12 @@ const Past = () => {
 
     setEvents(filteredEvents);
     setLoading(false);
+    setRefreshing(false);
+  };
+
+  const onRefresh = () => {
+    setRefreshing(true);
+    fetchEvents(true);
   };
 
   const totalPages = Math.ceil(events.length / EVENTS_PER_PAGE);
@@ -147,6 +155,9 @@ const Past = () => {
         extraData={selectedEventId}
         contentContainerStyle={styles.listContent}
         showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#FF8A3C']} />
+        }
       />
 
       <View style={styles.pagination}>
