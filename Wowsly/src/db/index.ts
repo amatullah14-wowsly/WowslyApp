@@ -34,7 +34,10 @@ export async function initDB() {
       phone TEXT,
       status TEXT DEFAULT 'pending',
       scanned_at TEXT,
-      synced INTEGER DEFAULT 0
+      synced INTEGER DEFAULT 0,
+      total_entries INTEGER DEFAULT 1,
+      used_entries INTEGER DEFAULT 0,
+      facilities TEXT
     );
 
       CREATE TABLE IF NOT EXISTS checkins (
@@ -55,6 +58,30 @@ export async function initDB() {
       last_downloaded_at TEXT
     );
   `);
+
+  // Migration: Add new columns if they don't exist
+  // We wrap each in a try-catch because SQLite doesn't support "ADD COLUMN IF NOT EXISTS" universally/cleanly in one go
+  try {
+    await database.executeSql(`ALTER TABLE tickets ADD COLUMN total_entries INTEGER DEFAULT 1;`);
+    console.log('Added total_entries column');
+  } catch (e) {
+    // Column likely exists
+  }
+
+  try {
+    await database.executeSql(`ALTER TABLE tickets ADD COLUMN used_entries INTEGER DEFAULT 0;`);
+    console.log('Added used_entries column');
+  } catch (e) {
+    // Column likely exists
+  }
+
+  try {
+    await database.executeSql(`ALTER TABLE tickets ADD COLUMN facilities TEXT;`);
+    console.log('Added facilities column');
+  } catch (e) {
+    // Column likely exists
+  }
+
   return database;
 }
 
@@ -70,11 +97,15 @@ export async function insertOrReplaceGuests(eventId: number, guestsArray: any[] 
     const guestId = g.guest_id || g.user_id || null;
     const status = g.status || 'pending';
 
+    const totalEntries = g.total_entries || g.total_pax || 1;
+    const usedEntries = g.used_entries || g.checked_in_count || 0;
+    const facilities = g.facilities ? JSON.stringify(g.facilities) : null;
+
     try {
       await database.executeSql(
-        `INSERT OR REPLACE INTO tickets (event_id, ticket_id, guest_id, qr_code, guest_name, email, phone, status, synced)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1);`,
-        [eventId, ticketId, guestId, qr, guestName, g.email || null, g.phone || null, status]
+        `INSERT OR REPLACE INTO tickets (event_id, ticket_id, guest_id, qr_code, guest_name, email, phone, status, synced, total_entries, used_entries, facilities)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?);`,
+        [eventId, ticketId, guestId, qr, guestName, g.email || null, g.phone || null, status, totalEntries, usedEntries, facilities]
       );
     } catch (error) {
       console.error('Error inserting guest:', error);
@@ -94,12 +125,26 @@ export async function findTicketByQr(qrValue: string) {
   return null;
 }
 
-export async function updateTicketStatusLocal(qrValue: string, newStatus = 'checked_in') {
+export async function updateTicketStatusLocal(qrValue: string, newStatus = 'checked_in', usedEntriesIncrement = 1) {
   const database = await openDB();
   const now = new Date().toISOString();
+
+  // First get current used entries to increment correctly
+  const [current] = await database.executeSql(
+    `SELECT used_entries FROM tickets WHERE qr_code = ? LIMIT 1;`,
+    [qrValue.trim()]
+  );
+
+  let currentUsed = 0;
+  if (current.rows.length > 0) {
+    currentUsed = current.rows.item(0).used_entries || 0;
+  }
+
+  const newUsed = currentUsed + usedEntriesIncrement;
+
   await database.executeSql(
-    `UPDATE tickets SET status = ?, scanned_at = ?, synced = 0 WHERE qr_code = ?;`,
-    [newStatus, now, qrValue.trim()]
+    `UPDATE tickets SET status = ?, scanned_at = ?, synced = 0, used_entries = ? WHERE qr_code = ?;`,
+    [newStatus, now, newUsed, qrValue.trim()]
   );
 }
 

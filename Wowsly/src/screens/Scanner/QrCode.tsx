@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import {
   SafeAreaView,
   StatusBar,
@@ -9,6 +9,9 @@ import {
   Image,
   PermissionsAndroid,
   Platform,
+  Animated,
+  PanResponder,
+  Dimensions,
 } from 'react-native'
 import Toast from 'react-native-toast-message';
 import { initDB, findTicketByQr, updateTicketStatusLocal, getTicketsForEvent } from '../../db'
@@ -44,6 +47,58 @@ const QrCode = () => {
   const [scannedValue, setScannedValue] = useState<string | null>(null)
   const [guestData, setGuestData] = useState<any>(null)
   const [isVerifying, setIsVerifying] = useState(false)
+
+  // Animation State
+  const SCREEN_HEIGHT = Dimensions.get('window').height;
+  const SHEET_MAX_HEIGHT = SCREEN_HEIGHT * 0.6; // Occupy 60% of screen when open
+  const SHEET_MIN_HEIGHT = 220; // Visible part when collapsed
+  const MAX_UPWARD_TRANSLATE = -(SHEET_MAX_HEIGHT - SHEET_MIN_HEIGHT); // Negative value to move up
+
+  const panY = useRef(new Animated.Value(0)).current;
+
+  const panResponder = useRef(
+    PanResponder.create({
+      onStartShouldSetPanResponder: () => true,
+      onMoveShouldSetPanResponder: (_, gestureState) => {
+        return Math.abs(gestureState.dy) > Math.abs(gestureState.dx) && Math.abs(gestureState.dy) > 5;
+      },
+      onPanResponderGrant: () => {
+        panY.setOffset((panY as any)._value);
+        panY.setValue(0);
+      },
+      onPanResponderMove: Animated.event(
+        [null, { dy: panY }],
+        { useNativeDriver: false }
+      ),
+      onPanResponderRelease: (_, gestureState) => {
+        panY.flattenOffset();
+
+        const currentValue = (panY as any)._value;
+
+        if (gestureState.dy < -50 || (gestureState.dy <= 0 && currentValue < MAX_UPWARD_TRANSLATE / 2)) {
+          // Slide UP (Open)
+          Animated.spring(panY, {
+            toValue: MAX_UPWARD_TRANSLATE,
+            useNativeDriver: false,
+            bounciness: 4
+          }).start();
+        } else {
+          // Slide DOWN (Close)
+          Animated.spring(panY, {
+            toValue: 0,
+            useNativeDriver: false,
+            bounciness: 4
+          }).start();
+        }
+      }
+    })
+  ).current;
+
+  const translateY = panY.interpolate({
+    inputRange: [MAX_UPWARD_TRANSLATE - 50, 0],
+    outputRange: [MAX_UPWARD_TRANSLATE - 50, 0],
+    extrapolate: 'clamp'
+  });
 
   const modeTitle = route.params?.modeTitle ?? 'Offline Mode'
   const eventTitle = route.params?.eventTitle ?? 'Untitled Event'
@@ -142,15 +197,42 @@ const QrCode = () => {
         const ticket = await findTicketByQr(qrGuestUuid)
 
         if (ticket) {
-          // Mark as checked-in in local database
-          await updateTicketStatusLocal(qrGuestUuid, 'checked_in')
+          const totalEntries = ticket.total_entries || 1;
+          const usedEntries = ticket.used_entries || 0;
+          const facilities = ticket.facilities ? JSON.parse(ticket.facilities) : [];
 
-          setGuestData({
-            name: ticket.guest_name || "Guest",
-            ticketId: ticket.qr_code || "N/A",
-            status: "VALID ENTRY (OFFLINE)",
-            isValid: true,
-          })
+          if (usedEntries >= totalEntries) {
+            Toast.show({
+              type: 'error',
+              text1: 'Already Scanned',
+              text2: 'This ticket has already been used.'
+            });
+            setGuestData({
+              name: ticket.guest_name || "Guest",
+              ticketId: ticket.qr_code || "N/A",
+              status: "ALREADY SCANNED",
+              isValid: false,
+              totalEntries,
+              usedEntries,
+              facilities
+            })
+            // Reset scan after delay
+            setTimeout(() => setScannedValue(null), 2000);
+          } else {
+            // Mark as checked-in in local database (increment used_entries)
+            await updateTicketStatusLocal(qrGuestUuid, 'checked_in')
+
+            setGuestData({
+              name: ticket.guest_name || "Guest",
+              ticketId: ticket.qr_code || "N/A",
+              status: "VALID ENTRY (OFFLINE)",
+              isValid: true,
+              totalEntries,
+              usedEntries: usedEntries + 1, // Increment for display
+              facilities
+            })
+          }
+
         } else {
           Toast.show({
             type: 'error',
@@ -192,11 +274,19 @@ const QrCode = () => {
           console.warn("Check-in API failed, but QR is valid:", checkInError)
         }
 
+        const totalEntries = guest.total_entries || guest.total_pax || 1;
+        const usedEntries = guest.used_entries || guest.checked_in_count || 0;
+        const facilities = guest.facilities || [];
+
+        // Note: Online API usually handles the check logic, but we can display the info
         setGuestData({
           name: guest?.name || "Guest",
           ticketId: guest?.ticket_id || "N/A",
           status: "VALID ENTRY",
           isValid: true,
+          totalEntries,
+          usedEntries: usedEntries + 1, // Assuming API increments it
+          facilities
         })
       } else {
         Toast.show({
@@ -274,25 +364,58 @@ const QrCode = () => {
           <Text style={styles.scanHint}>Place QR code inside the frame</Text>
         </View>
 
-        <View style={styles.sheet}>
+        <Animated.View
+          style={[
+            styles.sheet,
+            {
+              height: SHEET_MAX_HEIGHT,
+              transform: [{ translateY }],
+              bottom: - (SHEET_MAX_HEIGHT - SHEET_MIN_HEIGHT) // Push it down initially so only MIN_HEIGHT is visible
+            }
+          ]}
+          {...panResponder.panHandlers}
+        >
           <View style={styles.sheetHandle} />
           <View style={styles.guestRow}>
             <View>
               <Text style={styles.guestName}>
-                {isVerifying ? 'Verifying...' : (guestData?.name || 'Alex Johnson')}
+                {isVerifying ? 'Verifying...' : (guestData?.name || 'Scan a QR Code')}
               </Text>
               <Text style={styles.ticketId}>
-                Ticket ID: {guestData?.ticketId || 'WXYZ-1234'}
+                Ticket ID: {guestData?.ticketId || '---'}
               </Text>
+              {guestData && (
+                <Text style={styles.entriesText}>
+                  Entries: {guestData.usedEntries} / {guestData.totalEntries}
+                </Text>
+              )}
             </View>
-            <View style={[
-              styles.statusPill,
-              !guestData?.isValid && styles.statusPillInvalid
-            ]}>
-              <Text style={styles.statusPillText}>
-                {guestData?.status || 'VALID ENTRY'}
-              </Text>
-            </View>
+            {guestData && (
+              <View style={[
+                styles.statusPill,
+                !guestData?.isValid && styles.statusPillInvalid
+              ]}>
+                <Text style={styles.statusPillText}>
+                  {guestData?.status || 'VALID ENTRY'}
+                </Text>
+              </View>
+            )}
+          </View>
+
+          {/* ScrollView for content if it gets too long */}
+          <View style={{ flex: 1, marginTop: 16 }}>
+            {guestData?.facilities && guestData.facilities.length > 0 && (
+              <View style={styles.facilitiesContainer}>
+                <Text style={styles.facilitiesTitle}>Facilities:</Text>
+                <View style={styles.facilitiesList}>
+                  {guestData.facilities.map((facility: any, index: number) => (
+                    <View key={index} style={styles.facilityBadge}>
+                      <Text style={styles.facilityText}>{typeof facility === 'string' ? facility : facility.name}</Text>
+                    </View>
+                  ))}
+                </View>
+              </View>
+            )}
           </View>
 
           <TouchableOpacity
@@ -302,13 +425,15 @@ const QrCode = () => {
             onPress={() => {
               setScannedValue(null)
               setGuestData(null)
+              // Optional: Close sheet on scan next?
+              // Animated.spring(panY, { toValue: 0, useNativeDriver: false }).start();
             }}
           >
             <Text style={styles.primaryButtonText}>
               {isVerifying ? 'Verifying...' : 'Scan Next'}
             </Text>
           </TouchableOpacity>
-        </View>
+        </Animated.View>
       </View>
     </SafeAreaView>
   )
@@ -434,6 +559,9 @@ const styles = StyleSheet.create({
     paddingBottom: 32,
     gap: 16,
     zIndex: 10,
+    position: 'absolute',
+    left: 0,
+    right: 0,
   },
   sheetHandle: {
     alignSelf: 'center',
@@ -486,5 +614,34 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 16,
     fontWeight: '700',
+  },
+  entriesText: {
+    color: '#9C9C9C',
+    marginTop: 4,
+    fontSize: 14,
+  },
+  facilitiesContainer: {
+    marginTop: 8,
+  },
+  facilitiesTitle: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '700',
+    marginBottom: 8,
+  },
+  facilitiesList: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  facilityBadge: {
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+  },
+  facilityText: {
+    color: '#FFFFFF',
+    fontSize: 12,
   },
 })
