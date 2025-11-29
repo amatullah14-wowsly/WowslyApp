@@ -9,6 +9,8 @@ import {
     FlatList,
     TextInput,
     ActivityIndicator,
+    RefreshControl,
+    DeviceEventEmitter,
 } from 'react-native';
 import { RouteProp, useNavigation, useRoute, useFocusEffect } from '@react-navigation/native';
 import { initDB, getTicketsForEvent } from '../../db';
@@ -60,16 +62,17 @@ const OfflineGuestList = () => {
         }
     };
 
-    // Refresh guest list when screen comes into focus (after QR scanning)
-    useFocusEffect(
-        React.useCallback(() => {
-            if (eventId) {
-                console.log('OfflineGuestList focused - refreshing guest data from database');
-                setLoading(true);
-                loadOfflineData();
-            }
-        }, [eventId])
-    );
+    // Listen for real-time updates (from HostDashboard or ClientConnection)
+    useEffect(() => {
+        const subscription = DeviceEventEmitter.addListener('REFRESH_GUEST_LIST', () => {
+            console.log('Received REFRESH_GUEST_LIST event - reloading data');
+            loadOfflineData();
+        });
+
+        return () => {
+            subscription.remove();
+        };
+    }, []);
 
     const filteredGuests = useMemo(() => {
         return guests.filter((guest) => {
@@ -104,6 +107,11 @@ const OfflineGuestList = () => {
                 </View>
                 <View style={styles.statusChip}>
                     <Text style={styles.statusChipText}>{status}</Text>
+                    {(item.total_entries > 1 || item.used_entries > 0) && (
+                        <Text style={styles.entryCountText}>
+                            {item.used_entries || 0}/{item.total_entries || 1}
+                        </Text>
+                    )}
                 </View>
             </View>
         );
@@ -154,6 +162,17 @@ const OfflineGuestList = () => {
                                     Try downloading data again if list is empty.
                                 </Text>
                             </View>
+                        }
+                        refreshControl={
+                            <RefreshControl
+                                refreshing={loading}
+                                onRefresh={() => {
+                                    setLoading(true);
+                                    loadOfflineData();
+                                }}
+                                colors={['#FF8A3C']}
+                                tintColor="#FF8A3C"
+                            />
                         }
                     />
                 )}
@@ -269,6 +288,12 @@ const styles = StyleSheet.create({
         fontSize: 12,
         fontWeight: '600',
         color: '#16794C',
+    },
+    entryCountText: {
+        fontSize: 10,
+        color: '#16794C',
+        marginTop: 2,
+        textAlign: 'center',
     },
     emptyState: {
         marginTop: 80,

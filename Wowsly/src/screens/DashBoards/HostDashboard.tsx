@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   SafeAreaView,
   StyleSheet,
@@ -8,9 +8,16 @@ import {
   Image,
   ScrollView,
   Modal,
+  Alert,
+  DeviceEventEmitter,
 } from 'react-native';
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
 import BackButton from '../../components/BackButton';
+import TcpSocket from 'react-native-tcp-socket';
+import NetInfo from '@react-native-community/netinfo';
+import Toast from 'react-native-toast-message';
+import QRCode from 'react-native-qrcode-svg';
+import { findTicketByQr, updateTicketStatusLocal } from '../../db';
 
 type HostDashboardRoute = RouteProp<
   {
@@ -28,7 +35,7 @@ const infoRows = [
   {
     id: 'ip',
     label: 'Host IP Address',
-    value: '192.168.1.10',
+    value: 'Loading...',
     accent: '#FFE8D9',
     icon: require('../../assets/img/eventdashboard/hostip.png'),
   },
@@ -42,7 +49,7 @@ const infoRows = [
   {
     id: 'clients',
     label: 'Connected Clients',
-    value: '12',
+    value: '0',
     accent: '#FFE8D9',
     icon: require('../../assets/img/eventdashboard/guests.png'),
     valueColor: '#1B9448',
@@ -85,9 +92,170 @@ const HostDashboard = () => {
     { visible: false, text: undefined },
   );
 
+  const [server, setServer] = useState<any>(null);
+  const [hostIp, setHostIp] = useState<string>('Loading...');
+  const [serverPort, setServerPort] = useState<number>(8888);
+  const [connectedClients, setConnectedClients] = useState<any[]>([]);
+  const [clientCount, setClientCount] = useState(0);
+  const [serverStatus, setServerStatus] = useState<'Starting' | 'Running' | 'Error' | 'Stopped'>('Starting');
+
+  // Ref to hold connected clients for access inside callbacks
+  const connectedClientsRef = useRef<any[]>([]);
+
   const eventTitle = route.params?.eventTitle ?? 'Host Dashboard';
   const openInfo = (text: string) => setInfoModal({ visible: true, text });
   const closeInfo = () => setInfoModal({ visible: false });
+
+  useEffect(() => {
+    // Get Device IP
+    NetInfo.fetch().then(state => {
+      if (state.details && (state.details as any).ipAddress) {
+        setHostIp((state.details as any).ipAddress);
+      } else {
+        setHostIp('Unknown');
+      }
+    });
+
+    // Start Server
+    const newServer = TcpSocket.createServer((socket) => {
+      console.log('Client connected:', socket.address());
+
+      // Add client to list (using Ref for immediate access in callbacks)
+      connectedClientsRef.current.push(socket);
+      setConnectedClients([...connectedClientsRef.current]);
+      setClientCount(prev => prev + 1);
+
+      socket.on('data', async (data) => {
+        const message = data.toString();
+        console.log('Received data:', message);
+
+        // Handle message logic here
+        // Expected format: guest_uuid,event_id,ticketId,multiple_checkInCount
+        if (message.includes(',')) {
+          const parts = message.split(',');
+          const qrGuestUuid = parts[0];
+
+          try {
+            const ticket = await findTicketByQr(qrGuestUuid);
+
+            if (ticket) {
+              const totalEntries = ticket.total_entries || 1;
+              const usedEntries = ticket.used_entries || 0;
+
+              console.log(`[Host] Validating QR: ${qrGuestUuid}. Used: ${usedEntries}, Total: ${totalEntries}`);
+
+              if (usedEntries >= totalEntries) {
+                console.log(`[Host] Already scanned. Rejecting.`);
+                // Already scanned
+                const response = JSON.stringify({
+                  status: 'error',
+                  message: 'Already Scanned',
+                  data: ticket
+                });
+                socket.write(response + '\n');
+              } else {
+                // Valid scan
+                console.log(`[Host] Valid scan. Updating DB...`);
+                await updateTicketStatusLocal(qrGuestUuid, 'checked_in');
+
+                // Notify local UI to refresh
+                DeviceEventEmitter.emit('REFRESH_GUEST_LIST');
+
+                // Fetch updated ticket to send back correct used count
+                const updatedTicket = await findTicketByQr(qrGuestUuid);
+                console.log(`[Host] DB Updated. New Used Count: ${updatedTicket?.used_entries}`);
+
+                const response = JSON.stringify({
+                  status: 'success',
+                  message: 'Check-in Successful',
+                  data: updatedTicket
+                });
+                socket.write(response + '\n');
+
+                // Update local UI count
+                Toast.show({
+                  type: 'success',
+                  text1: 'Guest Checked In',
+                  text2: `${updatedTicket?.guest_name} (${updatedTicket?.used_entries}/${updatedTicket?.total_entries})`
+                });
+
+                // ---------------------------------------------------------
+                // BROADCAST UPDATE TO ALL CLIENTS
+                // ---------------------------------------------------------
+                const broadcastMsg = JSON.stringify({
+                  type: 'BROADCAST_UPDATE',
+                  data: updatedTicket
+                });
+
+                console.log(`[Host] Broadcasting update to ${connectedClientsRef.current.length} clients`);
+                connectedClientsRef.current.forEach(client => {
+                  try {
+                    client.write(broadcastMsg + '\n');
+                  } catch (e) {
+                    console.log("Failed to broadcast to a client", e);
+                  }
+                });
+              }
+            } else {
+              // Ticket not found
+              const response = JSON.stringify({
+                status: 'error',
+                message: 'Invalid QR Code',
+                data: null
+              });
+              socket.write(response + '\n');
+            }
+          } catch (err) {
+            console.error("Host Validation Error:", err);
+            const response = JSON.stringify({
+              status: 'error',
+              message: 'Server Error',
+              data: null
+            });
+            socket.write(response + '\n');
+          }
+        }
+      });
+
+      socket.on('error', (error) => {
+        console.log('Socket error:', error);
+      });
+
+      socket.on('close', () => {
+        console.log('Client disconnected');
+        // Remove from ref
+        connectedClientsRef.current = connectedClientsRef.current.filter(c => c !== socket);
+        setConnectedClients([...connectedClientsRef.current]);
+        setClientCount(prev => prev - 1);
+      });
+    }).listen({ port: 0, host: '0.0.0.0' }, () => {
+      const address = newServer.address();
+      console.log(`Server listening on ${address?.address}:${address?.port}`);
+      if (address?.port) {
+        setServerPort(address.port);
+        setServerStatus('Running');
+      }
+    });
+
+    newServer.on('error', (error) => {
+      console.log('Server error:', error);
+      setServerStatus('Error');
+      Alert.alert('Server Error', 'Failed to start server. ' + error.message);
+    });
+
+    setServer(newServer);
+
+    return () => {
+      newServer.close();
+      setServerStatus('Stopped');
+    };
+  }, []);
+
+  // Generate QR Value
+  const qrValue = JSON.stringify({
+    ip: hostIp,
+    port: serverPort
+  });
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -103,27 +271,52 @@ const HostDashboard = () => {
         </View>
 
         <View style={styles.qrCard}>
-          <Image source={{ uri: QR_PLACEHOLDER }} style={styles.qrImage} />
+          {hostIp && hostIp !== 'Loading...' && hostIp !== 'Unknown' ? (
+            <QRCode
+              value={qrValue}
+              size={200}
+              color="black"
+              backgroundColor="white"
+            />
+          ) : (
+            <Image source={{ uri: QR_PLACEHOLDER }} style={styles.qrImage} />
+          )}
         </View>
+
+        <View style={{ alignItems: 'center', marginTop: 10 }}>
+          <Text style={{
+            color: serverStatus === 'Running' ? 'green' : 'red',
+            fontWeight: 'bold'
+          }}>
+            Server Status: {serverStatus} {serverStatus === 'Running' ? `(Port: ${serverPort})` : ''}
+          </Text>
+        </View>
+
         <Text style={styles.scanHint}>Scan with Client Device to Connect.</Text>
 
         <View style={styles.infoStack}>
-          {infoRows.map((row) => (
-            <View key={row.id} style={styles.infoRow}>
-              <View style={[styles.infoIconWrap, { backgroundColor: row.accent }]}>
-                <Image source={row.icon} style={styles.infoIcon} />
+          {infoRows.map((row) => {
+            let displayValue = row.value;
+            if (row.id === 'ip') displayValue = `${hostIp}:${serverPort}`;
+            if (row.id === 'clients') displayValue = clientCount.toString();
+
+            return (
+              <View key={row.id} style={styles.infoRow}>
+                <View style={[styles.infoIconWrap, { backgroundColor: row.accent }]}>
+                  <Image source={row.icon} style={styles.infoIcon} />
+                </View>
+                <Text style={styles.infoLabel}>{row.label}</Text>
+                <Text
+                  style={[
+                    styles.infoValue,
+                    row.valueColor ? { color: row.valueColor } : null,
+                  ]}
+                >
+                  {displayValue}
+                </Text>
               </View>
-              <Text style={styles.infoLabel}>{row.label}</Text>
-              <Text
-                style={[
-                  styles.infoValue,
-                  row.valueColor ? { color: row.valueColor } : null,
-                ]}
-              >
-                {row.value}
-              </Text>
-            </View>
-          ))}
+            )
+          })}
         </View>
 
         <View style={styles.actionGrid}>
@@ -225,123 +418,126 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: '#FFFFFF',
     borderRadius: 20,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    shadowColor: '#b3b3b3',
-    shadowOpacity: 0.1,
-    shadowOffset: { width: 0, height: 6 },
-    elevation: 3,
+    padding: 16,
+    marginBottom: 12,
+    shadowColor: '#000',
+    shadowOpacity: 0.03,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 2,
   },
   infoIconWrap: {
-    width: 46,
-    height: 46,
+    width: 48,
+    height: 48,
     borderRadius: 16,
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 12,
+    marginRight: 16,
   },
   infoIcon: {
-    width: 22,
-    height: 22,
+    width: 24,
+    height: 24,
     resizeMode: 'contain',
-    tintColor: '#FF8A3C',
   },
   infoLabel: {
     flex: 1,
-    fontSize: 15,
-    color: '#333333',
+    fontSize: 16,
+    color: '#1F1F1F',
     fontWeight: '600',
   },
   infoValue: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#999999',
+    fontSize: 16,
+    color: '#666666',
+    fontWeight: '500',
   },
   actionGrid: {
-    marginTop: 24,
     flexDirection: 'row',
     flexWrap: 'wrap',
-    justifyContent: 'space-between',
-    rowGap: 16,
+    gap: 12,
+    marginTop: 10,
   },
   actionCard: {
-    width: '45%',
+    width: '48%',
     backgroundColor: '#FFFFFF',
-    borderRadius: 20,
-    paddingVertical: 14,
+    borderRadius: 24,
+    padding: 16,
     alignItems: 'center',
-    gap: 10,
     shadowColor: '#000',
-    shadowOpacity: 0.04,
+    shadowOpacity: 0.03,
     shadowRadius: 8,
-    shadowOffset: { width: 0, height: 4 },
+    shadowOffset: { width: 0, height: 2 },
     elevation: 2,
     position: 'relative',
   },
   actionIconCircle: {
-    width: 50,
-    height: 50,
+    width: 56,
+    height: 56,
     borderRadius: 28,
-    backgroundColor: '#FFEDE0',
+    backgroundColor: '#F5F5F5',
     alignItems: 'center',
     justifyContent: 'center',
+    marginBottom: 12,
   },
   actionIcon: {
-    width: 25,
-    height: 25,
+    width: 28,
+    height: 28,
     resizeMode: 'contain',
-    tintColor: '#FF8A3C',
+    tintColor: '#FF5A5F',
   },
   actionLabel: {
-    fontSize: 12,
+    fontSize: 15,
     fontWeight: '600',
     color: '#1F1F1F',
+    textAlign: 'center',
   },
   infoButton: {
     position: 'absolute',
-    top: 10,
-    right: 10,
-    width: 20,
-    height: 20,
+    top: 12,
+    right: 12,
+    zIndex: 1,
   },
   infoIconButton: {
-    width: 15,
-    height: 15,
-    tintColor: '#FF8A3C',
-    resizeMode: 'contain',
+    width: 20,
+    height: 20,
+    tintColor: '#C0C0C0',
   },
   modalBackdrop: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.4)',
+    backgroundColor: 'rgba(0,0,0,0.5)',
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 24,
+    padding: 20,
   },
   modalCard: {
-    width: '100%',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: 'white',
     borderRadius: 24,
     padding: 24,
-    gap: 16,
-  },
-  modalTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#1F1F1F',
-  },
-  modalBody: {
-    fontSize: 14,
-    color: '#555555',
-    lineHeight: 20,
-  },
-  modalButton: {
-    backgroundColor: '#FF8A3C',
-    borderRadius: 14,
-    paddingVertical: 12,
+    width: '100%',
+    maxWidth: 320,
     alignItems: 'center',
   },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#1F1F1F',
+    marginBottom: 12,
+  },
+  modalBody: {
+    fontSize: 16,
+    color: '#666666',
+    textAlign: 'center',
+    marginBottom: 24,
+    lineHeight: 22,
+  },
+  modalButton: {
+    backgroundColor: '#FF5A5F',
+    paddingVertical: 12,
+    paddingHorizontal: 32,
+    borderRadius: 16,
+  },
   modalButtonText: {
-    color: '#FFFFFF',
+    color: 'white',
+    fontSize: 16,
     fontWeight: '600',
   },
 });

@@ -95,8 +95,9 @@ const ModeSelection = () => {
   const handleRolePick = (role: 'Host' | 'Client') => {
     if (role === 'Host') {
       navigation.navigate('HostDashboard', { eventTitle });
+    } else if (role === 'Client') {
+      navigation.navigate('ClientConnection', { eventTitle, eventId });
     }
-    // Client logic placeholder
   };
 
   const renderSubOptions = (modeId: string) => {

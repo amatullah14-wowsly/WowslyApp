@@ -17,6 +17,7 @@ import OfflineDashboard from '../screens/DashBoards/OfflineDashboard';
 import QrCode from '../screens/Scanner/QrCode';
 import OnlineGuestList from '../screens/GuestList/OnlineGuestList';
 import OfflineGuestList from '../screens/GuestList/OfflineGuestList';
+import ClientConnection from '../screens/Mode/ClientConnection';
 const Stack = createNativeStackNavigator();
 const StackNavigation = () => {
   return (
@@ -37,6 +38,7 @@ const StackNavigation = () => {
       <Stack.Screen name='QrCode' component={QrCode} />
       <Stack.Screen name='OnlineGuestList' component={OnlineGuestList} />
       <Stack.Screen name='OfflineGuestList' component={OfflineGuestList} />
+      <Stack.Screen name='ClientConnection' component={ClientConnection} />
 
 
     </Stack.Navigator>

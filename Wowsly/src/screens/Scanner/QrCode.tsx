@@ -29,6 +29,8 @@ type QrCodeRoute = RouteProp<
       modeTitle?: string
       eventId: number
       offline?: boolean        // 👈 ADDED OFFLINE FLAG
+      isClientMode?: boolean   // 👈 ADDED CLIENT MODE FLAG
+      isScanningHost?: boolean // 👈 ADDED HOST SCAN FLAG
     }
   },
   'QrCode'
@@ -165,6 +167,8 @@ const QrCode = () => {
 
   // ----------------- OFFLINE DATA STATE -----------------
   const isOfflineMode = route.params?.offline ?? false
+  const isClientMode = route.params?.isClientMode ?? false
+  const isScanningHost = route.params?.isScanningHost ?? false
   const [offlineGuests, setOfflineGuests] = useState<any[]>([])
 
   useEffect(() => {
@@ -190,10 +194,92 @@ const QrCode = () => {
   const handleVerifyQR = async (qrGuestUuid: string) => {
     setIsVerifying(true)
 
+    // 🟡 HOST SCAN MODE
+    if (isScanningHost) {
+      let hostIp = qrGuestUuid;
+      let hostPort = 8888;
+      try {
+        if (qrGuestUuid.startsWith('{')) {
+          const parsed = JSON.parse(qrGuestUuid);
+          if (parsed.ip) hostIp = parsed.ip;
+          if (parsed.port) hostPort = parsed.port;
+        }
+      } catch (e) { }
+
+      navigation.navigate('ClientConnection', {
+        scannedHostIp: hostIp,
+        scannedHostPort: hostPort,
+        eventTitle,
+        eventId
+      });
+      setIsVerifying(false);
+      return;
+    }
+
+    // 🔵 CLIENT MODE (Socket)
+    if (isClientMode) {
+      // @ts-ignore
+      const client = global.clientSocket;
+      if (client) {
+        const message = `${qrGuestUuid},${eventId},0,0\n`;
+        client.write(message);
+
+        const onData = (data: any) => {
+          const responseStr = data.toString().trim();
+          try {
+            const response = JSON.parse(responseStr);
+            if (response.status === 'success') {
+              const ticket = response.data;
+              Toast.show({ type: 'success', text1: 'Host Verified', text2: response.message || 'Valid Entry' });
+              setGuestData({
+                name: ticket.guest_name || "Guest",
+                ticketId: ticket.qr_code || "Remote",
+                status: "VALID ENTRY",
+                isValid: true,
+                totalEntries: ticket.total_entries || 1,
+                usedEntries: ticket.used_entries || 1,
+                facilities: ticket.facilities ? JSON.parse(ticket.facilities) : []
+              });
+            } else {
+              const ticket = response.data;
+              Toast.show({ type: 'error', text1: response.message || 'Error', text2: ticket ? 'Ticket already used' : 'Invalid QR' });
+              if (ticket) {
+                setGuestData({
+                  name: ticket.guest_name || "Guest",
+                  ticketId: ticket.qr_code || "Remote",
+                  status: response.message.toUpperCase(),
+                  isValid: false,
+                  totalEntries: ticket.total_entries || 1,
+                  usedEntries: ticket.used_entries || 1,
+                  facilities: ticket.facilities ? JSON.parse(ticket.facilities) : []
+                });
+              } else {
+                setGuestData(null);
+              }
+            }
+          } catch (e) {
+            if (responseStr.includes("count")) {
+              Toast.show({ type: 'success', text1: 'Host Verified', text2: responseStr });
+              setGuestData({ name: "Host Verified", ticketId: "Remote", status: "VALID ENTRY", isValid: true, totalEntries: 1, usedEntries: 1, facilities: [] });
+            } else {
+              Toast.show({ type: 'error', text1: 'Host Error', text2: responseStr });
+              setGuestData({ name: "Host Rejected", ticketId: "Remote", status: "INVALID", isValid: false, totalEntries: 0, usedEntries: 0, facilities: [] });
+            }
+          }
+          client.removeListener('data', onData);
+          setIsVerifying(false);
+        };
+        client.on('data', onData);
+      } else {
+        Toast.show({ type: 'error', text1: 'Connection Error', text2: 'Not connected to host' });
+        setIsVerifying(false);
+      }
+      return;
+    }
+
     // 🔴 OFFLINE VERIFICATION (SQLite)
     if (isOfflineMode) {
       console.log("Verifying offline with SQLite:", qrGuestUuid)
-
       try {
         const ticket = await findTicketByQr(qrGuestUuid)
 
