@@ -26,7 +26,7 @@ const OfflineDashboard = () => {
   const navigation = useNavigation<any>();
   const route = useRoute<any>();
   const { eventId } = route.params || {};
-  const [selectedCard, setSelectedCard] = useState<'download' | 'scan' | 'upload' | 'guests'>('scan');
+  // Removed persistent selectedCard state
   const [downloading, setDownloading] = useState(false);
   const [offlineData, setOfflineData] = useState<any>(null);
 
@@ -134,9 +134,7 @@ const OfflineDashboard = () => {
               title="Download Data"
               subtitle="Get the latest guest list"
               meta={offlineData ? `${offlineData.length} guests downloaded` : 'Tap to download'}
-              isActive={selectedCard === 'download'}
               onPress={() => {
-                setSelectedCard('download');
                 handleDownloadData();
               }}
             />
@@ -154,9 +152,7 @@ const OfflineDashboard = () => {
               title="Scan Ticket"
               subtitle="Check-in attendees"
               badge="Offline Check-in"
-              isActive={selectedCard === 'scan'}
               onPress={() => {
-                setSelectedCard('scan');
                 navigation.navigate('QrCode', {
                   modeTitle: 'Offline Mode',
                   eventTitle: 'Offline Event',
@@ -174,8 +170,7 @@ const OfflineDashboard = () => {
               title="Upload Data"
               subtitle="Sync new check-ins"
               meta="14 check-ins pending"
-              isActive={selectedCard === 'upload'}
-              onPress={() => setSelectedCard('upload')}
+              onPress={() => { }}
             />
           </View>
 
@@ -186,9 +181,7 @@ const OfflineDashboard = () => {
               title="Guest List"
               subtitle="View downloaded guests"
               meta={`Total: ${totals.total} | Checked: ${totals.checkedIn}`}
-              isActive={selectedCard === 'guests'}
               onPress={() => {
-                setSelectedCard('guests');
                 navigation.navigate('OfflineGuestList', {
                   eventId,
                   offlineData,

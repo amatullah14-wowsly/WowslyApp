@@ -29,7 +29,9 @@ const OfflineCard: React.FC<OfflineCardProps> = ({
   disabled = false,
   onPress,
 }) => {
-  const active = isActive && !disabled;
+  const [isPressed, setIsPressed] = React.useState(false);
+  const active = (isActive || isPressed) && !disabled;
+
   const cardStyles = [
     styles.card,
     disabled && styles.cardDisabled,
@@ -43,8 +45,10 @@ const OfflineCard: React.FC<OfflineCardProps> = ({
   return (
     <TouchableOpacity
       style={cardStyles}
-      activeOpacity={0.9}
+      activeOpacity={1}
       onPress={onPress}
+      onPressIn={() => setIsPressed(true)}
+      onPressOut={() => setIsPressed(false)}
       disabled={disabled}
     >
       <Image source={icon} style={[styles.icon, { tintColor: iconTint }]} />
@@ -81,9 +85,9 @@ const styles = StyleSheet.create({
     shadowColor: '#D7C5BA',
     elevation: 4,
     marginBottom: 18,
-    justifyContent:'center',
-    alignItems:'center'
-,  },
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
   cardActive: {
     backgroundColor: '#FF8A3C',
     shadowColor: '#FF8A3C',
@@ -96,16 +100,14 @@ const styles = StyleSheet.create({
   icon: {
     width: 25,
     height: 25,
-    // resizeMode: 'contain',
     marginBottom: 12,
     alignSelf: 'center',
   },
   textBlock: {
-    // flex: 1,
     width: '100%',
     gap: 4,
-    justifyContent:'center',
-    alignItems:'center',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   title: {
     fontSize: 16,
@@ -122,16 +124,12 @@ const styles = StyleSheet.create({
   badge: {
     alignSelf: 'flex-start',
     marginTop: 18,
-    // paddingHorizontal: 8,
-    // paddingVertical: 0,
     borderRadius: 10,
-    height:30,
-    width:120,
-    justifyContent:'center',
-    alignItems:'center',
+    height: 30,
+    width: 120,
+    justifyContent: 'center',
+    alignItems: 'center',
     backgroundColor: '#FFF7F1',
-    // right:5,
-    
   },
   badgeActive: {
     backgroundColor: 'rgba(255,255,255,0.18)',
