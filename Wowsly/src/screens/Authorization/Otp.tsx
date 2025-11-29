@@ -51,8 +51,10 @@ const Otp = () => {
     // ------------------------------
     // VERIFY OTP API
     // ------------------------------
-    const handleVerify = async () => {
-        if (otp.length < 4) {
+    const handleVerify = async (code?: string) => {
+        const otpToVerify = code || otp;
+
+        if (otpToVerify.length < 4) {
             Toast.show({
                 type: 'error',
                 text1: 'Error',
@@ -61,7 +63,7 @@ const Otp = () => {
             return;
         }
 
-        const res = await verifyOTP(dialing_code, mobile, otp);
+        const res = await verifyOTP(dialing_code, mobile, otpToVerify);
         console.log("Verify OTP Response:", res);
 
         if (res?.status == 200 || res?.status === true || res?.status_code === 200) {
@@ -120,7 +122,7 @@ const Otp = () => {
                         }}
                         onFilled={(code) => {
                             setOtp(code);
-                            handleVerify();
+                            handleVerify(code);
                         }}
                     />
                 </View>
@@ -136,7 +138,7 @@ const Otp = () => {
 
                 <Text style={styles.timerText}>Resend in {resendTimer}s</Text>
 
-                <TouchableOpacity style={styles.verifyButton} onPress={handleVerify}>
+                <TouchableOpacity style={styles.verifyButton} onPress={() => handleVerify()}>
                     <Text style={styles.verifyButtonText}>Verify OTP</Text>
                 </TouchableOpacity>
             </View>
