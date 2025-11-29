@@ -97,7 +97,20 @@ export async function insertOrReplaceGuests(eventId: number, guestsArray: any[] 
     const guestId = g.guest_id || g.user_id || null;
     const status = g.status || 'pending';
 
-    const totalEntries = g.total_entries || g.total_pax || 1;
+    // Prioritize tickets_bought from the tickets array as it represents the original total purchase count.
+    // available_tickets might decrease as they are used, so it's not a reliable "total".
+    let totalEntries = 1;
+    if (g.tickets && g.tickets.length > 0 && g.tickets[0].tickets_bought) {
+      totalEntries = g.tickets[0].tickets_bought;
+    } else if (g.total_entries) {
+      totalEntries = g.total_entries;
+    } else if (g.total_pax) {
+      totalEntries = g.total_pax;
+    } else if (g.available_tickets) {
+      // Fallback, but risky if available_tickets means "remaining"
+      totalEntries = g.available_tickets;
+    }
+
     const usedEntries = g.used_entries || g.checked_in_count || 0;
     const facilities = g.facilities ? JSON.stringify(g.facilities) : null;
 

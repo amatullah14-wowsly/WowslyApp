@@ -18,6 +18,7 @@ import { initDB, findTicketByQr, updateTicketStatusLocal, getTicketsForEvent } f
 import { RouteProp, useRoute, useNavigation } from '@react-navigation/native'
 import { Camera } from 'react-native-camera-kit'
 import { verifyQRCode, checkInGuest } from '../../api/api'
+import { getGuestDetails } from '../../api/event'
 import BackButton from '../../components/BackButton'
 
 // --------------- ROUTE TYPE UPDATED ----------------
@@ -197,6 +198,7 @@ const QrCode = () => {
         const ticket = await findTicketByQr(qrGuestUuid)
 
         if (ticket) {
+          // Prioritize tickets_bought if available (it was saved as total_entries in DB)
           const totalEntries = ticket.total_entries || 1;
           const usedEntries = ticket.used_entries || 0;
           const facilities = ticket.facilities ? JSON.parse(ticket.facilities) : [];
@@ -265,29 +267,70 @@ const QrCode = () => {
 
       if (response?.message === "QR code verified") {
         const guest = response?.guest_data?.[0] || {}
+        const guestId = guest.id || guest.guest_id;
 
         // Call check-in API to update guest status
         try {
-          const checkInResponse = await checkInGuest(eventId, guest.id || guest.guest_id)
+          const checkInResponse = await checkInGuest(eventId, guestId)
           console.log("Check-in Response:", checkInResponse)
         } catch (checkInError) {
           console.warn("Check-in API failed, but QR is valid:", checkInError)
         }
 
-        const totalEntries = guest.total_entries || guest.total_pax || 1;
-        const usedEntries = guest.used_entries || guest.checked_in_count || 0;
-        const facilities = guest.facilities || [];
+        // Fetch detailed guest info for the UI
+        try {
+          const detailsResponse = await getGuestDetails(eventId, guestId);
+          if (detailsResponse?.data) {
+            const d = detailsResponse.data;
+            const ticketData = d.ticket_data || {};
 
-        // Note: Online API usually handles the check logic, but we can display the info
-        setGuestData({
-          name: guest?.name || "Guest",
-          ticketId: guest?.ticket_id || "N/A",
-          status: "VALID ENTRY",
-          isValid: true,
-          totalEntries,
-          usedEntries: usedEntries + 1, // Assuming API increments it
-          facilities
-        })
+            // Total tickets bought
+            const totalEntries = ticketData.tickets_bought || guest.total_entries || guest.total_pax || 1;
+
+            // Used entries (scanned count)
+            // We use the count from verify response (which is likely pre-checkin) and add 1 for the current scan
+            const preScanUsed = guest.used_entries || guest.checked_in_count || 0;
+            const usedEntries = preScanUsed + 1;
+
+            setGuestData({
+              name: d.name || guest.name || "Guest",
+              ticketId: ticketData.ticket_id || guest.ticket_id || "N/A",
+              status: "VALID ENTRY",
+              isValid: true,
+              totalEntries: totalEntries,
+              usedEntries: usedEntries,
+              facilities: d.facilities || guest.facilities || []
+            })
+          } else {
+            // Fallback if details fail
+            const totalEntries = guest.total_entries || guest.total_pax || 1;
+            const usedEntries = (guest.used_entries || guest.checked_in_count || 0) + 1;
+            setGuestData({
+              name: guest?.name || "Guest",
+              ticketId: guest?.ticket_id || "N/A",
+              status: "VALID ENTRY",
+              isValid: true,
+              totalEntries,
+              usedEntries,
+              facilities: guest.facilities || []
+            })
+          }
+        } catch (err) {
+          console.log("Error fetching details", err);
+          // Fallback
+          const totalEntries = guest.total_entries || guest.total_pax || 1;
+          const usedEntries = (guest.used_entries || guest.checked_in_count || 0) + 1;
+          setGuestData({
+            name: guest?.name || "Guest",
+            ticketId: guest?.ticket_id || "N/A",
+            status: "VALID ENTRY",
+            isValid: true,
+            totalEntries,
+            usedEntries,
+            facilities: guest.facilities || []
+          })
+        }
+
       } else {
         Toast.show({
           type: 'error',
@@ -385,9 +428,22 @@ const QrCode = () => {
                 Ticket ID: {guestData?.ticketId || '---'}
               </Text>
               {guestData && (
-                <Text style={styles.entriesText}>
-                  Entries: {guestData.usedEntries} / {guestData.totalEntries}
-                </Text>
+                <View style={styles.statsContainer}>
+                  <View style={styles.statItem}>
+                    <Text style={styles.statLabel}>Bought</Text>
+                    <Text style={styles.statValue}>{guestData.totalEntries}</Text>
+                  </View>
+                  <View style={styles.statDivider} />
+                  <View style={styles.statItem}>
+                    <Text style={styles.statLabel}>Scanned</Text>
+                    <Text style={styles.statValue}>{guestData.usedEntries}</Text>
+                  </View>
+                  <View style={styles.statDivider} />
+                  <View style={styles.statItem}>
+                    <Text style={styles.statLabel}>Remaining</Text>
+                    <Text style={styles.statValue}>{guestData.totalEntries - guestData.usedEntries}</Text>
+                  </View>
+                </View>
               )}
             </View>
             {guestData && (
@@ -643,5 +699,33 @@ const styles = StyleSheet.create({
   facilityText: {
     color: '#FFFFFF',
     fontSize: 12,
+  },
+  statsContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 8,
+    backgroundColor: 'rgba(255,255,255,0.1)',
+    borderRadius: 12,
+    padding: 8,
+  },
+  statItem: {
+    alignItems: 'center',
+    paddingHorizontal: 12,
+  },
+  statLabel: {
+    color: '#9C9C9C',
+    fontSize: 10,
+    textTransform: 'uppercase',
+    marginBottom: 2,
+  },
+  statValue: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  statDivider: {
+    width: 1,
+    height: 24,
+    backgroundColor: 'rgba(255,255,255,0.2)',
   },
 })
