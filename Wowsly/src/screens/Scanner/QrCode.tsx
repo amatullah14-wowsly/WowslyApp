@@ -262,6 +262,42 @@ const QrCode = () => {
 
     // 🟢 ONLINE VERIFICATION (API)
     try {
+      // 1. Check Local DB first to prevent double scanning if already scanned offline
+      try {
+        const localTicket = await findTicketByQr(qrGuestUuid);
+        if (localTicket) {
+          const localTotal = localTicket.total_entries || 1;
+          const localUsed = localTicket.used_entries || 0;
+
+          if (localUsed >= localTotal) {
+            console.log("Blocked by local DB: Already scanned offline");
+            Toast.show({
+              type: 'error',
+              text1: 'Already Scanned',
+              text2: 'This ticket was already scanned (offline sync pending).'
+            });
+
+            // Show the local data state
+            setGuestData({
+              name: localTicket.guest_name || "Guest",
+              ticketId: localTicket.qr_code || "N/A",
+              status: "ALREADY SCANNED",
+              isValid: false,
+              totalEntries: localTotal,
+              usedEntries: localUsed,
+              facilities: localTicket.facilities ? JSON.parse(localTicket.facilities) : []
+            });
+
+            setTimeout(() => setScannedValue(null), 2000);
+            setIsVerifying(false);
+            return; // STOP HERE
+          }
+        }
+      } catch (localErr) {
+        console.warn("Failed to check local DB before online verify:", localErr);
+        // Continue to online verify if local check fails (fail open)
+      }
+
       const response = await verifyQRCode(eventId, qrGuestUuid)
       console.log("QR Verification Response:", response)
 

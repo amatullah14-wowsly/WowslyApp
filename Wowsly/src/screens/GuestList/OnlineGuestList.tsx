@@ -15,6 +15,7 @@ import { GestureHandlerRootView, Swipeable } from 'react-native-gesture-handler'
 import { getEventUsers, makeGuestManager, makeGuestUser } from '../../api/event';
 import GuestDetailsModal from '../../components/GuestDetailsModal';
 import BackButton from '../../components/BackButton';
+import { initDB, getTicketsForEvent } from '../../db';
 
 type GuestListRoute = RouteProp<
     {
@@ -80,7 +81,41 @@ const OnlineGuestList = () => {
         try {
             const type = activeTab.toLowerCase();
             const res = await getEventUsers(eventId, 1, type);
-            const fetchedGuests = res?.data || [];
+            let fetchedGuests = res?.data || [];
+
+            // 🟢 MERGE WITH LOCAL OFFLINE STATUS
+            try {
+                await initDB();
+                const localTickets = await getTicketsForEvent(eventId);
+
+                if (localTickets && localTickets.length > 0) {
+                    console.log(`Merging ${localTickets.length} local tickets with online list`);
+
+                    // Create a map for faster lookup: guest_id -> local_ticket
+                    const localMap = new Map();
+                    localTickets.forEach(t => {
+                        if (t.guest_id) localMap.set(t.guest_id.toString(), t);
+                    });
+
+                    fetchedGuests = fetchedGuests.map((g: any) => {
+                        const localT = localMap.get(g.id?.toString());
+                        if (localT) {
+                            // If locally checked in, override status
+                            if (localT.status === 'checked_in' || (localT.used_entries > 0)) {
+                                return {
+                                    ...g,
+                                    status: 'Checked In', // Override status for UI
+                                    // You could also merge used_entries if needed
+                                };
+                            }
+                        }
+                        return g;
+                    });
+                }
+            } catch (localErr) {
+                console.warn("Error merging local offline data:", localErr);
+            }
+
             setGuests(fetchedGuests);
         } catch (error) {
             console.error('Error fetching guests:', error);
