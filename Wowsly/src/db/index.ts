@@ -82,6 +82,13 @@ export async function initDB() {
     // Column likely exists
   }
 
+  try {
+    await database.executeSql(`ALTER TABLE tickets ADD COLUMN ticket_title TEXT;`);
+    console.log('Added ticket_title column');
+  } catch (e) {
+    // Column likely exists
+  }
+
   return database;
 }
 
@@ -96,6 +103,7 @@ export async function insertOrReplaceGuests(eventId: number, guestsArray: any[] 
     const ticketId = g.ticket_id || g.id || null;
     const guestId = g.guest_id || g.user_id || null;
     const status = g.status || 'pending';
+    const ticketTitle = g.ticket_title || g.ticket_name || g.ticket_type || 'General';
 
     // Prioritize tickets_bought from the tickets array as it represents the original total purchase count.
     // available_tickets might decrease as they are used, so it's not a reliable "total".
@@ -116,9 +124,9 @@ export async function insertOrReplaceGuests(eventId: number, guestsArray: any[] 
 
     try {
       await database.executeSql(
-        `INSERT OR REPLACE INTO tickets (event_id, ticket_id, guest_id, qr_code, guest_name, email, phone, status, synced, total_entries, used_entries, facilities)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?);`,
-        [eventId, ticketId, guestId, qr, guestName, g.email || null, g.phone || null, status, totalEntries, usedEntries, facilities]
+        `INSERT OR REPLACE INTO tickets (event_id, ticket_id, guest_id, qr_code, guest_name, email, phone, status, synced, total_entries, used_entries, facilities, ticket_title)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?, ?);`,
+        [eventId, ticketId, guestId, qr, guestName, g.email || null, g.phone || null, status, totalEntries, usedEntries, facilities, ticketTitle]
       );
     } catch (error) {
       console.error('Error inserting guest:', error);

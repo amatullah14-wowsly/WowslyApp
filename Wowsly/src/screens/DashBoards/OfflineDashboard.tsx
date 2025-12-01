@@ -11,9 +11,10 @@ import {
 } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import OfflineCard from '../../components/OfflineCard';
-import { downloadOfflineData } from '../../api/event';
+import { downloadOfflineData, getTicketList } from '../../api/event';
+import { syncOfflineCheckinsAPI } from '../../api/api';
 import Toast from 'react-native-toast-message';
-import { initDB, insertOrReplaceGuests, getTicketsForEvent } from '../../db';
+import { initDB, insertOrReplaceGuests, getTicketsForEvent, getUnsyncedCheckins, markTicketsAsSynced } from '../../db';
 import BackButton from '../../components/BackButton';
 
 const OFFLINE_ICON = require('../../assets/img/Mode/offlinemode.png');
@@ -26,25 +27,63 @@ const OfflineDashboard = () => {
   const navigation = useNavigation<any>();
   const route = useRoute<any>();
   const { eventId } = route.params || {};
-  // Removed persistent selectedCard state
+
   const [downloading, setDownloading] = useState(false);
+  const [uploading, setUploading] = useState(false);
   const [offlineData, setOfflineData] = useState<any>(null);
+  const [pendingCount, setPendingCount] = useState(0);
+  const [ticketList, setTicketList] = useState<any[]>([]);
 
-  const totals = useMemo(
-    () => ({
-      total: 245,
-      checkedIn: 122,
-      remaining: 245 - 122,
-    }),
-    [],
-  );
+  const totals = useMemo(() => {
+    if (!offlineData) return { total: 0, checkedIn: 0, remaining: 0 };
+    const total = offlineData.length;
+    const checkedIn = offlineData.filter((g: any) => g.used_entries > 0).length;
+    return {
+      total,
+      checkedIn,
+      remaining: total - checkedIn,
+    };
+  }, [offlineData]);
 
-  const guestBuckets = [
-    { id: 'general', title: 'General', total: 188, checkedIn: 102 },
-    { id: 'vip', title: 'VIP', total: 45, checkedIn: 15 },
-    { id: 'vvip', title: 'VVIP', total: 12, checkedIn: 4 },
-    { id: 'crew', title: 'Crew', total: 10, checkedIn: 1 },
-  ];
+  const guestBuckets = useMemo(() => {
+    // 1. Try to use API data first if available
+    if (ticketList.length > 0) {
+      return ticketList.map((t: any) => ({
+        id: t.ticket_id || t.ticket_title,
+        title: t.ticket_title,
+        total: t.total_count || 0,
+        checkedIn: t.checked_in_count || 0,
+        remaining: (t.total_count || 0) - (t.checked_in_count || 0)
+      }));
+    }
+
+    // 2. Fallback to offline calculation
+    if (!offlineData) return [];
+
+    const buckets: any = {};
+
+    offlineData.forEach((guest: any) => {
+      // Use ticket_title if available, otherwise fallback to 'General'
+      const title = guest.ticket_title || guest.ticket_name || guest.ticket_type || 'General';
+      const key = title.toLowerCase();
+
+      if (!buckets[key]) {
+        buckets[key] = {
+          id: key,
+          title: title,
+          total: 0,
+          checkedIn: 0
+        };
+      }
+
+      buckets[key].total += 1;
+      if (guest.used_entries > 0) {
+        buckets[key].checkedIn += 1;
+      }
+    });
+
+    return Object.values(buckets);
+  }, [offlineData, ticketList]);
 
   // Initialize database and load saved offline data
   useEffect(() => {
@@ -57,6 +96,13 @@ const OfflineDashboard = () => {
             setOfflineData(tickets);
             console.log(`Loaded ${tickets.length} guests from database`);
           }
+
+          // Check for pending uploads
+          const pending = await getUnsyncedCheckins();
+          setPendingCount(pending.length);
+
+          // Fetch Ticket List (Online)
+          fetchTicketList(eventId);
         } catch (error) {
           console.error('Error loading offline data:', error);
         }
@@ -64,6 +110,17 @@ const OfflineDashboard = () => {
     };
     loadOfflineData();
   }, [eventId]);
+
+  const fetchTicketList = async (id: string) => {
+    try {
+      const res = await getTicketList(id);
+      if (res?.data) {
+        setTicketList(res.data);
+      }
+    } catch (e) {
+      console.log("Failed to fetch ticket list in offline dashboard", e);
+    }
+  };
 
   const handleDownloadData = async () => {
     if (!eventId) {
@@ -85,6 +142,9 @@ const OfflineDashboard = () => {
         // Reload from database to update UI
         const tickets = await getTicketsForEvent(eventId);
         setOfflineData(tickets);
+
+        // Also refresh ticket list
+        fetchTicketList(eventId);
 
         Toast.show({
           type: 'success',
@@ -110,6 +170,58 @@ const OfflineDashboard = () => {
     }
   };
 
+  const handleUploadData = async () => {
+    if (!eventId) return;
+
+    setUploading(true);
+    try {
+      // 1. Get pending check-ins
+      const pending = await getUnsyncedCheckins();
+      if (pending.length === 0) {
+        Toast.show({
+          type: 'info',
+          text1: 'Up to date',
+          text2: 'No pending check-ins to upload'
+        });
+        setUploading(false);
+        return;
+      }
+
+      // 2. Upload to server
+      const res = await syncOfflineCheckinsAPI(pending);
+
+      if (res?.success || res?.status === true || res?.message === "Synced successfully") {
+        // 3. Mark as synced locally
+        const qrCodes = pending.map((p: any) => p.qr_code);
+        await markTicketsAsSynced(qrCodes);
+
+        setPendingCount(0);
+
+        Toast.show({
+          type: 'success',
+          text1: 'Synced',
+          text2: `Uploaded ${pending.length} check-ins`
+        });
+
+        // 4. Auto-download to get latest state from server
+        handleDownloadData();
+
+      } else {
+        throw new Error(res?.message || "Sync failed");
+      }
+
+    } catch (error) {
+      console.error("Upload error:", error);
+      Toast.show({
+        type: 'error',
+        text1: 'Upload Failed',
+        text2: 'Could not sync check-ins'
+      });
+    } finally {
+      setUploading(false);
+    }
+  };
+
   return (
     <SafeAreaView style={styles.safeArea}>
       <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent}>
@@ -122,7 +234,9 @@ const OfflineDashboard = () => {
           <Text style={styles.headerTitle}>Offline Mode</Text>
         </View>
 
-        <Text style={styles.subHeader}>Last synced: 2 hours ago | 245 guests downloaded</Text>
+        <Text style={styles.subHeader}>
+          Last synced: Just now | {offlineData?.length || 0} guests downloaded
+        </Text>
 
         {/* CARDS */}
         <View style={styles.cardGrid}>
@@ -169,9 +283,14 @@ const OfflineDashboard = () => {
               icon={UPLOAD_ICON}
               title="Upload Data"
               subtitle="Sync new check-ins"
-              meta="14 check-ins pending"
-              onPress={() => { }}
+              meta={`${pendingCount} check-ins pending`}
+              onPress={handleUploadData}
             />
+            {uploading && (
+              <View style={styles.downloadingOverlay}>
+                <ActivityIndicator size="small" color="#FF8A3C" />
+              </View>
+            )}
           </View>
 
           {/* Guests */}
@@ -202,7 +321,7 @@ const OfflineDashboard = () => {
           </View>
 
           <View style={styles.bucketGrid}>
-            {guestBuckets.map(b => (
+            {guestBuckets.map((b: any) => (
               <View key={b.id} style={styles.bucketCard}>
                 <Text style={styles.bucketTitle}>{b.title}</Text>
                 <Text style={styles.bucketMeta}>Total: {b.total} | Checked: {b.checkedIn}</Text>
@@ -212,7 +331,7 @@ const OfflineDashboard = () => {
           </View>
 
           <View style={styles.pendingRow}>
-            <Text style={styles.pendingText}>14 offline check-ins pending sync</Text>
+            <Text style={styles.pendingText}>{pendingCount} offline check-ins pending sync</Text>
             <Text style={styles.storageText}>Local storage used: 3.2 MB</Text>
           </View>
         </View>

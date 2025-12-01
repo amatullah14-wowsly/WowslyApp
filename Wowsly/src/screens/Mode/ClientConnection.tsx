@@ -22,6 +22,7 @@ const ClientConnection = () => {
     const route = useRoute<any>();
     const [hostIp, setHostIp] = useState('');
     const [hostPort, setHostPort] = useState(8888);
+    const [sessionCode, setSessionCode] = useState('');
     const [isConnecting, setIsConnecting] = useState(false);
 
     const eventTitle = route.params?.eventTitle ?? 'Client Mode';
@@ -42,6 +43,10 @@ const ClientConnection = () => {
             Alert.alert('Error', 'Please enter Host IP Address');
             return;
         }
+        if (!sessionCode || sessionCode.length !== 4) {
+            Alert.alert('Error', 'Please enter the 4-digit Session Code');
+            return;
+        }
 
         setIsConnecting(true);
 
@@ -60,9 +65,38 @@ const ClientConnection = () => {
             // @ts-ignore
             global.clientSocket = client;
 
+            // --- HANDSHAKE: Send Join Request ---
+            console.log(`Sending JOIN_REQUEST:${sessionCode}`);
+            client.write(`JOIN_REQUEST:${sessionCode}\n`);
+
             client.on('data', async (data) => {
-                const message = data.toString();
+                const message = data.toString().trim();
                 console.log('Client received data:', message);
+
+                // --- HANDSHAKE RESPONSE ---
+                if (message === 'JOIN_ACCEPT') {
+                    console.log('Handshake successful!');
+                    Toast.show({
+                        type: 'success',
+                        text1: 'Joined Session',
+                        text2: 'You are now connected to the host.'
+                    });
+
+                    // Only navigate AFTER handshake success
+                    navigation.navigate('QrCode', {
+                        eventTitle,
+                        modeTitle: 'Client Mode',
+                        isClientMode: true,
+                        eventId: eventId
+                    });
+                    return;
+                } else if (message === 'JOIN_REJECT') {
+                    console.log('Handshake failed!');
+                    Alert.alert('Connection Failed', 'Invalid Session Code. Please try again.');
+                    client.destroy(); // Close connection
+                    setIsConnecting(false);
+                    return;
+                }
 
                 try {
                     // Handle broadcast updates
@@ -116,12 +150,6 @@ const ClientConnection = () => {
                 global.clientSocket = null;
             });
 
-            navigation.navigate('QrCode', {
-                eventTitle,
-                modeTitle: 'Client Mode',
-                isClientMode: true,
-                eventId: eventId
-            });
         });
 
         client.on('error', (error) => {
@@ -166,6 +194,21 @@ const ClientConnection = () => {
                         onChangeText={setHostIp}
                         keyboardType="numeric"
                         autoCapitalize="none"
+                    />
+
+                    <Text style={[styles.label, { marginTop: 20 }]}>Session Code</Text>
+                    <Text style={styles.subLabel}>
+                        Enter the 4-digit code shown on the Host.
+                    </Text>
+
+                    <TextInput
+                        style={styles.input}
+                        placeholder="e.g., 1234"
+                        placeholderTextColor="#CCCCCC"
+                        value={sessionCode}
+                        onChangeText={setSessionCode}
+                        keyboardType="numeric"
+                        maxLength={4}
                     />
 
                     <TouchableOpacity

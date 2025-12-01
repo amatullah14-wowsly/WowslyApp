@@ -1,9 +1,13 @@
 import { StyleSheet, Text, View, Image, TouchableOpacity } from 'react-native'
-import React, { useState, useEffect } from 'react'
-import { useNavigation } from '@react-navigation/native';
+import React, { useState, useEffect, useCallback } from 'react'
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import Grid from '../../components/Grid';
-import { getEventDetails } from '../../api/event';
+import { getEventDetails, getEventUsers, getTicketList } from '../../api/event';
 import BackButton from '../../components/BackButton';
+import Svg, { G, Path, Circle, Text as SvgText } from 'react-native-svg';
+import * as d3 from 'd3-shape';
+
+const COLORS = ['#FF8A3C', '#FFB74D', '#FFCC80', '#FFE0B2', '#FFF3E0'];
 
 type EventData = {
     id: string
@@ -25,17 +29,60 @@ const EventDashboard = ({ route }: EventDashboardProps) => {
     const navigation = useNavigation<any>();
     const { eventData } = route.params || {};
     const [details, setDetails] = useState<any>(null);
+    const [guestCounts, setGuestCounts] = useState({ total: 0, checkedIn: 0 });
+    const [ticketList, setTicketList] = useState<any[]>([]);
 
-    useEffect(() => {
-        if (eventData?.id) {
-            fetchDetails(eventData.id);
-        }
-    }, [eventData]);
+    // Refresh data when screen comes into focus
+    useFocusEffect(
+        useCallback(() => {
+            if (eventData?.id) {
+                fetchDetails(eventData.id);
+                fetchGuestCounts(eventData.id);
+                fetchTicketList(eventData.id);
+            }
+        }, [eventData])
+    );
 
     const fetchDetails = async (id: string) => {
         const res = await getEventDetails(id);
         if (res?.data) {
             setDetails(res.data);
+        }
+    };
+
+    const fetchGuestCounts = async (id: string) => {
+        try {
+            // Fetch all guests to get accurate counts
+            // Assuming getEventUsers returns a list of guests in res.data
+            const res = await getEventUsers(id);
+            if (res?.data) {
+                const allGuests = res.data;
+                const total = allGuests.length;
+                // Check for checked_in status or used_entries > 0
+                const checkedIn = allGuests.filter((g: any) =>
+                    g.status === 'checked_in' || (g.used_entries && g.used_entries > 0)
+                ).length;
+
+                setGuestCounts({ total, checkedIn });
+            }
+        } catch (error) {
+            console.log("Error fetching guest counts:", error);
+        }
+    };
+
+    const fetchTicketList = async (id: string) => {
+        try {
+            console.log("Fetching ticket list for dashboard:", id);
+            const res = await getTicketList(id);
+            console.log("Ticket list dashboard response:", res);
+            if (res?.data) {
+                setTicketList(res.data);
+            } else if (Array.isArray(res)) {
+                // Handle case where API returns array directly
+                setTicketList(res);
+            }
+        } catch (e) {
+            console.error("Error fetching ticket list in dashboard:", e);
         }
     };
 
@@ -66,7 +113,7 @@ const EventDashboard = ({ route }: EventDashboardProps) => {
                     source={
                         displayData.image
                             ? { uri: displayData.image }
-                            : require('../../assets/img/common/noimage.png')  // <-- add a placeholder
+                            : require('../../assets/img/common/noimage.png')
                     }
                     style={styles.eventImage}
                 />
@@ -83,14 +130,14 @@ const EventDashboard = ({ route }: EventDashboardProps) => {
                     <Grid
                         icon={require('../../assets/img/eventdashboard/guests.png')}
                         title="Guests"
-                        value="852"
+                        value={guestCounts.total || displayData.total_guests || displayData.total_pax || "0"}
                         onPress={() => navigation.navigate("GuestList", { eventId: displayData.id })}
                     />
 
                     <Grid
                         icon={require('../../assets/img/eventdashboard/checkin.png')}
                         title="Check-In"
-                        value="671"
+                        value={guestCounts.checkedIn || displayData.checked_in_count || displayData.used_entries || "0"}
                     />
                 </View>
 
@@ -98,14 +145,14 @@ const EventDashboard = ({ route }: EventDashboardProps) => {
                     <Grid
                         icon={require('../../assets/img/eventdashboard/ticket.png')}
                         title="Tickets"
-                        value="1000"
+                        value={ticketList.length > 0 ? ticketList.reduce((acc, t) => acc + (t.total_count || 0), 0).toString() : (displayData.tickets_sold || "0")}
                     //   onPress={() => navigation.navigate("TicketsScreen")}
                     />
 
                     <Grid
                         icon={require('../../assets/img/eventdashboard/revenue.png')}
                         title="Revenue"
-                        value="$50k"
+                        value={displayData.revenue ? `$${displayData.revenue}` : "$0"}
                     //   onPress={() => navigation.navigate("RevenueScreen")}
                     />
                 </View>
@@ -118,6 +165,83 @@ const EventDashboard = ({ route }: EventDashboardProps) => {
                     style={styles.scanicon} />
                 <Text style={styles.start}>Start Check-In</Text>
             </TouchableOpacity>
+
+            {/* Ticket Distribution Section */}
+            {ticketList.length > 0 && (
+                <View style={styles.ticketSection}>
+                    <Text style={styles.sectionTitle}>Ticket Distribution</Text>
+
+                    <View style={styles.chartContainer}>
+                        {/* Donut Chart */}
+                        <View style={styles.donutWrapper}>
+                            <Svg height="160" width="160" viewBox="0 0 160 160">
+                                <Circle cx="80" cy="80" r="70" stroke="#F2F2F2" strokeWidth="20" fill="none" />
+                                <G rotation="-90" origin="80, 80">
+                                    {(() => {
+                                        const total = ticketList.reduce((acc, t) => acc + (t.total_count || 0), 0);
+                                        const data = ticketList.map((t, i) => ({
+                                            value: t.total_count || 0,
+                                            color: COLORS[i % COLORS.length],
+                                            key: i
+                                        }));
+
+                                        const pieData = d3.pie().value((d: any) => d.value)(data);
+                                        const arcGenerator = d3.arc().outerRadius(80).innerRadius(60);
+
+                                        return pieData.map((slice, index) => (
+                                            <Path
+                                                key={index}
+                                                d={arcGenerator(slice as any) || undefined}
+                                                fill={slice.data.color}
+                                            />
+                                        ));
+                                    })()}
+                                </G>
+                                {/* Center Text */}
+                                <SvgText
+                                    x="80"
+                                    y="75"
+                                    fill="#111"
+                                    textAnchor="middle"
+                                    fontWeight="bold"
+                                    fontSize="24"
+                                >
+                                    {ticketList.reduce((acc, t) => acc + (t.total_count || 0), 0)}
+                                </SvgText>
+                                <SvgText
+                                    x="80"
+                                    y="95"
+                                    fill="#666"
+                                    textAnchor="middle"
+                                    fontSize="14"
+                                >
+                                    Total
+                                </SvgText>
+                            </Svg>
+                        </View>
+
+                        {/* Legend */}
+                        <View style={styles.legendContainer}>
+                            {ticketList.map((ticket: any, index: number) => {
+                                const total = ticketList.reduce((acc, t) => acc + (t.total_count || 0), 0);
+                                const percentage = total > 0 ? Math.round(((ticket.total_count || 0) / total) * 100) : 0;
+
+                                return (
+                                    <View key={index} style={styles.legendItem}>
+                                        <View style={[styles.legendDot, { backgroundColor: COLORS[index % COLORS.length] }]} />
+                                        <View>
+                                            <Text style={styles.legendTitle}>
+                                                {ticket.ticket_title} <Text style={styles.legendPercent}>({percentage}%)</Text>
+                                            </Text>
+                                        </View>
+                                    </View>
+                                );
+                            })}
+                        </View>
+                    </View>
+                </View>
+            )}
+            <View style={{ height: 20 }} />
         </View>
     )
 }
@@ -299,5 +423,54 @@ const styles = StyleSheet.create({
         color: 'white',
         fontWeight: '500',
         fontSize: 15,
+    },
+    ticketSection: {
+        width: '90%',
+        alignSelf: 'center',
+        marginTop: 20,
+        backgroundColor: 'white',
+        borderRadius: 20,
+        padding: 20,
+        borderWidth: 1,
+        borderColor: '#EDEDED',
+    },
+    sectionTitle: {
+        fontSize: 18,
+        fontWeight: '700',
+        color: '#111',
+        marginBottom: 20,
+    },
+    chartContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+    },
+    donutWrapper: {
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    legendContainer: {
+        flex: 1,
+        marginLeft: 20,
+        gap: 12,
+    },
+    legendItem: {
+        flexDirection: 'row',
+        alignItems: 'center',
+    },
+    legendDot: {
+        width: 12,
+        height: 12,
+        borderRadius: 6,
+        marginRight: 10,
+    },
+    legendTitle: {
+        fontSize: 14,
+        color: '#333',
+        fontWeight: '500',
+    },
+    legendPercent: {
+        color: '#666',
+        fontWeight: '400',
     },
 })

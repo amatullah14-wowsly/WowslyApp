@@ -14,7 +14,7 @@ import {
   Dimensions,
 } from 'react-native'
 import Toast from 'react-native-toast-message';
-import { initDB, findTicketByQr, updateTicketStatusLocal, getTicketsForEvent } from '../../db'
+import { initDB, findTicketByQr, updateTicketStatusLocal, getTicketsForEvent, insertOrReplaceGuests } from '../../db'
 import { RouteProp, useRoute, useNavigation } from '@react-navigation/native'
 import { Camera } from 'react-native-camera-kit'
 import { verifyQRCode, checkInGuest } from '../../api/api'
@@ -50,6 +50,7 @@ const QrCode = () => {
   const [scannedValue, setScannedValue] = useState<string | null>(null)
   const [guestData, setGuestData] = useState<any>(null)
   const [isVerifying, setIsVerifying] = useState(false)
+  const [selectedQuantity, setSelectedQuantity] = useState(1);
 
   // Animation State
   const SCREEN_HEIGHT = Dimensions.get('window').height;
@@ -58,6 +59,7 @@ const QrCode = () => {
   const MAX_UPWARD_TRANSLATE = -(SHEET_MAX_HEIGHT - SHEET_MIN_HEIGHT); // Negative value to move up
 
   const panY = useRef(new Animated.Value(0)).current;
+  const localScanHistory = useRef(new Map()).current;
 
   const panResponder = useRef(
     PanResponder.create({
@@ -193,6 +195,7 @@ const QrCode = () => {
   // ----------------- VERIFY QR FUNCTION -----------------
   const handleVerifyQR = async (qrGuestUuid: string) => {
     setIsVerifying(true)
+    setSelectedQuantity(1); // Reset quantity selector
 
     // 🟡 HOST SCAN MODE
     if (isScanningHost) {
@@ -310,6 +313,16 @@ const QrCode = () => {
             // Mark as checked-in in local database (increment used_entries)
             await updateTicketStatusLocal(qrGuestUuid, 'checked_in')
 
+            // ⚡⚡⚡ BROADCAST TO CLIENTS (IF HOST) ⚡⚡⚡
+            const broadcastData = {
+              guest_name: ticket.guest_name || "Guest",
+              qr_code: ticket.qr_code || qrGuestUuid,
+              total_entries: totalEntries,
+              used_entries: usedEntries + 1,
+              facilities: facilities
+            };
+            DeviceEventEmitter.emit('BROADCAST_SCAN_TO_CLIENTS', broadcastData);
+
             setGuestData({
               name: ticket.guest_name || "Guest",
               ticketId: ticket.qr_code || "N/A",
@@ -402,54 +415,157 @@ const QrCode = () => {
         // Fetch detailed guest info for the UI
         try {
           const detailsResponse = await getGuestDetails(eventId, guestId);
+
+          // Default values from initial verify response
+          const initialTotal = guest.total_entries || guest.total_pax || 1;
+          const initialUsed = guest.used_entries || guest.checked_in_count || 0;
+
           if (detailsResponse?.data) {
             const d = detailsResponse.data;
             const ticketData = d.ticket_data || {};
 
             // Total tickets bought
-            const totalEntries = ticketData.tickets_bought || guest.total_entries || guest.total_pax || 1;
+            const freshTotal = ticketData.tickets_bought || d.total_entries || 0;
+            const totalEntries = freshTotal > 0 ? freshTotal : initialTotal;
 
             // Used entries (scanned count)
-            // We use the count from verify response (which is likely pre-checkin) and add 1 for the current scan
-            const preScanUsed = guest.used_entries || guest.checked_in_count || 0;
-            const usedEntries = preScanUsed + 1;
+            const freshUsed = d.checked_in_count || d.used_entries || 0;
 
-            setGuestData({
+            // ----------------- LOCAL SESSION HISTORY LOGIC -----------------
+            // @ts-ignore
+            let previousLocalCount = localScanHistory.get(qrGuestUuid);
+
+            // If not in memory, try to seed from Local DB (handles navigation back/forth)
+            if (previousLocalCount === undefined) {
+              try {
+                const localTicket = await findTicketByQr(qrGuestUuid);
+                if (localTicket) {
+                  previousLocalCount = localTicket.used_entries || 0;
+                }
+              } catch (e) { /* ignore */ }
+            }
+            previousLocalCount = previousLocalCount || 0;
+
+            let calculatedUsed = 0;
+
+            // ⚡⚡⚡ FIX: Always respect local history to prevent reverting bulk scans ⚡⚡⚡
+            // We take the maximum of:
+            // 1. freshUsed (Server's latest count, might be lagging or caught up)
+            // 2. initialUsed (Snapshot from verify, might be stale)
+            // 3. previousLocalCount + 1 (Our local knowledge + current scan)
+            // This ensures that if we did a bulk scan locally (e.g. +3), we don't revert to 1 just because server is slow.
+            calculatedUsed = Math.max(freshUsed, initialUsed, previousLocalCount + 1);
+
+            // Update local history
+            // @ts-ignore
+            localScanHistory.set(qrGuestUuid, calculatedUsed);
+
+            const usedEntries = calculatedUsed;
+            const isValid = usedEntries <= totalEntries;
+            const status = isValid ? "VALID ENTRY" : "ALREADY SCANNED";
+
+            // ⚡⚡⚡ SYNC TO LOCAL DB ⚡⚡⚡
+            try {
+              const guestToSync = {
+                qr_code: qrGuestUuid,
+                name: d.name || guest.name,
+                guest_id: guestId,
+                ticket_id: ticketData.ticket_id || guest.ticket_id,
+                total_entries: totalEntries,
+                used_entries: usedEntries,
+                facilities: d.facilities || guest.facilities
+              };
+              await insertOrReplaceGuests(eventId, [guestToSync]);
+              console.log("Synced online scan to local DB:", guestToSync);
+            } catch (syncErr) {
+              console.warn("Failed to sync online scan to local DB:", syncErr);
+            }
+
+            const newGuestData = {
               name: d.name || guest.name || "Guest",
               ticketId: ticketData.ticket_id || guest.ticket_id || "N/A",
-              status: "VALID ENTRY",
-              isValid: true,
+              status: status,
+              isValid: isValid,
               totalEntries: totalEntries,
               usedEntries: usedEntries,
-              facilities: d.facilities || guest.facilities || []
-            })
+              facilities: d.facilities || guest.facilities || [],
+              guestId: guestId, // Store for bulk check-in
+              qrCode: qrGuestUuid // ⚡ Store QR for reliable key
+            };
+
+            setGuestData(newGuestData);
+
+            // ⚡⚡⚡ BROADCAST TO CLIENTS (IF HOST) ⚡⚡⚡
+            DeviceEventEmitter.emit('BROADCAST_SCAN_TO_CLIENTS', {
+              ...newGuestData,
+              qr_code: qrGuestUuid, // Ensure qr_code is present
+              guest_name: newGuestData.name,
+              used_entries: newGuestData.usedEntries,
+              total_entries: newGuestData.totalEntries
+            });
+
           } else {
             // Fallback if details fail
-            const totalEntries = guest.total_entries || guest.total_pax || 1;
-            const usedEntries = (guest.used_entries || guest.checked_in_count || 0) + 1;
+            // @ts-ignore
+            let previousLocalCount = localScanHistory.get(qrGuestUuid);
+            if (previousLocalCount === undefined) {
+              try {
+                const localTicket = await findTicketByQr(qrGuestUuid);
+                if (localTicket) previousLocalCount = localTicket.used_entries || 0;
+              } catch (e) { }
+            }
+            previousLocalCount = previousLocalCount || 0;
+
+            const calculatedUsed = Math.max(initialUsed, previousLocalCount) + 1;
+            // @ts-ignore
+            localScanHistory.set(qrGuestUuid, calculatedUsed);
+
+            const isValid = calculatedUsed <= initialTotal;
+
             setGuestData({
               name: guest?.name || "Guest",
               ticketId: guest?.ticket_id || "N/A",
-              status: "VALID ENTRY",
-              isValid: true,
-              totalEntries,
-              usedEntries,
-              facilities: guest.facilities || []
+              status: isValid ? "VALID ENTRY" : "ALREADY SCANNED",
+              isValid: isValid,
+              totalEntries: initialTotal,
+              usedEntries: calculatedUsed,
+              facilities: guest.facilities || [],
+              guestId: guestId,
+              qrCode: qrGuestUuid // ⚡ Store QR for reliable key
             })
           }
         } catch (err) {
           console.log("Error fetching details", err);
           // Fallback
-          const totalEntries = guest.total_entries || guest.total_pax || 1;
-          const usedEntries = (guest.used_entries || guest.checked_in_count || 0) + 1;
+          const initialTotal = guest.total_entries || guest.total_pax || 1;
+          const initialUsed = guest.used_entries || guest.checked_in_count || 0;
+
+          // @ts-ignore
+          let previousLocalCount = localScanHistory.get(qrGuestUuid);
+          if (previousLocalCount === undefined) {
+            try {
+              const localTicket = await findTicketByQr(qrGuestUuid);
+              if (localTicket) previousLocalCount = localTicket.used_entries || 0;
+            } catch (e) { }
+          }
+          previousLocalCount = previousLocalCount || 0;
+
+          const calculatedUsed = Math.max(initialUsed, previousLocalCount) + 1;
+          // @ts-ignore
+          localScanHistory.set(qrGuestUuid, calculatedUsed);
+
+          const isValid = calculatedUsed <= initialTotal;
+
           setGuestData({
             name: guest?.name || "Guest",
             ticketId: guest?.ticket_id || "N/A",
-            status: "VALID ENTRY",
-            isValid: true,
-            totalEntries,
-            usedEntries,
-            facilities: guest.facilities || []
+            status: isValid ? "VALID ENTRY" : "ALREADY SCANNED",
+            isValid: isValid,
+            totalEntries: initialTotal,
+            usedEntries: calculatedUsed,
+            facilities: guest.facilities || [],
+            guestId: guestId,
+            qrCode: qrGuestUuid // ⚡ Store QR for reliable key
           })
         }
 
@@ -471,10 +587,97 @@ const QrCode = () => {
       });
       setTimeout(() => setScannedValue(null), 2000);
       setGuestData(null)
+      setGuestData(null);
+      return;
     } finally {
       setIsVerifying(false)
     }
   }
+
+  const handleBulkCheckIn = async () => {
+    const additionalCheckins = selectedQuantity - 1;
+    const guestId = guestData?.guestId;
+    const qrCode = guestData?.qrCode || scannedValue; // Use stored QR or fallback
+
+    if (!guestId || !qrCode) {
+      setScannedValue(null);
+      setGuestData(null);
+      return;
+    }
+
+    setIsVerifying(true);
+    try {
+      // Fire multiple check-ins
+      const promises = [];
+      for (let i = 0; i < additionalCheckins; i++) {
+        promises.push(checkInGuest(eventId, guestId));
+      }
+
+      await Promise.all(promises);
+
+      // ⚡⚡⚡ FIX: Use guestData.usedEntries as base for reliability ⚡⚡⚡
+      // guestData.usedEntries is the count AFTER the initial scan (e.g. 1)
+      // We add additionalCheckins to it (e.g. 1 + 2 = 3)
+      const currentUsed = guestData.usedEntries || 0;
+      const newUsed = currentUsed + additionalCheckins;
+
+      // Update local history
+      // @ts-ignore
+      localScanHistory.set(qrCode, newUsed);
+
+      // ⚡⚡⚡ SYNC BULK CHECKIN TO LOCAL DB ⚡⚡⚡
+      try {
+        const guestToSync = {
+          qr_code: qrCode,
+          name: guestData.name,
+          guest_id: guestData.guestId,
+          ticket_id: guestData.ticketId,
+          total_entries: guestData.totalEntries,
+          used_entries: newUsed,
+          facilities: guestData.facilities
+        };
+        await insertOrReplaceGuests(eventId, [guestToSync]);
+        console.log("Synced bulk check-in to local DB:", guestToSync);
+      } catch (syncErr) {
+        console.warn("Failed to sync bulk check-in:", syncErr);
+      }
+
+      Toast.show({
+        type: 'success',
+        text1: 'Bulk Check-in',
+        text2: `Checked in ${selectedQuantity} guests`
+      });
+
+    } catch (error) {
+      console.error("Bulk check-in error:", error);
+      Toast.show({
+        type: 'error',
+        text1: 'Error',
+        text2: 'Failed to complete bulk check-in'
+      });
+    } finally {
+      setIsVerifying(false);
+      setScannedValue(null);
+      setGuestData(null);
+    }
+  };
+
+  // Helper for dynamic stats
+  const getDisplayedStats = () => {
+    if (!guestData) return { bought: 0, scanned: 0, remaining: 0 };
+
+    const extraSelected = selectedQuantity - 1;
+    const currentUsed = guestData.usedEntries + extraSelected;
+    const currentRemaining = guestData.totalEntries - currentUsed;
+
+    return {
+      bought: guestData.totalEntries,
+      scanned: currentUsed,
+      remaining: Math.max(0, currentRemaining)
+    };
+  };
+
+  const stats = getDisplayedStats();
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -549,21 +752,23 @@ const QrCode = () => {
               <Text style={styles.ticketId}>
                 Ticket ID: {guestData?.ticketId || '---'}
               </Text>
-              {guestData && (
+
+              {/* ⚡⚡⚡ CONDITIONAL STATS (DYNAMIC) ⚡⚡⚡ */}
+              {guestData && guestData.totalEntries > 1 && (
                 <View style={styles.statsContainer}>
                   <View style={styles.statItem}>
                     <Text style={styles.statLabel}>Bought</Text>
-                    <Text style={styles.statValue}>{guestData.totalEntries}</Text>
+                    <Text style={styles.statValue}>{stats.bought}</Text>
                   </View>
                   <View style={styles.statDivider} />
                   <View style={styles.statItem}>
                     <Text style={styles.statLabel}>Scanned</Text>
-                    <Text style={styles.statValue}>{guestData.usedEntries}</Text>
+                    <Text style={styles.statValue}>{stats.scanned}</Text>
                   </View>
                   <View style={styles.statDivider} />
                   <View style={styles.statItem}>
                     <Text style={styles.statLabel}>Remaining</Text>
-                    <Text style={styles.statValue}>{guestData.totalEntries - guestData.usedEntries}</Text>
+                    <Text style={styles.statValue}>{stats.remaining}</Text>
                   </View>
                 </View>
               )}
@@ -594,18 +799,42 @@ const QrCode = () => {
                 </View>
               </View>
             )}
+
+            {/* ⚡⚡⚡ QUANTITY SELECTOR ⚡⚡⚡ */}
+            {guestData && guestData.totalEntries > 1 && (guestData.totalEntries - guestData.usedEntries > 0) && (
+              <View style={styles.quantityContainer}>
+                <Text style={styles.quantityLabel}>Check-in Quantity:</Text>
+                <View style={styles.quantityControls}>
+                  <TouchableOpacity
+                    style={styles.qtyButton}
+                    onPress={() => {
+                      if (selectedQuantity > 1) setSelectedQuantity(q => q - 1);
+                    }}
+                  >
+                    <Text style={styles.qtyButtonText}>-</Text>
+                  </TouchableOpacity>
+                  <Text style={styles.qtyValue}>{selectedQuantity}</Text>
+                  <TouchableOpacity
+                    style={styles.qtyButton}
+                    onPress={() => {
+                      const remaining = guestData.totalEntries - guestData.usedEntries;
+                      if (selectedQuantity < (remaining + 1)) {
+                        setSelectedQuantity(q => q + 1);
+                      }
+                    }}
+                  >
+                    <Text style={styles.qtyButtonText}>+</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            )}
           </View>
 
           <TouchableOpacity
             style={[styles.primaryButton, isVerifying && styles.primaryButtonDisabled]}
             activeOpacity={0.9}
             disabled={isVerifying}
-            onPress={() => {
-              setScannedValue(null)
-              setGuestData(null)
-              // Optional: Close sheet on scan next?
-              // Animated.spring(panY, { toValue: 0, useNativeDriver: false }).start();
-            }}
+            onPress={handleBulkCheckIn}
           >
             <Text style={styles.primaryButtonText}>
               {isVerifying ? 'Verifying...' : 'Scan Next'}
@@ -849,5 +1078,40 @@ const styles = StyleSheet.create({
     width: 1,
     height: 24,
     backgroundColor: 'rgba(255,255,255,0.2)',
+  },
+  quantityContainer: {
+    marginTop: 16,
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    borderRadius: 12,
+    padding: 12,
+  },
+  quantityLabel: {
+    color: '#9C9C9C',
+    fontSize: 12,
+    marginBottom: 8,
+  },
+  quantityControls: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  qtyButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255,255,255,0.1)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  qtyButtonText: {
+    color: '#FFFFFF',
+    fontSize: 24,
+    fontWeight: '700',
+    lineHeight: 28,
+  },
+  qtyValue: {
+    color: '#FFFFFF',
+    fontSize: 24,
+    fontWeight: '700',
   },
 })

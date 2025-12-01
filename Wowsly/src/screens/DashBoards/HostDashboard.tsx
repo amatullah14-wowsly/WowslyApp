@@ -23,6 +23,7 @@ type HostDashboardRoute = RouteProp<
   {
     HostDashboard: {
       eventTitle?: string;
+      eventId: number;
     };
   },
   'HostDashboard'
@@ -38,6 +39,14 @@ const infoRows = [
     value: 'Loading...',
     accent: '#FFE8D9',
     icon: require('../../assets/img/eventdashboard/hostip.png'),
+  },
+  {
+    id: 'code',
+    label: 'Session Code',
+    value: 'Loading...',
+    accent: '#E0F7FA',
+    icon: require('../../assets/img/common/info.png'), // Using info icon as placeholder
+    valueColor: '#006064',
   },
   {
     id: 'ssid',
@@ -57,6 +66,12 @@ const infoRows = [
 ];
 
 const actionRows = [
+  {
+    id: 'scan',
+    title: 'Scan Ticket',
+    icon: require('../../assets/img/common/info.png'),
+    info: 'Scan a guest ticket directly from this device.',
+  },
   {
     id: 'download',
     title: 'Download Data',
@@ -98,13 +113,33 @@ const HostDashboard = () => {
   const [connectedClients, setConnectedClients] = useState<any[]>([]);
   const [clientCount, setClientCount] = useState(0);
   const [serverStatus, setServerStatus] = useState<'Starting' | 'Running' | 'Error' | 'Stopped'>('Starting');
+  const [sessionCode, setSessionCode] = useState<string>('');
 
   // Ref to hold connected clients for access inside callbacks
   const connectedClientsRef = useRef<any[]>([]);
 
   const eventTitle = route.params?.eventTitle ?? 'Host Dashboard';
+  const eventId = route.params?.eventId;
+
   const openInfo = (text: string) => setInfoModal({ visible: true, text });
   const closeInfo = () => setInfoModal({ visible: false });
+
+  const handleAction = (actionId: string) => {
+    if (actionId === 'scan') {
+      if (!eventId) {
+        Alert.alert('Error', 'Event ID missing');
+        return;
+      }
+      navigation.navigate('QrCode', {
+        eventTitle,
+        eventId,
+        isScanningHost: false,
+        isClientMode: false,
+      });
+    } else {
+      Alert.alert('Info', 'This feature is coming soon.');
+    }
+  };
 
   useEffect(() => {
     // Get Device IP
@@ -116,20 +151,54 @@ const HostDashboard = () => {
       }
     });
 
+    // Generate Session Code
+    const code = Math.floor(1000 + Math.random() * 9000).toString();
+    setSessionCode(code);
+
     // Start Server
     const newServer = TcpSocket.createServer((socket) => {
       console.log('Client connected:', socket.address());
 
-      // Add client to list (using Ref for immediate access in callbacks)
-      connectedClientsRef.current.push(socket);
-      setConnectedClients([...connectedClientsRef.current]);
-      setClientCount(prev => prev + 1);
+      // Don't add to connectedClients yet - wait for handshake
+      // But we need to listen to data to receive the handshake
 
       socket.on('data', async (data) => {
-        const message = data.toString();
+        const message = data.toString().trim();
         console.log('Received data:', message);
 
-        // Handle message logic here
+        // --- HANDSHAKE LOGIC ---
+        if (message.startsWith('JOIN_REQUEST:')) {
+          const receivedCode = message.split(':')[1];
+          if (receivedCode === code) {
+            console.log('Client authenticated with correct code');
+            socket.write('JOIN_ACCEPT\n');
+
+            // Now add to connected clients list
+            if (!connectedClientsRef.current.includes(socket)) {
+              connectedClientsRef.current.push(socket);
+              setConnectedClients([...connectedClientsRef.current]);
+              setClientCount(prev => prev + 1);
+            }
+          } else {
+            console.log('Client failed authentication');
+            socket.write('JOIN_REJECT\n');
+            // Optional: Close connection immediately or let client handle it
+            setTimeout(() => socket.destroy(), 1000);
+          }
+          return;
+        }
+
+        // --- NORMAL DATA LOGIC (Only if authenticated ideally, but for now check if in list) ---
+        // For simplicity in this step, we assume if they are sending data they might be authenticated 
+        // OR we just process scan data. 
+        // Ideally, we should check if socket is in connectedClientsRef.current before processing scan data.
+
+        const isClientAuthenticated = connectedClientsRef.current.includes(socket);
+        if (!isClientAuthenticated && !message.startsWith('JOIN_REQUEST')) {
+          console.log('Ignored data from unauthenticated client');
+          return;
+        }
+
         // Expected format: guest_uuid,event_id,ticketId,multiple_checkInCount
         if (message.includes(',')) {
           const parts = message.split(',');
@@ -226,7 +295,7 @@ const HostDashboard = () => {
         // Remove from ref
         connectedClientsRef.current = connectedClientsRef.current.filter(c => c !== socket);
         setConnectedClients([...connectedClientsRef.current]);
-        setClientCount(prev => prev - 1);
+        setClientCount(prev => connectedClientsRef.current.length);
       });
     }).listen({ port: 0, host: '0.0.0.0' }, () => {
       const address = newServer.address();
@@ -245,9 +314,28 @@ const HostDashboard = () => {
 
     setServer(newServer);
 
+    // Listen for local scans (Host scanning) to broadcast to clients
+    const scanSubscription = DeviceEventEmitter.addListener('BROADCAST_SCAN_TO_CLIENTS', (ticketData) => {
+      console.log('[Host] Broadcasting local scan to clients:', ticketData?.guest_name);
+
+      const broadcastMsg = JSON.stringify({
+        type: 'BROADCAST_UPDATE',
+        data: ticketData
+      });
+
+      connectedClientsRef.current.forEach(client => {
+        try {
+          client.write(broadcastMsg + '\n');
+        } catch (e) {
+          console.log("Failed to broadcast local scan", e);
+        }
+      });
+    });
+
     return () => {
       newServer.close();
       setServerStatus('Stopped');
+      scanSubscription.remove();
     };
   }, []);
 
@@ -298,6 +386,7 @@ const HostDashboard = () => {
           {infoRows.map((row) => {
             let displayValue = row.value;
             if (row.id === 'ip') displayValue = `${hostIp}:${serverPort}`;
+            if (row.id === 'code') displayValue = sessionCode;
             if (row.id === 'clients') displayValue = clientCount.toString();
 
             return (
@@ -321,7 +410,11 @@ const HostDashboard = () => {
 
         <View style={styles.actionGrid}>
           {actionRows.map((action) => (
-            <View key={action.id} style={styles.actionCard}>
+            <TouchableOpacity
+              key={action.id}
+              style={styles.actionCard}
+              onPress={() => handleAction(action.id)}
+            >
               <TouchableOpacity
                 style={styles.infoButton}
                 onPress={() => openInfo(action.info)}
@@ -332,7 +425,7 @@ const HostDashboard = () => {
                 <Image source={action.icon} style={styles.actionIcon} />
               </View>
               <Text style={styles.actionLabel}>{action.title}</Text>
-            </View>
+            </TouchableOpacity>
           ))}
         </View>
       </ScrollView>
