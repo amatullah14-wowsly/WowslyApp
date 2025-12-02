@@ -127,11 +127,14 @@ const OnlineGuestList = () => {
 
     const filteredGuests = useMemo(() => {
         return guests.filter((guest) => {
-            const name = guest.name || guest.first_name + ' ' + guest.last_name || 'Guest';
-            const matchesSearch = name
-                .toLowerCase()
-                .includes(searchQuery.trim().toLowerCase());
-            return matchesSearch;
+            const query = searchQuery.trim().toLowerCase();
+            if (!query) return true;
+
+            const name = (guest.name || guest.first_name + ' ' + guest.last_name || 'Guest').toLowerCase();
+            const phone = (guest.phone || guest.mobile || guest.phone_number || '').toString().toLowerCase();
+            const id = (guest.id || guest.ticket_id || '').toString().toLowerCase();
+
+            return name.includes(query) || phone.includes(query) || id.includes(query);
         });
     }, [guests, searchQuery]);
 

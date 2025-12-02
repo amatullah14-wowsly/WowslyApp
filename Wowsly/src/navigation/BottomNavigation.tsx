@@ -2,7 +2,6 @@ import React from "react";
 import { Image } from "react-native";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import EventListing from "../screens/Events/EventListing";
-import Upcoming from "../screens/Events/Upcoming";
 import Past from "../screens/Events/Past";
 
 const Tab = createBottomTabNavigator();
@@ -14,10 +13,8 @@ const BottomNavigation = () => {
                 headerShown: false,
                 tabBarIcon: ({ color, size }) => {
                     let iconSource;
-                    if (route.name === "Current") {
+                    if (route.name === "Events") {
                         iconSource = require('../assets/img/bottombar/current.png');
-                    } else if (route.name === "Upcoming") {
-                        iconSource = require('../assets/img/bottombar/upcoming.png');
                     } else if (route.name === "Past") {
                         iconSource = require('../assets/img/bottombar/past.png');
                     }
@@ -26,7 +23,7 @@ const BottomNavigation = () => {
                             source={iconSource}
                             style={{
                                 width: 20,
-                                height: 20 ,
+                                height: 20,
                                 tintColor: color,
                                 resizeMode: 'contain'
                             }}
@@ -46,8 +43,7 @@ const BottomNavigation = () => {
                 },
             })}
         >
-            <Tab.Screen name="Current" component={EventListing} />
-            <Tab.Screen name="Upcoming" component={Upcoming} />
+            <Tab.Screen name="Events" component={EventListing} />
             <Tab.Screen name="Past" component={Past} />
         </Tab.Navigator>
     );

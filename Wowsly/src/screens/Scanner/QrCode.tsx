@@ -12,6 +12,7 @@ import {
   Animated,
   PanResponder,
   Dimensions,
+  DeviceEventEmitter,
 } from 'react-native'
 import Toast from 'react-native-toast-message';
 import { initDB, findTicketByQr, updateTicketStatusLocal, getTicketsForEvent, insertOrReplaceGuests } from '../../db'
@@ -799,6 +800,16 @@ const QrCode = () => {
                 </View>
               </View>
             )}
+            {(() => {
+              if (guestData) {
+                console.log("DEBUG: guestData for Quantity Selector:", JSON.stringify({
+                  totalEntries: guestData.totalEntries,
+                  usedEntries: guestData.usedEntries,
+                  condition: guestData.totalEntries > 1 && (guestData.totalEntries - guestData.usedEntries > 0)
+                }));
+              }
+              return null;
+            })()}
 
             {/* ⚡⚡⚡ QUANTITY SELECTOR ⚡⚡⚡ */}
             {guestData && guestData.totalEntries > 1 && (guestData.totalEntries - guestData.usedEntries > 0) && (

@@ -18,10 +18,12 @@ import { getEvents } from '../../api/event';
 const Past = () => {
   const navigation = useNavigation<any>();
   const [events, setEvents] = useState([]);
+  const [allEvents, setAllEvents] = useState([]); // Store all fetched events
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [page, setPage] = useState(1);
   const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
 
   const EVENTS_PER_PAGE = 8;
 
@@ -32,22 +34,38 @@ const Past = () => {
   const fetchEvents = async (force = false) => {
     if (!force) setLoading(true);
     const res = await getEvents(force);
-    const allEvents = res?.data || [];
+    const fetchedEvents = res?.data || [];
 
+    setAllEvents(fetchedEvents);
+    filterEvents(fetchedEvents, searchQuery);
+
+    setLoading(false);
+    setRefreshing(false);
+  };
+
+  const filterEvents = (sourceEvents: any[], query: string) => {
     // Filter: Show only Past events (End Date < Today)
     const date = new Date();
     const today = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
 
-    const filteredEvents = allEvents.filter((event: any) => {
+    const filtered = sourceEvents.filter((event: any) => {
       if (!event.end_date) return false;
       const endDate = event.end_date.split('T')[0];
-      return endDate < today;
+
+      // Search Filter
+      const matchesSearch = event.title?.toLowerCase().includes(query.toLowerCase());
+
+      return endDate < today && matchesSearch;
     });
 
-    setEvents(filteredEvents);
-    setLoading(false);
-    setRefreshing(false);
+    setEvents(filtered);
+    setPage(1); // Reset to first page on filter
   };
+
+  // Re-run filter when searchQuery changes
+  useEffect(() => {
+    filterEvents(allEvents, searchQuery);
+  }, [searchQuery]);
 
   const onRefresh = () => {
     setRefreshing(true);
@@ -94,19 +112,16 @@ const Past = () => {
     );
   }
 
-  // 🌀 Empty state UI when there are no past events
-  if (!loading && events.length === 0) {
-    return (
-      <View style={styles.emptyContainer}>
-        <Image
-          source={require('../../assets/img/common/noguests.png')}
-          style={styles.emptyImage}
-          resizeMode="contain"
-        />
-        <Text style={{ fontSize: 16, color: '#888', marginTop: 10 }}>No past events found</Text>
-      </View>
-    );
-  }
+  const renderEmptyComponent = () => (
+    <View style={styles.emptyContainer}>
+      <Image
+        source={require('../../assets/img/common/noguests.png')}
+        style={styles.emptyImage}
+        resizeMode="contain"
+      />
+      <Text style={{ fontSize: 16, color: '#888', marginTop: 10 }}>No past events found</Text>
+    </View>
+  );
 
   return (
     <View style={styles.container}>
@@ -144,7 +159,18 @@ const Past = () => {
             source={{ uri: 'https://img.icons8.com/ios-glyphs/30/9E9E9E/search--v1.png' }}
             style={styles.searchIcon}
           />
-          <TextInput placeholder="Search Event Name" placeholderTextColor="#9E9E9E" style={styles.searchInput} />
+          <TextInput
+            placeholder="Search Event Name"
+            placeholderTextColor="#9E9E9E"
+            style={styles.searchInput}
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+          />
+        </View>
+        <View style={styles.filterIcon}>
+          <View style={styles.filterBar} />
+          <View style={[styles.filterBar, styles.filterBarShort]} />
+          <View style={[styles.filterBar, styles.filterBarShortest]} />
         </View>
       </View>
 
@@ -153,7 +179,9 @@ const Past = () => {
         keyExtractor={(item: any) => item.id.toString()}
         renderItem={renderCard}
         extraData={selectedEventId}
-        contentContainerStyle={styles.listContent}
+        contentContainerStyle={[styles.listContent, paginatedEvents.length === 0 && { flexGrow: 1 }]}
+        ListEmptyComponent={renderEmptyComponent}
+        style={{ marginTop: 15 }}
         showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#FF8A3C']} />
@@ -195,8 +223,8 @@ const styles = StyleSheet.create({
     backgroundColor: '#FF8A3C',
     width: '100%',
     height: '10%',
-    borderBottomLeftRadius: 20,
-    borderBottomRightRadius: 20,
+    borderBottomLeftRadius: 15,
+    borderBottomRightRadius: 15,
     shadowColor: '#FF8A3C',
     shadowOpacity: 0.2,
     shadowOffset: { width: 0, height: 6 },
@@ -249,6 +277,27 @@ const styles = StyleSheet.create({
   searchIcon: {
     width: 18,
     height: 18,
+  },
+  filterIcon: {
+    width: 30,
+    height: 30,
+    borderRadius: 8,
+    backgroundColor: '#FF8A3C',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 3,
+  },
+  filterBar: {
+    width: 14,
+    height: 2,
+    backgroundColor: 'white',
+    borderRadius: 2,
+  },
+  filterBarShort: {
+    width: 10,
+  },
+  filterBarShortest: {
+    width: 6,
   },
   listContent: {
     paddingHorizontal: 20,

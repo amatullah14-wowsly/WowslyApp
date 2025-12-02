@@ -7,7 +7,7 @@ import BackButton from '../../components/BackButton';
 import Svg, { G, Path, Circle, Text as SvgText } from 'react-native-svg';
 import * as d3 from 'd3-shape';
 
-const COLORS = ['#FF8A3C', '#FFB74D', '#FFCC80', '#FFE0B2', '#FFF3E0'];
+const COLORS = ['#FF8A3C', '#FFA06D', '#FFB58A', '#FFCAAB', '#FFE0CC'];
 
 type EventData = {
     id: string
@@ -100,6 +100,20 @@ const EventDashboard = ({ route }: EventDashboardProps) => {
         return null;
     }
 
+    const totalSold = ticketList.reduce(
+        (acc, t) => acc + (Number(t.sold_out) || 0),
+        0
+    );
+
+    // only positive values
+    const chartData = ticketList
+        .map((t, i) => ({
+            value: Number(t.sold_out) || 0,
+            color: COLORS[i % COLORS.length],
+            title: t.title,
+        }))
+        .filter(d => d.value > 0);
+
     return (
         <View style={styles.container}>
             <View style={styles.header}>
@@ -145,14 +159,14 @@ const EventDashboard = ({ route }: EventDashboardProps) => {
                     <Grid
                         icon={require('../../assets/img/eventdashboard/ticket.png')}
                         title="Tickets"
-                        value={ticketList.length > 0 ? ticketList.reduce((acc, t) => acc + (t.total_count || 0), 0).toString() : (displayData.tickets_sold || "0")}
+                        value={ticketList.length > 0 ? ticketList.reduce((acc, t) => acc + (t.sold_out || 0), 0).toString() : (displayData.tickets_sold || "0")}
                     //   onPress={() => navigation.navigate("TicketsScreen")}
                     />
 
                     <Grid
                         icon={require('../../assets/img/eventdashboard/revenue.png')}
                         title="Revenue"
-                        value={displayData.revenue ? `$${displayData.revenue}` : "$0"}
+                        value={displayData.revenue ? `₹${displayData.revenue}` : "₹0"}
                     //   onPress={() => navigation.navigate("RevenueScreen")}
                     />
                 </View>
@@ -166,29 +180,34 @@ const EventDashboard = ({ route }: EventDashboardProps) => {
                 <Text style={styles.start}>Start Check-In</Text>
             </TouchableOpacity>
 
-            {/* Ticket Distribution Section */}
-            {ticketList.length > 0 && (
+            {chartData.length > 0 && totalSold > 0 && (
                 <View style={styles.ticketSection}>
                     <Text style={styles.sectionTitle}>Ticket Distribution</Text>
 
                     <View style={styles.chartContainer}>
                         {/* Donut Chart */}
                         <View style={styles.donutWrapper}>
-                            <Svg height="160" width="160" viewBox="0 0 160 160">
-                                <Circle cx="80" cy="80" r="70" stroke="#F2F2F2" strokeWidth="20" fill="none" />
-                                <G rotation="-90" origin="80, 80">
+                            <Svg height="140" width="140" viewBox="0 0 160 160">
+                                {/* background ring */}
+                                <G x="80" y="80">
                                     {(() => {
-                                        const total = ticketList.reduce((acc, t) => acc + (t.total_count || 0), 0);
-                                        const data = ticketList.map((t, i) => ({
-                                            value: t.total_count || 0,
-                                            color: COLORS[i % COLORS.length],
-                                            key: i
-                                        }));
+                                        console.log("Chart Data:", JSON.stringify(chartData));
 
-                                        const pieData = d3.pie().value((d: any) => d.value)(data);
-                                        const arcGenerator = d3.arc().outerRadius(80).innerRadius(60);
+                                        const pieData = d3
+                                            .pie()
+                                            .value((d: any) => d.value)
+                                            .sort(null)(chartData);
 
-                                        return pieData.map((slice, index) => (
+                                        console.log("Pie Data:", JSON.stringify(pieData));
+
+                                        const arcGenerator = d3
+                                            .arc()
+                                            .outerRadius(70)
+                                            .innerRadius(0)
+                                            .padAngle(0.02)
+                                            .cornerRadius(4);
+
+                                        return pieData.map((slice: any, index: number) => (
                                             <Path
                                                 key={index}
                                                 d={arcGenerator(slice as any) || undefined}
@@ -197,41 +216,29 @@ const EventDashboard = ({ route }: EventDashboardProps) => {
                                         ));
                                     })()}
                                 </G>
-                                {/* Center Text */}
-                                <SvgText
-                                    x="80"
-                                    y="75"
-                                    fill="#111"
-                                    textAnchor="middle"
-                                    fontWeight="bold"
-                                    fontSize="24"
-                                >
-                                    {ticketList.reduce((acc, t) => acc + (t.total_count || 0), 0)}
-                                </SvgText>
-                                <SvgText
-                                    x="80"
-                                    y="95"
-                                    fill="#666"
-                                    textAnchor="middle"
-                                    fontSize="14"
-                                >
-                                    Total
-                                </SvgText>
                             </Svg>
                         </View>
 
                         {/* Legend */}
                         <View style={styles.legendContainer}>
-                            {ticketList.map((ticket: any, index: number) => {
-                                const total = ticketList.reduce((acc, t) => acc + (t.total_count || 0), 0);
-                                const percentage = total > 0 ? Math.round(((ticket.total_count || 0) / total) * 100) : 0;
+                            {chartData.map((ticket, index) => {
+                                const percentage =
+                                    totalSold > 0
+                                        ? Math.round((ticket.value / totalSold) * 100)
+                                        : 0;
 
                                 return (
                                     <View key={index} style={styles.legendItem}>
-                                        <View style={[styles.legendDot, { backgroundColor: COLORS[index % COLORS.length] }]} />
+                                        <View
+                                            style={[
+                                                styles.legendDot,
+                                                { backgroundColor: ticket.color },
+                                            ]}
+                                        />
                                         <View>
                                             <Text style={styles.legendTitle}>
-                                                {ticket.ticket_title} <Text style={styles.legendPercent}>({percentage}%)</Text>
+                                                {ticket.title}{' '}
+                                                <Text style={styles.legendPercent}>({percentage}%)</Text>
                                             </Text>
                                         </View>
                                     </View>

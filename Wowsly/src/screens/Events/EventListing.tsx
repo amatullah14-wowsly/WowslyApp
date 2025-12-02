@@ -20,13 +20,16 @@ const EventListing = () => {
   const navigation = useNavigation<any>();
 
   // 🔥 Live events from API
+  // 🔥 Live events from API
   const [events, setEvents] = useState([]);
+  const [allEvents, setAllEvents] = useState([]); // Store all fetched events
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
   const [page, setPage] = useState(1);
   const [selectedEventId, setSelectedEventId] = useState(null);
   const [logoutModalVisible, setLogoutModalVisible] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
 
   const EVENTS_PER_PAGE = 8;
 
@@ -38,31 +41,41 @@ const EventListing = () => {
   const fetchEvents = async (force = false) => {
     if (!force) setLoading(true);
     const res = await getEvents(force);
-    const allEvents = res?.data || [];
-    console.log('Fetched events count:', allEvents.length);
-    if (allEvents.length > 0) {
-      console.log('First event title:', allEvents[0].title);
-      console.log('First event ID:', allEvents[0].id);
-    }
+    const fetchedEvents = res?.data || [];
+    console.log('Fetched events count:', fetchedEvents.length);
 
-    // Filter: Show only "current" events (events happening today)
-    // Current = event has started AND not yet ended (inclusive of today)
-    const date = new Date();
-    const today = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+    setAllEvents(fetchedEvents);
+    filterEvents(fetchedEvents, searchQuery);
 
-    const filteredEvents = allEvents.filter((event: any) => {
-      const startDate = event.start_date ? event.start_date.split('T')[0] : null;
-      const endDate = event.end_date ? event.end_date.split('T')[0] : null;
-
-      if (!startDate || !endDate) return false;
-
-      return startDate <= today && endDate >= today;
-    });
-
-    setEvents(filteredEvents);
     setLoading(false);
     setRefreshing(false);
   };
+
+  const filterEvents = (sourceEvents: any[], query: string) => {
+    // Filter: Show "Current" and "Upcoming" events
+    // Logic: Event has not ended yet (endDate >= today)
+    const date = new Date();
+    const today = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+
+    const filtered = sourceEvents.filter((event: any) => {
+      const endDate = event.end_date ? event.end_date.split('T')[0] : null;
+
+      if (!endDate) return false;
+
+      // Search Filter
+      const matchesSearch = event.title?.toLowerCase().includes(query.toLowerCase());
+
+      return endDate >= today && matchesSearch;
+    });
+
+    setEvents(filtered);
+    setPage(1); // Reset to first page on filter
+  };
+
+  // Re-run filter when searchQuery changes
+  useEffect(() => {
+    filterEvents(allEvents, searchQuery);
+  }, [searchQuery]);
 
   const onRefresh = () => {
     setRefreshing(true);
@@ -113,18 +126,15 @@ const EventListing = () => {
     );
   }
 
-  // 🌀 Empty state UI when there are no current events
-  if (!loading && events.length === 0) {
-    return (
-      <View style={styles.emptyContainer}>
-        <Image
-          source={require('../../assets/img/common/noguests.png')}
-          style={styles.emptyImage}
-          resizeMode="contain"
-        />
-      </View>
-    );
-  }
+  const renderEmptyComponent = () => (
+    <View style={styles.emptyContainer}>
+      <Image
+        source={require('../../assets/img/common/noguests.png')}
+        style={styles.emptyImage}
+        resizeMode="contain"
+      />
+    </View>
+  );
 
   return (
     <View style={styles.container}>
@@ -133,7 +143,7 @@ const EventListing = () => {
       {/* Header with Logout */}
       <View style={styles.heading}>
         <View style={styles.headingRow}>
-          <Text style={styles.headingtxt}>Current Events</Text>
+          <Text style={styles.headingtxt}>Events</Text>
           <TouchableOpacity
             activeOpacity={0.8}
             onPress={() => setLogoutModalVisible(true)}
@@ -206,6 +216,8 @@ const EventListing = () => {
             placeholder="Search Event Name"
             placeholderTextColor="#9E9E9E"
             style={styles.searchInput}
+            value={searchQuery}
+            onChangeText={setSearchQuery}
           />
         </View>
         <View style={styles.filterIcon}>
@@ -220,7 +232,9 @@ const EventListing = () => {
         data={paginatedEvents}
         keyExtractor={(item) => item.id.toString()}
         renderItem={renderCard}
-        contentContainerStyle={styles.listContent}
+        contentContainerStyle={[styles.listContent, paginatedEvents.length === 0 && { flexGrow: 1 }]}
+        ListEmptyComponent={renderEmptyComponent}
+        style={{ marginTop: 15 }}
         showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#FF8A3C']} />

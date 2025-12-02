@@ -1,4 +1,4 @@
-import { StyleSheet, Text, View, TouchableOpacity, Image } from 'react-native'
+import { StyleSheet, Text, View, TouchableOpacity, Image, KeyboardAvoidingView, Platform, ScrollView, Linking } from 'react-native'
 import Toast from 'react-native-toast-message';
 import React, { useRef, useState } from 'react'
 import { useNavigation } from '@react-navigation/native';
@@ -10,6 +10,7 @@ const Number = () => {
   const [value, setValue] = useState("");
   const [sendingVia, setSendingVia] = useState<'whatsapp' | 'sms' | null>(null);
   const [acceptedTerms, setAcceptedTerms] = useState(false);
+  const [countryCode, setCountryCode] = useState('91'); // Default to India
 
   const navigation = useNavigation<any>();
 
@@ -89,88 +90,101 @@ const Number = () => {
   const isSendOtpDisabled = isSending || !acceptedTerms;
 
   return (
-    <View style={styles.container}>
-      <View style={styles.mainbox}>
-        <View>
-          <Image
-            source={require('../../assets/img/common/logo.png')}
-            style={styles.logo}
-          />
-        </View>
-
-        <View style={styles.heading}>
-          <Text style={styles.headingText}>Welcome to Wowsly</Text>
-          <Text style={styles.organizer}>Organizer</Text>
-        </View>
-
-        <View>
-          <Text style={styles.manage}>Manage events & check-ins on the go</Text>
-        </View>
-
-        <View style={styles.number}>
-          <Text style={styles.mobile}>Mobile Number</Text>
-          <PhoneNumberInput
-            ref={phoneInput}
-            defaultValue={value}
-            defaultCode="IN"
-            layout="first"
-            onChangeText={setValue}
-            containerStyle={styles.phoneContainer}
-            textContainerStyle={styles.phoneTextContainer}
-            textInputStyle={styles.phoneInput}
-            codeTextStyle={styles.phoneCodeText}
-            flagButtonStyle={styles.phoneFlagButton}
-            countryPickerButtonStyle={styles.phoneCountryButton}
-            disableArrowIcon={false}
-            textInputProps={{
-              returnKeyType: 'done',
-              onSubmitEditing: handleSendOTP,
-            }}
-          />
-          <View style={styles.smsPrompt}>
-            <Text style={styles.smsPromptLabel}>Not using WhatsApp?</Text>
-            <TouchableOpacity onPress={handleSendSMS} disabled={isSending}>
-              <Text style={[styles.smsPromptAction, isSmsLoading && styles.smsPromptDisabled]}>
-                {isSmsLoading ? "Sending..." : "Send SMS"}
-              </Text>
-            </TouchableOpacity>
+    <KeyboardAvoidingView
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      style={styles.container}
+    >
+      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+        <View style={styles.mainbox}>
+          <View>
+            <Image
+              source={require('../../assets/img/common/WowslyLogo.png')}
+              style={styles.logo}
+            />
           </View>
+
+          <View style={styles.heading}>
+            <Text style={styles.headingText}>Welcome to Wowsly</Text>
+            <Text style={styles.organizer}>Organizer App</Text>
+          </View>
+
+          <View>
+            <Text style={styles.manage}>Manage events & check-ins on the go</Text>
+          </View>
+
+          <View style={styles.number}>
+            <Text style={styles.mobile}>Mobile Number</Text>
+            <PhoneNumberInput
+              ref={phoneInput}
+              defaultValue={value}
+              defaultCode="IN"
+              layout="first"
+              onChangeText={setValue}
+              onChangeCountry={(country) => setCountryCode(country.callingCode[0])}
+              containerStyle={styles.phoneContainer}
+              textContainerStyle={styles.phoneTextContainer}
+              textInputStyle={styles.phoneInput}
+              codeTextStyle={styles.phoneCodeText}
+              flagButtonStyle={styles.phoneFlagButton}
+              countryPickerButtonStyle={styles.phoneCountryButton}
+              disableArrowIcon={false}
+              textInputProps={{
+                returnKeyType: 'done',
+                onSubmitEditing: handleSendOTP,
+              }}
+            />
+            {countryCode === '91' && (
+              <View style={styles.smsPrompt}>
+                <Text style={styles.smsPromptLabel}>Not using WhatsApp?</Text>
+                <TouchableOpacity onPress={handleSendSMS} disabled={isSending}>
+                  <Text style={[styles.smsPromptAction, isSmsLoading && styles.smsPromptDisabled]}>
+                    {isSmsLoading ? "Sending..." : "Send SMS"}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            )}
+          </View>
+
+          {/* TERMS CHECKBOX */}
+          <TouchableOpacity
+            style={styles.checkboxRow}
+            onPress={() => setAcceptedTerms((prev) => !prev)}
+            activeOpacity={0.8}
+          >
+            <View style={[styles.checkbox, acceptedTerms && styles.checkboxChecked]}>
+              {acceptedTerms && <View style={styles.checkboxIndicator} />}
+            </View>
+            <Text style={styles.checkboxLabel}>I agree to the Terms & Conditions</Text>
+          </TouchableOpacity>
+
+          {/* SEND OTP BUTTON */}
+          <TouchableOpacity
+            style={[styles.button, isSendOtpDisabled && styles.buttonDisabled]}
+            onPress={handleSendOTP}
+            disabled={isSendOtpDisabled}
+          >
+            <Text style={styles.buttonText}>
+              {isWhatsAppLoading ? "Sending..." : "Send OTP"}
+            </Text>
+          </TouchableOpacity>
         </View>
 
-        {/* TERMS CHECKBOX */}
-        <TouchableOpacity
-          style={styles.checkboxRow}
-          onPress={() => setAcceptedTerms((prev) => !prev)}
-          activeOpacity={0.8}
-        >
-          <View style={[styles.checkbox, acceptedTerms && styles.checkboxChecked]}>
-            {acceptedTerms && <View style={styles.checkboxIndicator} />}
-          </View>
-          <Text style={styles.checkboxLabel}>I agree to the Terms & Conditions</Text>
-        </TouchableOpacity>
-
-        {/* SEND OTP BUTTON */}
-        <TouchableOpacity
-          style={[styles.button, isSendOtpDisabled && styles.buttonDisabled]}
-          onPress={handleSendOTP}
-          disabled={isSendOtpDisabled}
-        >
-          <Text style={styles.buttonText}>
-            {isWhatsAppLoading ? "Sending..." : "Send OTP"}
-          </Text>
-        </TouchableOpacity>
-      </View>
-
-      {/* FOOTER */}
-      <View style={styles.footer}>
-        <Text style={styles.footerText}>Need help?</Text>
-        <Text style={styles.dot}>•</Text>
-        <Text style={styles.footerText}>Privacy</Text>
-        <Text style={styles.dot}>•</Text>
-        <Text style={styles.footerText}>Terms</Text>
-      </View>
-
-    </View>
+        {/* FOOTER */}
+        <View style={styles.footer}>
+          <TouchableOpacity onPress={() => Linking.openURL('https://wowsly.com/contact-us/')}>
+            <Text style={styles.footerText}>Need help?</Text>
+          </TouchableOpacity>
+          <Text style={styles.dot}>•</Text>
+          <TouchableOpacity onPress={() => Linking.openURL('https://wowsly.com/privacy-policy/')}>
+            <Text style={styles.footerText}>Privacy</Text>
+          </TouchableOpacity>
+          <Text style={styles.dot}>•</Text>
+          <TouchableOpacity onPress={() => Linking.openURL('https://wowsly.com/terms-and-conditions/')}>
+            <Text style={styles.footerText}>Terms</Text>
+          </TouchableOpacity>
+        </View>
+      </ScrollView>
+    </KeyboardAvoidingView>
   )
 }
 
@@ -178,11 +192,18 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#FFF3E0',
+  },
+  scrollContent: {
+    flexGrow: 1,
     justifyContent: 'center',
+    alignItems: 'center',
+    paddingBottom: 20,
+    paddingTop: 50,
   },
   mainbox: {
     width: '90%',
-    height: '48%',
+    // height: '48%', // Removed fixed height to allow content to determine size
+    paddingVertical: 10,
     backgroundColor: '#fff',
     borderRadius: 25,
     alignSelf: 'center',
@@ -191,8 +212,8 @@ const styles = StyleSheet.create({
     gap: 5,
   },
   logo: {
-    width: 50,
-    height: 38,
+    width: 80,
+    height: 55,
   },
   heading: {
     gap: 4,
@@ -201,13 +222,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   headingText: {
-    fontWeight: '800',
+    fontWeight: '600',
     fontSize: 25,
     top: '10%',
+    color: '#000',
   },
   organizer: {
-    fontWeight: '800',
+    fontWeight: '600',
     fontSize: 25,
+    color: '#000',
   },
   manage: {
     color: 'grey',
@@ -332,14 +355,14 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     gap: 8,
-    top: 90,
+    marginTop: 40,
   },
   footerText: {
-    color: '#7E7E7E',
+    color: '#FF8A3C',
     fontSize: 13
   },
   dot: {
-    color: '#7E7E7E',
+    color: '#FF8A3C',
     fontSize: 13,
     marginHorizontal: 6
   }

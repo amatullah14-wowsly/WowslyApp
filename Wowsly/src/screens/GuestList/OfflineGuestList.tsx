@@ -76,11 +76,17 @@ const OfflineGuestList = () => {
 
     const filteredGuests = useMemo(() => {
         return guests.filter((guest) => {
-            const name = guest.name || guest.first_name + ' ' + guest.last_name || 'Guest';
-            const matchesSearch = name
-                .toLowerCase()
-                .includes(searchQuery.trim().toLowerCase());
-            return matchesSearch;
+            const query = searchQuery.trim().toLowerCase();
+            
+            if (!query) return true;
+
+            const name = (guest.guest_name || guest.name || guest.first_name + ' ' + guest.last_name || 'Guest').toLowerCase();
+            const phone = (guest.phone || guest.mobile || '').toString().toLowerCase();
+            const qr = (guest.qr_code || '').toString().toLowerCase();
+            const ticketId = (guest.ticket_id || '').toString().toLowerCase();
+            const uuid = (guest.guest_uuid || '').toString().toLowerCase();
+
+            return name.includes(query) || phone.includes(query) || qr.includes(query) || ticketId.includes(query) || uuid.includes(query);
         });
     }, [guests, searchQuery]);
 

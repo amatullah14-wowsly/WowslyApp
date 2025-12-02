@@ -97,7 +97,8 @@ export async function insertOrReplaceGuests(eventId: number, guestsArray: any[] 
   const database = await openDB();
 
   // Use executeSql directly instead of transaction with async callback
-  for (const g of guestsArray) {
+  for (const [index, g] of guestsArray.entries()) {
+    if (index === 0) console.log("DEBUG: Processing first guest for DB insert:", JSON.stringify(g));
     const qr = (g.qr_code || g.qr || g.code || g.uuid || g.guest_uuid || '').toString().trim();
     const guestName = g.name || `${g.first_name || ''} ${g.last_name || ''}`.trim();
     const ticketId = g.ticket_id || g.id || null;
@@ -108,12 +109,18 @@ export async function insertOrReplaceGuests(eventId: number, guestsArray: any[] 
     // Prioritize tickets_bought from the tickets array as it represents the original total purchase count.
     // available_tickets might decrease as they are used, so it's not a reliable "total".
     let totalEntries = 1;
-    if (g.tickets && g.tickets.length > 0 && g.tickets[0].tickets_bought) {
+    if (g.ticket_data && g.ticket_data.tickets_bought) {
+      totalEntries = g.ticket_data.tickets_bought;
+    } else if (g.tickets && g.tickets.length > 0 && g.tickets[0].tickets_bought) {
       totalEntries = g.tickets[0].tickets_bought;
     } else if (g.total_entries) {
       totalEntries = g.total_entries;
     } else if (g.total_pax) {
       totalEntries = g.total_pax;
+    } else if (g.pax) {
+      totalEntries = g.pax;
+    } else if (g.quantity) {
+      totalEntries = g.quantity;
     } else if (g.available_tickets) {
       // Fallback, but risky if available_tickets means "remaining"
       totalEntries = g.available_tickets;
