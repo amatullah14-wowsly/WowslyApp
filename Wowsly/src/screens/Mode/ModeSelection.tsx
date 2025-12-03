@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   SafeAreaView,
   StyleSheet,
@@ -7,6 +7,10 @@ import {
   View,
   Image,
   Modal,
+  LayoutAnimation,
+  Platform,
+  UIManager,
+  Animated,
 } from 'react-native';
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
 import BackButton from '../../components/BackButton';
@@ -38,14 +42,7 @@ const MODES: ModeInfo[] = [
     accentTint: '#FF8A3C',
 
   },
-  {
-    id: 'connection',
-    title: 'Connection Mode',
-    subtitle: 'Host/Client mode via local Wi-Fi',
-    icon: require('../../assets/img/Mode/connectionmode.png'),
-    accent: '#FFF3EB',
-    accentTint: '#FF8A3C',
-  },
+
 ];
 
 type ModeSelectionRoute = RouteProp<
@@ -63,6 +60,41 @@ const CLIENT_ICON = require('../../assets/img/Mode/client.png');
 const SCANNER_ICON = require('../../assets/img/Mode/scanner.png');
 const GUEST_LIST_ICON = require('../../assets/img/eventdashboard/guests.png');
 
+const StaggeredItem = ({ children, index, duration = 600 }: any) => {
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const translateY = useRef(new Animated.Value(-20)).current;
+
+  useEffect(() => {
+    const delay = index * 100; // 100ms delay per item
+    Animated.sequence([
+      Animated.delay(delay),
+      Animated.parallel([
+        Animated.timing(fadeAnim, {
+          toValue: 1,
+          duration: duration,
+          useNativeDriver: true,
+        }),
+        Animated.timing(translateY, {
+          toValue: 0,
+          duration: duration,
+          useNativeDriver: true,
+        }),
+      ]),
+    ]).start();
+  }, [duration, fadeAnim, index, translateY]);
+
+  return (
+    <Animated.View
+      style={{
+        opacity: fadeAnim,
+        transform: [{ translateY }],
+      }}
+    >
+      {children}
+    </Animated.View>
+  );
+};
+
 const ModeSelection = () => {
   const navigation = useNavigation<any>();
   const route = useRoute<ModeSelectionRoute>();
@@ -70,10 +102,27 @@ const ModeSelection = () => {
   // Track which mode is currently expanded
   const [expandedMode, setExpandedMode] = useState<string | null>(null);
 
+  if (
+    Platform.OS === 'android' &&
+    UIManager.setLayoutAnimationEnabledExperimental
+  ) {
+    UIManager.setLayoutAnimationEnabledExperimental(true);
+  }
+
   const eventTitle = route.params?.eventTitle ?? 'Selected Event';
   const eventId = route.params?.eventId;
 
   const handleModePress = (modeId: string) => {
+    LayoutAnimation.configureNext({
+      duration: 600,
+      update: {
+        type: LayoutAnimation.Types.easeInEaseOut,
+      },
+      delete: {
+        type: LayoutAnimation.Types.easeInEaseOut,
+        property: LayoutAnimation.Properties.opacity,
+      },
+    });
     if (modeId === 'offline') {
       // Offline mode navigates immediately
       navigation.navigate('OfflineDashboard', { eventTitle, eventId });
@@ -104,65 +153,73 @@ const ModeSelection = () => {
     if (modeId === 'online') {
       return (
         <View style={styles.subOptionsContainer}>
-          <TouchableOpacity
-            style={styles.subOptionCard}
-            onPress={() => handleOnlineOptionPick('QR_SCAN')}
-          >
-            <View style={styles.subOptionIconWrapper}>
-              <Image source={SCANNER_ICON} style={styles.subOptionIcon} />
-            </View>
-            <View style={styles.subOptionText}>
-              <Text style={styles.subOptionTitle}>QR Scan</Text>
-              <Text style={styles.subOptionSubtitle}>Real-time validation</Text>
-            </View>
-            <Text style={styles.subOptionArrow}>→</Text>
-          </TouchableOpacity>
+          <StaggeredItem index={0}>
+            <TouchableOpacity
+              style={styles.subOptionCard}
+              onPress={() => handleOnlineOptionPick('QR_SCAN')}
+            >
+              <View style={styles.subOptionIconWrapper}>
+                <Image source={SCANNER_ICON} style={styles.subOptionIcon} />
+              </View>
+              <View style={styles.subOptionText}>
+                <Text style={styles.subOptionTitle}>QR Scan</Text>
+                <Text style={styles.subOptionSubtitle}>Real-time validation</Text>
+              </View>
+              <Text style={styles.subOptionArrow}>→</Text>
+            </TouchableOpacity>
+          </StaggeredItem>
 
-          <TouchableOpacity
-            style={styles.subOptionCard}
-            onPress={() => handleOnlineOptionPick('GUEST_LIST')}
-          >
-            <View style={styles.subOptionIconWrapper}>
-              <Image source={GUEST_LIST_ICON} style={styles.subOptionIcon} />
-            </View>
-            <View style={styles.subOptionText}>
-              <Text style={styles.subOptionTitle}>Get Guest List</Text>
-              <Text style={styles.subOptionSubtitle}>View invited guests</Text>
-            </View>
-            <Text style={styles.subOptionArrow}>→</Text>
-          </TouchableOpacity>
+          <StaggeredItem index={1}>
+            <TouchableOpacity
+              style={styles.subOptionCard}
+              onPress={() => handleOnlineOptionPick('GUEST_LIST')}
+            >
+              <View style={styles.subOptionIconWrapper}>
+                <Image source={GUEST_LIST_ICON} style={styles.subOptionIcon} />
+              </View>
+              <View style={styles.subOptionText}>
+                <Text style={styles.subOptionTitle}>Get Guest List</Text>
+                <Text style={styles.subOptionSubtitle}>View invited guests</Text>
+              </View>
+              <Text style={styles.subOptionArrow}>→</Text>
+            </TouchableOpacity>
+          </StaggeredItem>
         </View>
       );
     } else if (modeId === 'connection') {
       return (
         <View style={styles.subOptionsContainer}>
-          <TouchableOpacity
-            style={styles.subOptionCard}
-            onPress={() => handleRolePick('Host')}
-          >
-            <View style={styles.subOptionIconWrapper}>
-              <Image source={HOST_ICON} style={styles.subOptionIcon} />
-            </View>
-            <View style={styles.subOptionText}>
-              <Text style={styles.subOptionTitle}>Host</Text>
-              <Text style={styles.subOptionSubtitle}>Create local network</Text>
-            </View>
-            <Text style={styles.subOptionArrow}>→</Text>
-          </TouchableOpacity>
+          <StaggeredItem index={0}>
+            <TouchableOpacity
+              style={styles.subOptionCard}
+              onPress={() => handleRolePick('Host')}
+            >
+              <View style={styles.subOptionIconWrapper}>
+                <Image source={HOST_ICON} style={styles.subOptionIcon} />
+              </View>
+              <View style={styles.subOptionText}>
+                <Text style={styles.subOptionTitle}>Host</Text>
+                <Text style={styles.subOptionSubtitle}>Create local network</Text>
+              </View>
+              <Text style={styles.subOptionArrow}>→</Text>
+            </TouchableOpacity>
+          </StaggeredItem>
 
-          <TouchableOpacity
-            style={styles.subOptionCard}
-            onPress={() => handleRolePick('Client')}
-          >
-            <View style={styles.subOptionIconWrapper}>
-              <Image source={CLIENT_ICON} style={styles.subOptionIcon} />
-            </View>
-            <View style={styles.subOptionText}>
-              <Text style={styles.subOptionTitle}>Client</Text>
-              <Text style={styles.subOptionSubtitle}>Join existing host</Text>
-            </View>
-            <Text style={styles.subOptionArrow}>→</Text>
-          </TouchableOpacity>
+          <StaggeredItem index={1}>
+            <TouchableOpacity
+              style={styles.subOptionCard}
+              onPress={() => handleRolePick('Client')}
+            >
+              <View style={styles.subOptionIconWrapper}>
+                <Image source={CLIENT_ICON} style={styles.subOptionIcon} />
+              </View>
+              <View style={styles.subOptionText}>
+                <Text style={styles.subOptionTitle}>Client</Text>
+                <Text style={styles.subOptionSubtitle}>Join existing host</Text>
+              </View>
+              <Text style={styles.subOptionArrow}>→</Text>
+            </TouchableOpacity>
+          </StaggeredItem>
         </View>
       );
     }
@@ -178,10 +235,6 @@ const ModeSelection = () => {
           <Text style={styles.title} numberOfLines={1}>
             {eventTitle}
           </Text>
-
-          <View style={styles.iconPlaceholder}>
-            <Text style={styles.iconPlaceholderText}>⚙︎</Text>
-          </View>
         </View>
 
         <View style={styles.cardStack}>
@@ -256,20 +309,6 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#1F1F1F',
     textAlign: 'center',
-  },
-  iconPlaceholder: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: '#FFFFFF',
-    borderWidth: 1,
-    borderColor: '#EFE8DE',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  iconPlaceholderText: {
-    fontSize: 18,
-    color: '#3B3B3B',
   },
   cardStack: {
     gap: 16,

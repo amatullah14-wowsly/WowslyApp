@@ -39,10 +39,11 @@ const statusChipStyles: Record<
     string,
     { backgroundColor: string; color: string }
 > = {
-    'Checked In': { backgroundColor: '#E3F8EB', color: '#16794C' },
-    Pending: { backgroundColor: '#FFF2D4', color: '#A46A00' },
+    'Checked In': { backgroundColor: '#E3F2FD', color: '#1565C0' }, // Blue
+    Pending: { backgroundColor: '#E8F5E9', color: '#2E7D32' },      // Green
     'No-Show': { backgroundColor: '#FFE2E2', color: '#BE2F2F' },
-    'registered': { backgroundColor: '#E3F8EB', color: '#16794C' },
+    'blocked': { backgroundColor: '#FFEBEE', color: '#C62828' },    // Red
+    'registered': { backgroundColor: '#E8F5E9', color: '#2E7D32' }, // Green (default for pending/registered)
     'invited': { backgroundColor: '#E0F2F1', color: '#00695C' },
 };
 
@@ -141,7 +142,8 @@ const OnlineGuestList = () => {
     const renderGuest = ({ item }: { item: any }) => {
         const name = item.name || item.first_name + ' ' + item.last_name || 'Guest';
         const avatar = item.avatar || item.profile_photo;
-        const status = item.status || activeTab;
+        const rawStatus = item.status || activeTab;
+        const status = rawStatus.toLowerCase() === 'active' ? 'Pending' : rawStatus;
 
         const renderRightActions = () => (
             <View style={styles.rowActions}>

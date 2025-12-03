@@ -1,5 +1,5 @@
 import React from 'react'
-import { Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
+import { Image, StyleSheet, Text, TouchableOpacity, View, ImageBackground } from 'react-native'
 
 export type EventCardProps = {
   title: string
@@ -15,15 +15,20 @@ const EventCard = ({ title, date, location, image, selected, onPress }: EventCar
   return (
     <TouchableOpacity activeOpacity={0.9} onPress={onPress}>
       <View style={[styles.card, selected && styles.cardSelected]}>
-
-        <Image source={image} style={styles.cardImage} />
-
-        <View style={styles.cardContent}>
-          <Text style={styles.cardTitle}>{title}</Text>
-          <Text style={styles.cardMeta}>{date}</Text>
-          <Text style={styles.cardLocation}>{location}</Text>
-        </View>
-
+        <ImageBackground
+          source={image}
+          style={styles.imageBackground}
+          resizeMode="cover"
+          imageStyle={{ borderRadius: 24 }}
+        >
+          <View style={styles.overlay}>
+            <View style={styles.cardContent}>
+              <Text style={styles.cardTitle}>{title}</Text>
+              <Text style={styles.cardMeta}>{date}</Text>
+              <Text style={styles.cardLocation}>{location}</Text>
+            </View>
+          </View>
+        </ImageBackground>
       </View>
     </TouchableOpacity>
   )
@@ -36,32 +41,40 @@ const styles = StyleSheet.create({
     marginBottom: 18,
     borderWidth: 1,
     borderColor: '#FFE0CC',
+    height: 200, // Fixed height for the card
+    overflow: 'hidden',
   },
   cardSelected: {
     borderColor: '#FF8A3C',
   },
-  cardImage: {
+  imageBackground: {
     width: '100%',
-    height: 140,
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
+    height: '100%',
+    justifyContent: 'flex-end',
+  },
+  overlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0,0,0,0.3)',
+    justifyContent: 'flex-end',
+    borderRadius: 24,
   },
   cardContent: {
     padding: 18,
-    // gap: 2,
   },
   cardTitle: {
-    fontSize: 17,
+    fontSize: 18,
     fontWeight: '700',
-    color: '#1C1C1C',
+    color: '#FFFFFF',
   },
   cardMeta: {
     fontSize: 14,
-    color: '#6F6F6F',
+    color: '#E0E0E0',
+    marginTop: 4,
   },
   cardLocation: {
     fontSize: 12,
-    color: '#383838',
+    color: '#D0D0D0',
+    marginTop: 2,
   },
 })
 

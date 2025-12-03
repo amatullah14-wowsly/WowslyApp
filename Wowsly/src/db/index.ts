@@ -98,7 +98,7 @@ export async function insertOrReplaceGuests(eventId: number, guestsArray: any[] 
 
   // Use executeSql directly instead of transaction with async callback
   for (const [index, g] of guestsArray.entries()) {
-    if (index === 0) console.log("DEBUG: Processing first guest for DB insert:", JSON.stringify(g));
+    if (index < 3) console.log(`DEBUG: DB Insert Guest [${index}]:`, JSON.stringify(g));
     const qr = (g.qr_code || g.qr || g.code || g.uuid || g.guest_uuid || '').toString().trim();
     const guestName = g.name || `${g.first_name || ''} ${g.last_name || ''}`.trim();
     const ticketId = g.ticket_id || g.id || null;
@@ -111,6 +111,9 @@ export async function insertOrReplaceGuests(eventId: number, guestsArray: any[] 
     let totalEntries = 1;
     if (g.ticket_data && g.ticket_data.tickets_bought) {
       totalEntries = g.ticket_data.tickets_bought;
+    } else if (g.tickets_bought) {
+      // ⚡⚡⚡ FIX: Check root level tickets_bought (common in some API responses)
+      totalEntries = g.tickets_bought;
     } else if (g.tickets && g.tickets.length > 0 && g.tickets[0].tickets_bought) {
       totalEntries = g.tickets[0].tickets_bought;
     } else if (g.total_entries) {

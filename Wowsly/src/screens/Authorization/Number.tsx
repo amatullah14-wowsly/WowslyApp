@@ -146,16 +146,26 @@ const Number = () => {
           </View>
 
           {/* TERMS CHECKBOX */}
-          <TouchableOpacity
-            style={styles.checkboxRow}
-            onPress={() => setAcceptedTerms((prev) => !prev)}
-            activeOpacity={0.8}
-          >
-            <View style={[styles.checkbox, acceptedTerms && styles.checkboxChecked]}>
-              {acceptedTerms && <View style={styles.checkboxIndicator} />}
-            </View>
-            <Text style={styles.checkboxLabel}>I agree to the Terms & Conditions</Text>
-          </TouchableOpacity>
+
+          <View style={styles.checkboxRow}>
+            <TouchableOpacity
+              onPress={() => setAcceptedTerms((prev) => !prev)}
+              activeOpacity={0.8}
+            >
+              <View style={[styles.checkbox, acceptedTerms && styles.checkboxChecked]}>
+                {acceptedTerms && <View style={styles.checkboxIndicator} />}
+              </View>
+            </TouchableOpacity>
+            <Text style={styles.checkboxLabel}>
+              <Text onPress={() => setAcceptedTerms((prev) => !prev)}>I agree to the </Text>
+              <Text
+                style={{ color: '#FF8A3C' }}
+                onPress={() => Linking.openURL('https://wowsly.com/terms-and-conditions/')}
+              >
+                Terms & Conditions
+              </Text>
+            </Text>
+          </View>
 
           {/* SEND OTP BUTTON */}
           <TouchableOpacity

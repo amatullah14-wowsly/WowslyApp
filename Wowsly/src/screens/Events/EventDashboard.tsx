@@ -1,4 +1,4 @@
-import { StyleSheet, Text, View, Image, TouchableOpacity } from 'react-native'
+import { StyleSheet, Text, View, Image, TouchableOpacity, ImageBackground, ScrollView } from 'react-native'
 import React, { useState, useEffect, useCallback } from 'react'
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import Grid from '../../components/Grid';
@@ -105,14 +105,15 @@ const EventDashboard = ({ route }: EventDashboardProps) => {
         0
     );
 
-    // only positive values
+    // only positive values for the chart, but keep all for legend
     const chartData = ticketList
         .map((t, i) => ({
             value: Number(t.sold_out) || 0,
             color: COLORS[i % COLORS.length],
             title: t.title,
-        }))
-        .filter(d => d.value > 0);
+        }));
+
+    const validPieData = chartData.filter(d => d.value > 0);
 
     return (
         <View style={styles.container}>
@@ -122,135 +123,174 @@ const EventDashboard = ({ route }: EventDashboardProps) => {
                     {displayData.title}
                 </Text>
             </View>
-            <View style={styles.eventCard}>
-                <Image
-                    source={
-                        displayData.image
-                            ? { uri: displayData.image }
-                            : require('../../assets/img/common/noimage.png')
-                    }
-                    style={styles.eventImage}
-                />
 
-                <View style={styles.eventCardContent}>
-                    <Text style={styles.eventCardTitle}>{displayData.title}</Text>
-                    <Text style={styles.eventCardMeta}>
-                        {displayData.date}  •  {displayData.location}
-                    </Text>
-                </View>
-            </View>
-            <View style={styles.grid}>
-                <View style={styles.rowone}>
-                    <Grid
-                        icon={require('../../assets/img/eventdashboard/guests.png')}
-                        title="Guests"
-                        value={guestCounts.total || displayData.total_guests || displayData.total_pax || "0"}
-                        onPress={() => navigation.navigate("GuestList", { eventId: displayData.id })}
-                    />
-
-                    <Grid
-                        icon={require('../../assets/img/eventdashboard/checkin.png')}
-                        title="Check-In"
-                        value={guestCounts.checkedIn || displayData.checked_in_count || displayData.used_entries || "0"}
-                    />
+            <ScrollView contentContainerStyle={{ paddingBottom: 100 }}>
+                <View style={styles.eventCard}>
+                    <ImageBackground
+                        source={
+                            displayData.image
+                                ? { uri: displayData.image }
+                                : require('../../assets/img/common/noimage.png')
+                        }
+                        style={styles.imageBackground}
+                        resizeMode="cover"
+                    >
+                        <View style={styles.overlay}>
+                            <View style={styles.eventCardContent}>
+                                <Text style={styles.eventCardTitle}>{displayData.title}</Text>
+                                <Text style={styles.eventCardMeta}>
+                                    {displayData.date}  •  {displayData.location}
+                                </Text>
+                            </View>
+                        </View>
+                    </ImageBackground>
                 </View>
 
-                <View style={styles.rowone}>
-                    <Grid
-                        icon={require('../../assets/img/eventdashboard/ticket.png')}
-                        title="Tickets"
-                        value={ticketList.length > 0 ? ticketList.reduce((acc, t) => acc + (t.sold_out || 0), 0).toString() : (displayData.tickets_sold || "0")}
-                    //   onPress={() => navigation.navigate("TicketsScreen")}
-                    />
-
-                    <Grid
-                        icon={require('../../assets/img/eventdashboard/revenue.png')}
-                        title="Revenue"
-                        value={displayData.revenue ? `₹${displayData.revenue}` : "₹0"}
-                    //   onPress={() => navigation.navigate("RevenueScreen")}
-                    />
+                {/* Event Details Card */}
+                <View style={styles.detailsCard}>
+                    <View style={styles.detailRow}>
+                        <Image source={require('../../assets/img/eventdashboard/calendar.png')} style={styles.detailIconImage} resizeMode="contain" />
+                        <Text style={styles.detailText}>{details?.start_date_display || ""}</Text>
+                    </View>
+                    <View style={styles.detailRow}>
+                        <Image source={require('../../assets/img/eventdashboard/clock.png')} style={styles.detailIconImage} resizeMode="contain" />
+                        <Text style={styles.detailText}>
+                            {details?.start_time ? new Date(`1970-01-01T${details.start_time}`).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true }) : "7:00 PM"}
+                        </Text>
+                    </View>
+                    <View style={styles.detailRow}>
+                        <Image source={require('../../assets/img/eventdashboard/location.png')} style={styles.detailIconImage} resizeMode="contain" />
+                        <View style={{ flex: 1 }}>
+                            <Text style={styles.detailText}>{(details?.address || details?.city) || "-"}</Text>
+                            <Text style={styles.subDetailText}>{details?.state || ""}</Text>
+                        </View>
+                    </View>
+                    <View style={styles.detailRow}>
+                        <Image source={require('../../assets/img/common/info.png')} style={styles.detailIconImage} resizeMode="contain" />
+                        <Text style={styles.detailText}>{details?.category || "Event"}</Text>
+                    </View>
                 </View>
-            </View>
-            <TouchableOpacity style={styles.button}
+                <View style={styles.grid}>
+                    <View style={styles.rowone}>
+                        <Grid
+                            icon={require('../../assets/img/eventdashboard/guests.png')}
+                            title="Guests"
+                            value={guestCounts.total || displayData.total_guests || displayData.total_pax || "0"}
+                            onPress={() => navigation.navigate("GuestList", { eventId: displayData.id })}
+                        />
 
-                onPress={() => navigation.navigate("ModeSelection", { eventTitle: displayData.title, eventId: displayData.id })}>
+                        <Grid
+                            icon={require('../../assets/img/eventdashboard/checkin.png')}
+                            title="Check-In"
+                            value={guestCounts.checkedIn || displayData.checked_in_count || displayData.used_entries || "0"}
+                        />
+                    </View>
 
-                <Image source={require('./../../assets/img/eventdashboard/scanner.png')}
-                    style={styles.scanicon} />
-                <Text style={styles.start}>Start Check-In</Text>
-            </TouchableOpacity>
+                    <View style={styles.rowone}>
+                        <Grid
+                            icon={require('../../assets/img/eventdashboard/ticket.png')}
+                            title="Tickets"
+                            value={ticketList.length > 0 ? ticketList.reduce((acc, t) => acc + (t.sold_out || 0), 0).toString() : (displayData.tickets_sold || "0")}
+                        //   onPress={() => navigation.navigate("TicketsScreen")}
+                        />
 
-            {chartData.length > 0 && totalSold > 0 && (
+                        <Grid
+                            icon={require('../../assets/img/eventdashboard/revenue.png')}
+                            title="Revenue"
+                            value={displayData.revenue ? `₹${displayData.revenue}` : "₹0"}
+                        //   onPress={() => navigation.navigate("RevenueScreen")}
+                        />
+                    </View>
+                </View>
+                <TouchableOpacity style={styles.button}
+
+                    onPress={() => navigation.navigate("ModeSelection", { eventTitle: displayData.title, eventId: displayData.id })}>
+
+                    <Image source={require('./../../assets/img/eventdashboard/scanner.png')}
+                        style={styles.scanicon} />
+                    <Text style={styles.start}>Start Check-In</Text>
+                </TouchableOpacity>
+
                 <View style={styles.ticketSection}>
                     <Text style={styles.sectionTitle}>Ticket Distribution</Text>
 
                     <View style={styles.chartContainer}>
-                        {/* Donut Chart */}
+                        {/* Pie Chart */}
                         <View style={styles.donutWrapper}>
                             <Svg height="140" width="140" viewBox="0 0 160 160">
-                                {/* background ring */}
                                 <G x="80" y="80">
-                                    {(() => {
-                                        console.log("Chart Data:", JSON.stringify(chartData));
+                                    {validPieData.length > 0 ? (
+                                        (() => {
+                                            const pieData = d3
+                                                .pie()
+                                                .value((d: any) => d.value)
+                                                .sort(null)(validPieData);
 
-                                        const pieData = d3
-                                            .pie()
-                                            .value((d: any) => d.value)
-                                            .sort(null)(chartData);
+                                            const arcGenerator = d3
+                                                .arc()
+                                                .outerRadius(70)
+                                                .innerRadius(0) // Pie chart
+                                                .padAngle(0.02)
+                                                .cornerRadius(4);
 
-                                        console.log("Pie Data:", JSON.stringify(pieData));
-
-                                        const arcGenerator = d3
-                                            .arc()
-                                            .outerRadius(70)
-                                            .innerRadius(0)
-                                            .padAngle(0.02)
-                                            .cornerRadius(4);
-
-                                        return pieData.map((slice: any, index: number) => (
-                                            <Path
-                                                key={index}
-                                                d={arcGenerator(slice as any) || undefined}
-                                                fill={slice.data.color}
-                                            />
-                                        ));
-                                    })()}
+                                            return pieData.map((slice: any, index: number) => (
+                                                <Path
+                                                    key={index}
+                                                    d={arcGenerator(slice as any) || undefined}
+                                                    fill={slice.data.color}
+                                                />
+                                            ));
+                                        })()
+                                    ) : (
+                                        // Placeholder Pie for 0 sales (Solid Gray Circle)
+                                        <Circle
+                                            cx="0"
+                                            cy="0"
+                                            r="70"
+                                            fill="#F0F0F0"
+                                        />
+                                    )}
                                 </G>
                             </Svg>
                         </View>
 
                         {/* Legend */}
                         <View style={styles.legendContainer}>
-                            {chartData.map((ticket, index) => {
-                                const percentage =
-                                    totalSold > 0
-                                        ? Math.round((ticket.value / totalSold) * 100)
-                                        : 0;
+                            {chartData.length > 0 ? (
+                                chartData.map((ticket, index) => {
+                                    const percentage =
+                                        totalSold > 0
+                                            ? Math.round((ticket.value / totalSold) * 100)
+                                            : 0;
 
-                                return (
-                                    <View key={index} style={styles.legendItem}>
-                                        <View
-                                            style={[
-                                                styles.legendDot,
-                                                { backgroundColor: ticket.color },
-                                            ]}
-                                        />
-                                        <View>
-                                            <Text style={styles.legendTitle}>
-                                                {ticket.title}{' '}
-                                                <Text style={styles.legendPercent}>({percentage}%)</Text>
-                                            </Text>
+                                    return (
+                                        <View key={index} style={styles.legendItem}>
+                                            <View
+                                                style={[
+                                                    styles.legendDot,
+                                                    { backgroundColor: ticket.color },
+                                                ]}
+                                            />
+                                            <View>
+                                                <Text style={styles.legendTitle}>
+                                                    {ticket.title}{' '}
+                                                    <Text style={styles.legendPercent}>({percentage}%)</Text>
+                                                </Text>
+                                            </View>
                                         </View>
-                                    </View>
-                                );
-                            })}
+                                    );
+                                })
+                            ) : (
+                                <Text style={styles.emptyChartText}>No tickets defined</Text>
+                            )}
                         </View>
                     </View>
                 </View>
-            )}
-            <View style={{ height: 20 }} />
+            </ScrollView >
+            <View />
         </View>
     )
+
 }
 
 export default EventDashboard
@@ -358,39 +398,43 @@ const styles = StyleSheet.create({
 
     eventCard: {
         width: '95%',
+        height: 200,
         alignSelf: 'center',
         marginTop: 5,
         backgroundColor: '#fff',
         borderRadius: 20,
         overflow: 'hidden',
-        // shadowColor: '#000',
-        // shadowOpacity: 0.1,
-        // shadowOffset: { width: 0, height: 4 },
-        // shadowRadius: 8,
-        // elevation: 5,
         borderWidth: 1,
         borderColor: '#EDEDED',
     },
 
-    eventImage: {
+    imageBackground: {
         width: '100%',
-        height: 120,
+        height: '100%',
+        justifyContent: 'flex-end',
+    },
+
+    overlay: {
+        ...StyleSheet.absoluteFillObject,
+        backgroundColor: 'rgba(0,0,0,0.3)',
+        justifyContent: 'flex-end',
     },
 
     eventCardContent: {
-        padding: 15,
+        padding: 20,
     },
 
     eventCardTitle: {
-        fontSize: 18,
+        fontSize: 22,
         fontWeight: '700',
-        color: '#111',
+        color: '#FFFFFF',
     },
 
     eventCardMeta: {
         fontSize: 14,
-        color: '#6F6F6F',
+        color: '#E0E0E0',
         marginTop: 5,
+        fontWeight: '500',
     },
     grid: {
         // flex:1,
@@ -479,5 +523,53 @@ const styles = StyleSheet.create({
     legendPercent: {
         color: '#666',
         fontWeight: '400',
+    },
+    emptyChartContainer: {
+        alignItems: 'center',
+        justifyContent: 'center',
+        height: 100,
+    },
+    emptyChartText: {
+        color: '#999',
+        fontSize: 14,
+        fontStyle: 'italic',
+    },
+    detailsCard: {
+        width: '95%',
+        alignSelf: 'center',
+        backgroundColor: 'white',
+        borderRadius: 16,
+        padding: 20,
+        marginTop: 15,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.1,
+        // shadowRadius: 8,
+        elevation: 2,
+        borderWidth: 1,
+        borderColor: '#F0F0F0',
+        gap: 12,
+    },
+    detailRow: {
+        flexDirection: 'row',
+        alignItems: 'flex-start',
+        gap: 12,
+    },
+    detailIconImage: {
+        width: 20,
+        height: 20,
+        marginTop: 2,
+    },
+    detailText: {
+        fontSize: 15,
+        color: '#333',
+        fontWeight: '500',
+        flex: 1,
+        lineHeight: 22,
+    },
+    subDetailText: {
+        fontSize: 13,
+        color: '#888',
+        marginTop: 2,
     },
 })

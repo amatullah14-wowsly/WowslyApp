@@ -46,18 +46,7 @@ const OfflineDashboard = () => {
   }, [offlineData]);
 
   const guestBuckets = useMemo(() => {
-    // 1. Try to use API data first if available
-    if (ticketList.length > 0) {
-      return ticketList.map((t: any) => ({
-        id: t.ticket_id || t.ticket_title,
-        title: t.ticket_title,
-        total: t.total_count || 0,
-        checkedIn: t.checked_in_count || 0,
-        remaining: (t.total_count || 0) - (t.checked_in_count || 0)
-      }));
-    }
-
-    // 2. Fallback to offline calculation
+    // Always calculate from local offlineData to reflect real-time offline scans
     if (!offlineData) return [];
 
     const buckets: any = {};
@@ -83,7 +72,7 @@ const OfflineDashboard = () => {
     });
 
     return Object.values(buckets);
-  }, [offlineData, ticketList]);
+  }, [offlineData]);
 
   // Initialize database and load saved offline data
   useEffect(() => {
@@ -336,16 +325,6 @@ const OfflineDashboard = () => {
           </View>
         </View>
 
-        {/* ACTIONS */}
-        <View style={styles.bottomActions}>
-          <TouchableOpacity style={[styles.ctaButton, styles.ctaGhost]}>
-            <Text style={[styles.ctaText, styles.ctaGhostText]}># Get Count</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.ctaButton}>
-            <Text style={styles.ctaText}>Export List</Text>
-          </TouchableOpacity>
-        </View>
-
       </ScrollView>
     </SafeAreaView>
   );
@@ -490,39 +469,5 @@ const styles = StyleSheet.create({
   storageText: {
     fontSize: 13,
     color: '#8E7465',
-  },
-  bottomActions: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    gap: 10,
-    marginTop: 24,
-  },
-  ctaButton: {
-    flex: 1,
-    borderRadius: 10,
-    paddingVertical: 10,
-    backgroundColor: 'white',
-    alignItems: 'center',
-    shadowColor: '#D7C5BA',
-    shadowOpacity: 0.3,
-    shadowRadius: 12,
-    shadowOffset: { width: 0, height: 8 },
-    elevation: 2,
-  },
-  ctaText: {
-    color: 'black',
-    fontWeight: '600',
-    fontSize: 15,
-  },
-  ctaGhost: {
-    backgroundColor: '#FFFFFF',
-    shadowColor: '#D7C5BA',
-    shadowOpacity: 0.8,
-    shadowRadius: 12,
-    shadowOffset: { width: 1, height: 10 },
-    elevation: 2,
-  },
-  ctaGhostText: {
-    color: '#2B1D16',
   },
 });

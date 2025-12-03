@@ -39,6 +39,7 @@ type QrCodeRoute = RouteProp<
 
 // Icons
 const OFFLINE_ICON = require('../../assets/img/common/offline.png')
+const WIFI_ICON = require('../../assets/img/common/wifi.png')
 const TORCH_ON_ICON = require('../../assets/img/common/torchon.png')
 const TORCH_OFF_ICON = require('../../assets/img/common/torchoff.png')
 
@@ -105,6 +106,22 @@ const QrCode = () => {
     outputRange: [MAX_UPWARD_TRANSLATE - 50, 0],
     extrapolate: 'clamp'
   });
+
+  const openSheet = () => {
+    Animated.spring(panY, {
+      toValue: MAX_UPWARD_TRANSLATE,
+      useNativeDriver: false,
+      bounciness: 4
+    }).start();
+  };
+
+  const closeSheet = () => {
+    Animated.spring(panY, {
+      toValue: 0,
+      useNativeDriver: false,
+      bounciness: 4
+    }).start();
+  };
 
   const modeTitle = route.params?.modeTitle ?? 'Offline Mode'
   const eventTitle = route.params?.eventTitle ?? 'Untitled Event'
@@ -429,6 +446,9 @@ const QrCode = () => {
             const freshTotal = ticketData.tickets_bought || d.total_entries || 0;
             const totalEntries = freshTotal > 0 ? freshTotal : initialTotal;
 
+            console.log("DEBUG: Online Verify - Ticket Data:", JSON.stringify(ticketData));
+            console.log(`DEBUG: Online Verify - Fresh Total: ${freshTotal}, Initial Total: ${initialTotal}, Final Total Entries: ${totalEntries}`);
+
             // Used entries (scanned count)
             const freshUsed = d.checked_in_count || d.used_entries || 0;
 
@@ -495,6 +515,16 @@ const QrCode = () => {
             };
 
             setGuestData(newGuestData);
+            openSheet(); // ⚡⚡⚡ AUTO-OPEN SLIDER ⚡⚡⚡
+
+            // ⚡⚡⚡ AUTO-RESET FOR SINGLE TICKET ⚡⚡⚡
+            if (newGuestData.totalEntries === 1) {
+              setTimeout(() => {
+                setScannedValue(null);
+                setGuestData(null);
+                closeSheet(); // ⚡⚡⚡ AUTO-CLOSE SLIDER ⚡⚡⚡
+              }, 2500);
+            }
 
             // ⚡⚡⚡ BROADCAST TO CLIENTS (IF HOST) ⚡⚡⚡
             DeviceEventEmitter.emit('BROADCAST_SCAN_TO_CLIENTS', {
@@ -534,6 +564,16 @@ const QrCode = () => {
               guestId: guestId,
               qrCode: qrGuestUuid // ⚡ Store QR for reliable key
             })
+            openSheet(); // ⚡⚡⚡ AUTO-OPEN SLIDER ⚡⚡⚡
+
+            // ⚡⚡⚡ AUTO-RESET FOR SINGLE TICKET ⚡⚡⚡
+            if (initialTotal === 1) {
+              setTimeout(() => {
+                setScannedValue(null);
+                setGuestData(null);
+                closeSheet(); // ⚡⚡⚡ AUTO-CLOSE SLIDER ⚡⚡⚡
+              }, 2500);
+            }
           }
         } catch (err) {
           console.log("Error fetching details", err);
@@ -608,39 +648,57 @@ const QrCode = () => {
 
     setIsVerifying(true);
     try {
-      // Fire multiple check-ins
-      const promises = [];
-      for (let i = 0; i < additionalCheckins; i++) {
-        promises.push(checkInGuest(eventId, guestId));
-      }
+      // ⚡⚡⚡ OFFLINE MODE BULK CHECK-IN ⚡⚡⚡
+      if (isOfflineMode) {
+        // Just update local DB with increment
+        // This sets synced = 0 automatically
+        await updateTicketStatusLocal(qrCode, 'checked_in', additionalCheckins);
 
-      await Promise.all(promises);
+        console.log(`Offline Bulk Check-in: +${additionalCheckins} for ${qrCode}`);
 
-      // ⚡⚡⚡ FIX: Use guestData.usedEntries as base for reliability ⚡⚡⚡
-      // guestData.usedEntries is the count AFTER the initial scan (e.g. 1)
-      // We add additionalCheckins to it (e.g. 1 + 2 = 3)
-      const currentUsed = guestData.usedEntries || 0;
-      const newUsed = currentUsed + additionalCheckins;
+        // Update local history for session
+        // @ts-ignore
+        const currentUsed = localScanHistory.get(qrCode) || guestData.usedEntries || 0;
+        // @ts-ignore
+        localScanHistory.set(qrCode, currentUsed + additionalCheckins);
 
-      // Update local history
-      // @ts-ignore
-      localScanHistory.set(qrCode, newUsed);
+      } else {
+        // ⚡⚡⚡ ONLINE MODE BULK CHECK-IN ⚡⚡⚡
+        // Fire multiple check-ins
+        const promises = [];
+        for (let i = 0; i < additionalCheckins; i++) {
+          promises.push(checkInGuest(eventId, guestId));
+        }
 
-      // ⚡⚡⚡ SYNC BULK CHECKIN TO LOCAL DB ⚡⚡⚡
-      try {
-        const guestToSync = {
-          qr_code: qrCode,
-          name: guestData.name,
-          guest_id: guestData.guestId,
-          ticket_id: guestData.ticketId,
-          total_entries: guestData.totalEntries,
-          used_entries: newUsed,
-          facilities: guestData.facilities
-        };
-        await insertOrReplaceGuests(eventId, [guestToSync]);
-        console.log("Synced bulk check-in to local DB:", guestToSync);
-      } catch (syncErr) {
-        console.warn("Failed to sync bulk check-in:", syncErr);
+        await Promise.all(promises);
+
+        // ⚡⚡⚡ FIX: Use guestData.usedEntries as base for reliability ⚡⚡⚡
+        // guestData.usedEntries is the count AFTER the initial scan (e.g. 1)
+        // We add additionalCheckins to it (e.g. 1 + 2 = 3)
+        const currentUsed = guestData.usedEntries || 0;
+        const newUsed = currentUsed + additionalCheckins;
+
+        // Update local history
+        // @ts-ignore
+        localScanHistory.set(qrCode, newUsed);
+
+        // ⚡⚡⚡ SYNC BULK CHECKIN TO LOCAL DB ⚡⚡⚡
+        try {
+          const guestToSync = {
+            qr_code: qrCode,
+            name: guestData.name,
+            guest_id: guestData.guestId,
+            ticket_id: guestData.ticketId,
+            total_entries: guestData.totalEntries,
+            used_entries: newUsed,
+            facilities: guestData.facilities
+          };
+          // Online check-in is already synced, so insertOrReplaceGuests (synced=1) is correct
+          await insertOrReplaceGuests(eventId, [guestToSync]);
+          console.log("Synced bulk check-in to local DB:", guestToSync);
+        } catch (syncErr) {
+          console.warn("Failed to sync bulk check-in:", syncErr);
+        }
       }
 
       Toast.show({
@@ -660,6 +718,7 @@ const QrCode = () => {
       setIsVerifying(false);
       setScannedValue(null);
       setGuestData(null);
+      closeSheet(); // ⚡⚡⚡ AUTO-CLOSE SLIDER ⚡⚡⚡
     }
   };
 
@@ -702,7 +761,10 @@ const QrCode = () => {
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
             <BackButton onPress={() => navigation.goBack()} />
             <View style={styles.modeRow}>
-              <Image source={OFFLINE_ICON} style={styles.modeIcon} />
+              <Image
+                source={modeTitle === 'Online Mode' ? WIFI_ICON : OFFLINE_ICON}
+                style={styles.modeIcon}
+              />
               <View>
                 <Text style={styles.modeTitle}>{modeTitle}</Text>
                 <Text style={styles.eventName}>{eventTitle}</Text>
@@ -733,125 +795,127 @@ const QrCode = () => {
           <Text style={styles.scanHint}>Place QR code inside the frame</Text>
         </View>
 
-        <Animated.View
-          style={[
-            styles.sheet,
-            {
-              height: SHEET_MAX_HEIGHT,
-              transform: [{ translateY }],
-              bottom: - (SHEET_MAX_HEIGHT - SHEET_MIN_HEIGHT) // Push it down initially so only MIN_HEIGHT is visible
-            }
-          ]}
-          {...panResponder.panHandlers}
-        >
-          <View style={styles.sheetHandle} />
-          <View style={styles.guestRow}>
-            <View>
-              <Text style={styles.guestName}>
-                {isVerifying ? 'Verifying...' : (guestData?.name || 'Scan a QR Code')}
-              </Text>
-              <Text style={styles.ticketId}>
-                Ticket ID: {guestData?.ticketId || '---'}
-              </Text>
+        {guestData && (
+          <Animated.View
+            style={[
+              styles.sheet,
+              {
+                height: SHEET_MAX_HEIGHT,
+                transform: [{ translateY }],
+                bottom: - (SHEET_MAX_HEIGHT - SHEET_MIN_HEIGHT) // Push it down initially so only MIN_HEIGHT is visible
+              }
+            ]}
+            {...panResponder.panHandlers}
+          >
+            <View style={styles.sheetHandle} />
+            <View style={styles.guestRow}>
+              <View>
+                <Text style={styles.guestName}>
+                  {isVerifying ? 'Verifying...' : (guestData?.name || 'Scan a QR Code')}
+                </Text>
+                <Text style={styles.ticketId}>
+                  Ticket ID: {guestData?.ticketId || '---'}
+                </Text>
 
-              {/* ⚡⚡⚡ CONDITIONAL STATS (DYNAMIC) ⚡⚡⚡ */}
-              {guestData && guestData.totalEntries > 1 && (
-                <View style={styles.statsContainer}>
-                  <View style={styles.statItem}>
-                    <Text style={styles.statLabel}>Bought</Text>
-                    <Text style={styles.statValue}>{stats.bought}</Text>
+                {/* ⚡⚡⚡ CONDITIONAL STATS (DYNAMIC) ⚡⚡⚡ */}
+                {guestData && guestData.totalEntries > 1 && (
+                  <View style={styles.statsContainer}>
+                    <View style={styles.statItem}>
+                      <Text style={styles.statLabel}>Bought</Text>
+                      <Text style={styles.statValue}>{stats.bought}</Text>
+                    </View>
+                    <View style={styles.statDivider} />
+                    <View style={styles.statItem}>
+                      <Text style={styles.statLabel}>Scanned</Text>
+                      <Text style={styles.statValue}>{stats.scanned}</Text>
+                    </View>
+                    <View style={styles.statDivider} />
+                    <View style={styles.statItem}>
+                      <Text style={styles.statLabel}>Remaining</Text>
+                      <Text style={styles.statValue}>{stats.remaining}</Text>
+                    </View>
                   </View>
-                  <View style={styles.statDivider} />
-                  <View style={styles.statItem}>
-                    <Text style={styles.statLabel}>Scanned</Text>
-                    <Text style={styles.statValue}>{stats.scanned}</Text>
+                )}
+              </View>
+              {guestData && (
+                <View style={[
+                  styles.statusPill,
+                  !guestData?.isValid && styles.statusPillInvalid
+                ]}>
+                  <Text style={styles.statusPillText}>
+                    {guestData?.status || 'VALID ENTRY'}
+                  </Text>
+                </View>
+              )}
+            </View>
+
+            {/* ScrollView for content if it gets too long */}
+            <View style={{ flex: 1, marginTop: 16 }}>
+              {guestData?.facilities && guestData.facilities.length > 0 && (
+                <View style={styles.facilitiesContainer}>
+                  <Text style={styles.facilitiesTitle}>Facilities:</Text>
+                  <View style={styles.facilitiesList}>
+                    {guestData.facilities.map((facility: any, index: number) => (
+                      <View key={index} style={styles.facilityBadge}>
+                        <Text style={styles.facilityText}>{typeof facility === 'string' ? facility : facility.name}</Text>
+                      </View>
+                    ))}
                   </View>
-                  <View style={styles.statDivider} />
-                  <View style={styles.statItem}>
-                    <Text style={styles.statLabel}>Remaining</Text>
-                    <Text style={styles.statValue}>{stats.remaining}</Text>
+                </View>
+              )}
+              {(() => {
+                if (guestData) {
+                  console.log("DEBUG: guestData for Quantity Selector:", JSON.stringify({
+                    totalEntries: guestData.totalEntries,
+                    usedEntries: guestData.usedEntries,
+                    condition: guestData.totalEntries > 1 && (guestData.totalEntries - guestData.usedEntries > 0)
+                  }));
+                }
+                return null;
+              })()}
+
+              {/* ⚡⚡⚡ QUANTITY SELECTOR ⚡⚡⚡ */}
+              {guestData && guestData.totalEntries > 1 && (guestData.totalEntries - guestData.usedEntries > 0) && (
+                <View style={styles.quantityContainer}>
+                  <Text style={styles.quantityLabel}>Check-in Quantity:</Text>
+                  <View style={styles.quantityControls}>
+                    <TouchableOpacity
+                      style={styles.qtyButton}
+                      onPress={() => {
+                        if (selectedQuantity > 1) setSelectedQuantity(q => q - 1);
+                      }}
+                    >
+                      <Text style={styles.qtyButtonText}>-</Text>
+                    </TouchableOpacity>
+                    <Text style={styles.qtyValue}>{selectedQuantity}</Text>
+                    <TouchableOpacity
+                      style={styles.qtyButton}
+                      onPress={() => {
+                        const remaining = guestData.totalEntries - guestData.usedEntries;
+                        if (selectedQuantity < (remaining + 1)) {
+                          setSelectedQuantity(q => q + 1);
+                        }
+                      }}
+                    >
+                      <Text style={styles.qtyButtonText}>+</Text>
+                    </TouchableOpacity>
                   </View>
                 </View>
               )}
             </View>
-            {guestData && (
-              <View style={[
-                styles.statusPill,
-                !guestData?.isValid && styles.statusPillInvalid
-              ]}>
-                <Text style={styles.statusPillText}>
-                  {guestData?.status || 'VALID ENTRY'}
-                </Text>
-              </View>
-            )}
-          </View>
 
-          {/* ScrollView for content if it gets too long */}
-          <View style={{ flex: 1, marginTop: 16 }}>
-            {guestData?.facilities && guestData.facilities.length > 0 && (
-              <View style={styles.facilitiesContainer}>
-                <Text style={styles.facilitiesTitle}>Facilities:</Text>
-                <View style={styles.facilitiesList}>
-                  {guestData.facilities.map((facility: any, index: number) => (
-                    <View key={index} style={styles.facilityBadge}>
-                      <Text style={styles.facilityText}>{typeof facility === 'string' ? facility : facility.name}</Text>
-                    </View>
-                  ))}
-                </View>
-              </View>
-            )}
-            {(() => {
-              if (guestData) {
-                console.log("DEBUG: guestData for Quantity Selector:", JSON.stringify({
-                  totalEntries: guestData.totalEntries,
-                  usedEntries: guestData.usedEntries,
-                  condition: guestData.totalEntries > 1 && (guestData.totalEntries - guestData.usedEntries > 0)
-                }));
-              }
-              return null;
-            })()}
-
-            {/* ⚡⚡⚡ QUANTITY SELECTOR ⚡⚡⚡ */}
-            {guestData && guestData.totalEntries > 1 && (guestData.totalEntries - guestData.usedEntries > 0) && (
-              <View style={styles.quantityContainer}>
-                <Text style={styles.quantityLabel}>Check-in Quantity:</Text>
-                <View style={styles.quantityControls}>
-                  <TouchableOpacity
-                    style={styles.qtyButton}
-                    onPress={() => {
-                      if (selectedQuantity > 1) setSelectedQuantity(q => q - 1);
-                    }}
-                  >
-                    <Text style={styles.qtyButtonText}>-</Text>
-                  </TouchableOpacity>
-                  <Text style={styles.qtyValue}>{selectedQuantity}</Text>
-                  <TouchableOpacity
-                    style={styles.qtyButton}
-                    onPress={() => {
-                      const remaining = guestData.totalEntries - guestData.usedEntries;
-                      if (selectedQuantity < (remaining + 1)) {
-                        setSelectedQuantity(q => q + 1);
-                      }
-                    }}
-                  >
-                    <Text style={styles.qtyButtonText}>+</Text>
-                  </TouchableOpacity>
-                </View>
-              </View>
-            )}
-          </View>
-
-          <TouchableOpacity
-            style={[styles.primaryButton, isVerifying && styles.primaryButtonDisabled]}
-            activeOpacity={0.9}
-            disabled={isVerifying}
-            onPress={handleBulkCheckIn}
-          >
-            <Text style={styles.primaryButtonText}>
-              {isVerifying ? 'Verifying...' : 'Scan Next'}
-            </Text>
-          </TouchableOpacity>
-        </Animated.View>
+            <TouchableOpacity
+              style={[styles.primaryButton, isVerifying && styles.primaryButtonDisabled]}
+              activeOpacity={0.9}
+              disabled={isVerifying}
+              onPress={handleBulkCheckIn}
+            >
+              <Text style={styles.primaryButtonText}>
+                {isVerifying ? 'Verifying...' : 'Scan Next'}
+              </Text>
+            </TouchableOpacity>
+          </Animated.View>
+        )}
       </View>
     </SafeAreaView>
   )

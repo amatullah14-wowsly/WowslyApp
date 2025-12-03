@@ -32,6 +32,11 @@ const SEARCH_ICON = {
 };
 const NOGUESTS_ICON = require('../../assets/img/common/noguests.png');
 
+const statusChipStyles: Record<string, { backgroundColor: string; color: string }> = {
+    'Checked In': { backgroundColor: '#E3F2FD', color: '#1565C0' }, // Blue
+    'Pending': { backgroundColor: '#E8F5E9', color: '#2E7D32' },      // Green
+};
+
 const OfflineGuestList = () => {
     const navigation = useNavigation<any>();
     const route = useRoute<OfflineGuestListRoute>();
@@ -77,7 +82,7 @@ const OfflineGuestList = () => {
     const filteredGuests = useMemo(() => {
         return guests.filter((guest) => {
             const query = searchQuery.trim().toLowerCase();
-            
+
             if (!query) return true;
 
             const name = (guest.guest_name || guest.name || guest.first_name + ' ' + guest.last_name || 'Guest').toLowerCase();
@@ -95,6 +100,7 @@ const OfflineGuestList = () => {
         const avatar = item.avatar || item.profile_photo;
         // Show status from database
         const status = item.status === 'checked_in' ? 'Checked In' : 'Pending';
+        const style = statusChipStyles[status] || statusChipStyles['Pending'];
 
         return (
             <View style={styles.guestRow}>
@@ -111,10 +117,10 @@ const OfflineGuestList = () => {
                     <Text style={styles.guestName}>{name}</Text>
                     <Text style={styles.guestDetails}>Ticket ID: {item.qr_code || item.ticket_id || item.guest_uuid || 'N/A'}</Text>
                 </View>
-                <View style={styles.statusChip}>
-                    <Text style={styles.statusChipText}>{status}</Text>
+                <View style={[styles.statusChip, { backgroundColor: style.backgroundColor }]}>
+                    <Text style={[styles.statusChipText, { color: style.color }]}>{status}</Text>
                     {(item.total_entries > 1 || item.used_entries > 0) && (
-                        <Text style={styles.entryCountText}>
+                        <Text style={[styles.entryCountText, { color: style.color }]}>
                             {item.used_entries || 0}/{item.total_entries || 1}
                         </Text>
                     )}

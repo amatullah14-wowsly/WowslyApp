@@ -24,10 +24,12 @@ const Grid = ({ icon, title, value, onPress }: GridProps) => {
       </View>
       <Text style={styles.value}>{value}</Text>
 
-      <Image
-        source={require("../assets/img/common/forwardarrow.png")}
-        style={styles.arrow}
-      />
+      {onPress && (
+        <Image
+          source={require("../assets/img/common/forwardarrow.png")}
+          style={styles.arrow}
+        />
+      )}
     </TouchableOpacity>
   );
 };
@@ -43,6 +45,14 @@ const styles = StyleSheet.create({
     borderColor: "#EDEDED",
     borderWidth: 1,
     padding: 8,
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 4,
+    },
+    shadowOpacity: 0.3,
+    shadowRadius: 4.65,
+    elevation: 3,
   },
   row: {
     flexDirection: "row",

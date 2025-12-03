@@ -8,6 +8,40 @@ let eventsCache = {
 
 const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
 
+const fetchEventsByType = async (type) => {
+    let events = [];
+    let page = 1;
+    let hasMore = true;
+
+    console.log(`Fetching ${type} events...`);
+
+    while (hasMore) {
+        try {
+            const response = await client.get(`/events?page=${page}&type=${type}&per_page=100`);
+            const data = response.data;
+
+            if (data && data.data && Array.isArray(data.data)) {
+                events = [...events, ...data.data];
+
+                if (data.data.length === 0 || data.next_page_url === null) {
+                    hasMore = false;
+                } else {
+                    page++;
+                }
+
+                // Safety break
+                if (page > 50) hasMore = false;
+            } else {
+                hasMore = false;
+            }
+        } catch (error) {
+            console.log(`Error fetching ${type} events page ${page}:`, error.message);
+            hasMore = false;
+        }
+    }
+    return events;
+};
+
 export const getEvents = async (forceRefresh = false) => {
     try {
         const now = Date.now();
@@ -21,70 +55,39 @@ export const getEvents = async (forceRefresh = false) => {
             return eventsCache.data;
         }
 
-        let allEvents = [];
-        let page = 1;
-        let hasMore = true;
+        console.log("Fetching all events (created + joined)...");
 
-        console.log("Fetching all events pages...");
+        const [createdEvents, joinedEvents] = await Promise.all([
+            fetchEventsByType('created'),
+            fetchEventsByType('join')
+        ]);
 
-        while (hasMore) {
-            console.log(`Fetching events page ${page}...`);
-            // Try to fetch more items per page to reduce requests
-            const response = await client.get(`/events?page=${page}&per_page=100`);
-            const data = response.data;
+        console.log(`Fetched ${createdEvents.length} created events and ${joinedEvents.length} joined events.`);
 
-            if (data && data.data && Array.isArray(data.data)) {
-                allEvents = [...allEvents, ...data.data];
+        // Merge and deduplicate based on ID
+        const allEvents = [...createdEvents, ...joinedEvents];
+        const uniqueEvents = [];
+        const seenIds = new Set();
 
-                // Log pagination info if available
-                if (data.total || data.last_page) {
-                    console.log(`Pagination: Page ${data.current_page} of ${data.last_page}, Total: ${data.total}`);
-                }
-
-                // Check if we have reached the last page
-                // Assuming the API returns meta information about pagination
-                // If not, we might need to check if the data length is less than per_page
-                // But for now, let's rely on the 'next_page_url' or similar if available, 
-                // OR simply check if the returned data is empty.
-
-                // Standard Laravel pagination often has links.next or meta.last_page
-                // Let's check if the current page data count is 0, then stop.
-                if (data.data.length === 0) {
-                    hasMore = false;
-                } else {
-                    // Safety break to prevent infinite loops if API is weird
-                    if (page > 200) {
-                        console.log("Reached safety limit of 200 pages");
-                        hasMore = false;
-                    } else {
-                        // Check if we got fewer items than expected (e.g. default per_page is usually 15 or 20)
-                        // If we don't know the per_page, we can just try next page until empty.
-                        // However, if the API returns the same data for page N and N+1 (buggy API), we loop.
-                        // Let's assume standard behavior: keep going until empty array or last page.
-
-                        // Better approach: check if response.data.next_page_url is null
-                        if (data.next_page_url === null) {
-                            hasMore = false;
-                        } else {
-                            page++;
-                        }
-                    }
-                }
-            } else {
-                // Unexpected structure or empty
-                hasMore = false;
+        for (const event of allEvents) {
+            if (!seenIds.has(event.id)) {
+                seenIds.add(event.id);
+                uniqueEvents.push(event);
             }
         }
 
-        console.log(`Total events fetched: ${allEvents.length}`);
+        // Sort by start_date descending (newest first) - optional but good for UX
+        uniqueEvents.sort((a, b) => new Date(b.start_date) - new Date(a.start_date));
+
+        console.log(`Total unique events: ${uniqueEvents.length}`);
 
         // Update cache
         eventsCache = {
-            data: { data: allEvents }, // Maintain structure expected by callers (res.data)
+            data: { data: uniqueEvents },
             timestamp: now,
         };
 
-        return { data: allEvents };
+        return { data: uniqueEvents };
     } catch (error) {
         console.log("GET EVENTS ERROR:", error.response?.data || error.message);
         return { status: false, data: [] };
@@ -108,6 +111,16 @@ export const getEventUsers = async (id, page = 1, type = 'all') => {
     } catch (error) {
         console.log("GET EVENT USERS ERROR:", error.response?.data || error.message);
         return { status: false, data: [] };
+    }
+};
+
+export const getGuestDetails = async (eventId, guestId) => {
+    try {
+        const response = await client.get(`/events/${eventId}/eventuser/${guestId}`);
+        return response.data;
+    } catch (error) {
+        console.log("GET GUEST DETAILS ERROR:", error.response?.data || error.message);
+        return { status: false, data: null };
     }
 };
 
@@ -141,16 +154,28 @@ export const downloadOfflineData = async (eventId) => {
                 console.log(`Fetching users for ticket: ${ticket.title} (${ticket.id}) type: ${eventType}`);
 
                 const soldRes = await getTicketSoldUsers(eventId, ticket.id, eventType);
-                const soldUsers = soldRes?.data || soldRes || [];
 
-                if (Array.isArray(soldUsers)) {
+                // ⚡⚡⚡ IMPROVED EXTRACTION & LOGGING ⚡⚡⚡
+                let soldUsers = [];
+                if (Array.isArray(soldRes)) {
+                    soldUsers = soldRes;
+                } else if (soldRes && Array.isArray(soldRes.data)) {
+                    soldUsers = soldRes.data;
+                } else if (soldRes && soldRes.data && Array.isArray(soldRes.data.data)) {
+                    // Handle nested pagination structure { data: { data: [...] } }
+                    soldUsers = soldRes.data.data;
+                }
+
+                console.log(`DEBUG: Ticket ${ticket.id} raw response keys:`, Object.keys(soldRes || {}));
+                console.log(`DEBUG: Extracted ${soldUsers.length} soldUsers for ticket ${ticket.id}`);
+
+                if (Array.isArray(soldUsers) && soldUsers.length > 0) {
+                    console.log(`DEBUG: Fetched ${soldUsers.length} users for ticket ${ticket.id}. Sample:`, JSON.stringify(soldUsers[0]));
                     // Enrich users with ticket info if missing
                     const enrichedUsers = soldUsers.map(u => ({
                         ...u,
                         ticket_id: ticket.id,
                         ticket_title: ticket.title,
-                        // Ensure tickets_bought is present if available in the user object
-                        // or default to 1 if not found, but we hope getTicketSoldUsers returns it
                     }));
                     allGuests = [...allGuests, ...enrichedUsers];
                 }
@@ -159,19 +184,53 @@ export const downloadOfflineData = async (eventId) => {
             }
         }
 
-        // Remove duplicates based on unique ID (id or uuid or qr_code)
-        const uniqueGuests = [];
-        const seenIds = new Set();
+        // ⚡⚡⚡ AGGREGATE DUPLICATES (Sum tickets_bought) ⚡⚡⚡
+        const guestMap = new Map();
 
         for (const g of allGuests) {
-            const uniqueId = g.qr_code || g.uuid || g.id;
-            if (uniqueId && !seenIds.has(uniqueId)) {
-                seenIds.add(uniqueId);
-                uniqueGuests.push(g);
+            // Try to find a unique ID
+            const uniqueId = g.qr_code || g.uuid || g.id || g.user_id;
+
+            if (!uniqueId) {
+                console.warn("Skipping guest without unique ID:", g);
+                continue;
+            }
+
+            if (guestMap.has(uniqueId)) {
+                const existing = guestMap.get(uniqueId);
+                // Increment count (assuming each row is 1 ticket unless specified)
+                const currentCount = existing.tickets_bought || 1;
+                const newCount = g.tickets_bought || 1;
+                existing.tickets_bought = currentCount + newCount;
+
+                // Keep the one with more info if possible (optional optimization)
+            } else {
+                // Initialize tickets_bought if missing
+                g.tickets_bought = g.tickets_bought || 1;
+                guestMap.set(uniqueId, g);
             }
         }
 
-        console.log(`Total unique guests fetched: ${uniqueGuests.length}`);
+        const uniqueGuests = Array.from(guestMap.values());
+
+        console.log(`Total unique guests fetched via tickets: ${uniqueGuests.length}`);
+
+        // 3. Fallback: If ticket-based fetch yielded 0 guests, try the general list
+        if (uniqueGuests.length === 0) {
+            console.log("Ticket-based fetch returned 0 guests. Attempting fallback to general list...");
+            try {
+                const url = `/events/${eventId}/eventuser?type=all&per_page=5000`;
+                const response = await client.get(url);
+                const fallbackGuests = response.data?.data || response.data || [];
+
+                if (Array.isArray(fallbackGuests) && fallbackGuests.length > 0) {
+                    console.log(`Fallback successful. Found ${fallbackGuests.length} guests.`);
+                    return { guests_list: fallbackGuests };
+                }
+            } catch (fallbackErr) {
+                console.log("Fallback fetch failed:", fallbackErr.message);
+            }
+        }
 
         if (uniqueGuests.length > 0) {
             console.log("DEBUG: Sample guest from bulk fetch:", JSON.stringify(uniqueGuests[0]));
@@ -219,5 +278,62 @@ export const getTicketSoldUsers = async (eventId, ticketId, eventType = 'paid') 
     } catch (error) {
         console.log("GET TICKET SOLD USERS ERROR:", error.response?.data || error.message);
         return { status: false, data: [] };
+    }
+};
+
+import { getUnsyncedCheckins, markTicketsAsSynced } from '../db';
+import { checkInGuest } from './api';
+
+export const syncPendingCheckins = async (eventId) => {
+    try {
+        console.log("Starting sync for event:", eventId);
+        const unsynced = await getUnsyncedCheckins();
+        console.log(`Found ${unsynced.length} unsynced check-ins`);
+
+        if (unsynced.length === 0) {
+            return { success: true, count: 0, message: "No pending check-ins to sync" };
+        }
+
+        let successCount = 0;
+        let failCount = 0;
+
+        for (const ticket of unsynced) {
+            try {
+                // Use the guest_id (or id) to check in on server
+                // The DB stores guest_id. If missing, we might have an issue.
+                const guestId = ticket.guest_id || ticket.id;
+
+                if (!guestId) {
+                    console.warn("Skipping sync for ticket without guest_id:", ticket);
+                    failCount++;
+                    continue;
+                }
+
+                console.log(`Syncing guest ${guestId} (QR: ${ticket.qr_code})...`);
+                const res = await checkInGuest(eventId, guestId);
+
+                if (res && (res.success || res.status === 'success' || res.message === 'Guest checked in successfully')) {
+                    await markTicketsAsSynced([ticket.qr_code]);
+                    successCount++;
+                } else {
+                    console.error(`Failed to sync guest ${guestId}:`, res);
+                    failCount++;
+                }
+            } catch (err) {
+                console.error(`Error syncing ticket ${ticket.qr_code}:`, err);
+                failCount++;
+            }
+        }
+
+        return {
+            success: true,
+            count: successCount,
+            failed: failCount,
+            message: `Synced ${successCount} guests. Failed: ${failCount}`
+        };
+
+    } catch (error) {
+        console.error("SYNC PENDING CHECKINS ERROR:", error);
+        return { success: false, message: "Sync process failed" };
     }
 };

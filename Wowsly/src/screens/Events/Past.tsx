@@ -167,11 +167,6 @@ const Past = () => {
             onChangeText={setSearchQuery}
           />
         </View>
-        <View style={styles.filterIcon}>
-          <View style={styles.filterBar} />
-          <View style={[styles.filterBar, styles.filterBarShort]} />
-          <View style={[styles.filterBar, styles.filterBarShortest]} />
-        </View>
       </View>
 
       <FlatList
@@ -277,27 +272,6 @@ const styles = StyleSheet.create({
   searchIcon: {
     width: 18,
     height: 18,
-  },
-  filterIcon: {
-    width: 30,
-    height: 30,
-    borderRadius: 8,
-    backgroundColor: '#FF8A3C',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 3,
-  },
-  filterBar: {
-    width: 14,
-    height: 2,
-    backgroundColor: 'white',
-    borderRadius: 2,
-  },
-  filterBarShort: {
-    width: 10,
-  },
-  filterBarShortest: {
-    width: 6,
   },
   listContent: {
     paddingHorizontal: 20,
