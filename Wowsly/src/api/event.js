@@ -116,7 +116,7 @@ export const getEventUsers = async (id, page = 1, type = 'all') => {
 
 export const getGuestDetails = async (eventId, guestId) => {
     try {
-        const response = await client.get(`/events/${eventId}/eventuser/${guestId}`);
+        const response = await client.get(`/events/${eventId}/eventuser/getguestdetails?event_user_id=${guestId}`);
         return response.data;
     } catch (error) {
         console.log("GET GUEST DETAILS ERROR:", error.response?.data || error.message);
@@ -170,7 +170,8 @@ export const downloadOfflineData = async (eventId) => {
                 console.log(`DEBUG: Extracted ${soldUsers.length} soldUsers for ticket ${ticket.id}`);
 
                 if (Array.isArray(soldUsers) && soldUsers.length > 0) {
-                    console.log(`DEBUG: Fetched ${soldUsers.length} users for ticket ${ticket.id}. Sample:`, JSON.stringify(soldUsers[0]));
+                    console.log(`DEBUG: Fetched ${soldUsers.length} users for ticket ${ticket.id}. Sample User:`, JSON.stringify(soldUsers[0]));
+                    console.log(`DEBUG: Sample User tickets_bought: ${soldUsers[0].tickets_bought}, quantity: ${soldUsers[0].quantity}`);
                     // Enrich users with ticket info if missing
                     const enrichedUsers = soldUsers.map(u => ({
                         ...u,
@@ -214,6 +215,9 @@ export const downloadOfflineData = async (eventId) => {
         const uniqueGuests = Array.from(guestMap.values());
 
         console.log(`Total unique guests fetched via tickets: ${uniqueGuests.length}`);
+        if (uniqueGuests.length > 0) {
+            console.log(`DEBUG: Aggregated Guest Sample: Name=${uniqueGuests[0].name}, TicketsBought=${uniqueGuests[0].tickets_bought}`);
+        }
 
         // 3. Fallback: If ticket-based fetch yielded 0 guests, try the general list
         if (uniqueGuests.length === 0) {
@@ -225,6 +229,7 @@ export const downloadOfflineData = async (eventId) => {
 
                 if (Array.isArray(fallbackGuests) && fallbackGuests.length > 0) {
                     console.log(`Fallback successful. Found ${fallbackGuests.length} guests.`);
+                    console.log("DEBUG: Full Fallback Guest Object:", JSON.stringify(fallbackGuests[0]));
                     return { guests_list: fallbackGuests };
                 }
             } catch (fallbackErr) {

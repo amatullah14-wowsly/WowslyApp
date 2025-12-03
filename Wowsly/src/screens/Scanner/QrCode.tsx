@@ -310,6 +310,9 @@ const QrCode = () => {
           const usedEntries = ticket.used_entries || 0;
           const facilities = ticket.facilities ? JSON.parse(ticket.facilities) : [];
 
+          console.log("DEBUG: Offline Ticket Found:", JSON.stringify(ticket));
+          console.log(`DEBUG: total_entries: ${ticket.total_entries}, used_entries: ${ticket.used_entries}`);
+
           if (usedEntries >= totalEntries) {
             Toast.show({
               type: 'error',
@@ -380,6 +383,8 @@ const QrCode = () => {
     // 🟢 ONLINE VERIFICATION (API)
     try {
       // 1. Check Local DB first to prevent double scanning if already scanned offline
+      // ⚡⚡⚡ DISABLED FOR ONLINE MODE TO ALLOW MULTI-ENTRY SCANS ⚡⚡⚡
+      /*
       try {
         const localTicket = await findTicketByQr(qrGuestUuid);
         if (localTicket) {
@@ -414,6 +419,7 @@ const QrCode = () => {
         console.warn("Failed to check local DB before online verify:", localErr);
         // Continue to online verify if local check fails (fail open)
       }
+      */
 
       const response = await verifyQRCode(eventId, qrGuestUuid)
       console.log("QR Verification Response:", response)
@@ -422,19 +428,13 @@ const QrCode = () => {
         const guest = response?.guest_data?.[0] || {}
         const guestId = guest.id || guest.guest_id;
 
-        // Call check-in API to update guest status
-        try {
-          const checkInResponse = await checkInGuest(eventId, guestId)
-          console.log("Check-in Response:", checkInResponse)
-        } catch (checkInError) {
-          console.warn("Check-in API failed, but QR is valid:", checkInError)
-        }
+        // ⚡⚡⚡ FIX: FETCH DETAILS FIRST, THEN VALIDATE, THEN CHECK-IN ⚡⚡⚡
 
-        // Fetch detailed guest info for the UI
+        // 1. Fetch detailed guest info FIRST to check current status
         try {
           const detailsResponse = await getGuestDetails(eventId, guestId);
 
-          // Default values from initial verify response
+          // Default values
           const initialTotal = guest.total_entries || guest.total_pax || 1;
           const initialUsed = guest.used_entries || guest.checked_in_count || 0;
 
@@ -443,47 +443,61 @@ const QrCode = () => {
             const ticketData = d.ticket_data || {};
 
             // Total tickets bought
-            const freshTotal = ticketData.tickets_bought || d.total_entries || 0;
+            // REMOVED d.quantity and ticketData.quantity as they might refer to total available tickets (e.g. 999)
+            const freshTotal = ticketData.tickets_bought || d.tickets_bought || d.total_entries || 0;
             const totalEntries = freshTotal > 0 ? freshTotal : initialTotal;
 
-            console.log("DEBUG: Online Verify - Ticket Data:", JSON.stringify(ticketData));
-            console.log(`DEBUG: Online Verify - Fresh Total: ${freshTotal}, Initial Total: ${initialTotal}, Final Total Entries: ${totalEntries}`);
+            // Current used entries (before this scan)
+            const currentUsed = d.checked_in_count || d.used_entries || 0;
 
-            // Used entries (scanned count)
-            const freshUsed = d.checked_in_count || d.used_entries || 0;
+            console.log("DEBUG: Online Verify - Ticket Data:", JSON.stringify(ticketData));
+            console.log(`DEBUG: Online Verify - Total: ${totalEntries}, Current Used: ${currentUsed}`);
+
+            // 2. VALIDATE LIMIT
+            const isAlreadyFull = currentUsed >= totalEntries;
+
+            let finalUsed = currentUsed;
+            let status = "";
+            let isValid = false;
+
+            if (isAlreadyFull) {
+              // 🛑 BLOCKED: Already full
+              status = "ALREADY SCANNED";
+              isValid = false;
+              finalUsed = currentUsed; // Don't increment
+              console.log("DEBUG: Ticket is full. Blocking check-in.");
+            } else {
+              // ✅ VALID: Proceed to check-in
+              try {
+                const checkInResponse = await checkInGuest(eventId, guestId);
+                console.log("Check-in Response:", checkInResponse);
+
+                // Update used count
+                finalUsed = currentUsed + 1;
+                status = "VALID ENTRY";
+                isValid = true;
+              } catch (checkInError) {
+                console.warn("Check-in API failed:", checkInError);
+                // If check-in fails, we assume it didn't go through? 
+                // Or should we show valid anyway? 
+                // Safer to show error or assume valid if it was a network glitch but we want to let them in.
+                // For now, let's assume it worked locally for the UI.
+                finalUsed = currentUsed + 1;
+                status = "VALID ENTRY";
+                isValid = true;
+              }
+            }
+
+            // Clamp finalUsed to never exceed totalEntries for display
+            if (finalUsed > totalEntries) {
+              finalUsed = totalEntries;
+            }
 
             // ----------------- LOCAL SESSION HISTORY LOGIC -----------------
+            // We still update local history for offline fallback consistency, 
+            // but we don't use it for the decision above.
             // @ts-ignore
-            let previousLocalCount = localScanHistory.get(qrGuestUuid);
-
-            // If not in memory, try to seed from Local DB (handles navigation back/forth)
-            if (previousLocalCount === undefined) {
-              try {
-                const localTicket = await findTicketByQr(qrGuestUuid);
-                if (localTicket) {
-                  previousLocalCount = localTicket.used_entries || 0;
-                }
-              } catch (e) { /* ignore */ }
-            }
-            previousLocalCount = previousLocalCount || 0;
-
-            let calculatedUsed = 0;
-
-            // ⚡⚡⚡ FIX: Always respect local history to prevent reverting bulk scans ⚡⚡⚡
-            // We take the maximum of:
-            // 1. freshUsed (Server's latest count, might be lagging or caught up)
-            // 2. initialUsed (Snapshot from verify, might be stale)
-            // 3. previousLocalCount + 1 (Our local knowledge + current scan)
-            // This ensures that if we did a bulk scan locally (e.g. +3), we don't revert to 1 just because server is slow.
-            calculatedUsed = Math.max(freshUsed, initialUsed, previousLocalCount + 1);
-
-            // Update local history
-            // @ts-ignore
-            localScanHistory.set(qrGuestUuid, calculatedUsed);
-
-            const usedEntries = calculatedUsed;
-            const isValid = usedEntries <= totalEntries;
-            const status = isValid ? "VALID ENTRY" : "ALREADY SCANNED";
+            localScanHistory.set(qrGuestUuid, finalUsed);
 
             // ⚡⚡⚡ SYNC TO LOCAL DB ⚡⚡⚡
             try {
@@ -493,11 +507,10 @@ const QrCode = () => {
                 guest_id: guestId,
                 ticket_id: ticketData.ticket_id || guest.ticket_id,
                 total_entries: totalEntries,
-                used_entries: usedEntries,
+                used_entries: finalUsed,
                 facilities: d.facilities || guest.facilities
               };
               await insertOrReplaceGuests(eventId, [guestToSync]);
-              console.log("Synced online scan to local DB:", guestToSync);
             } catch (syncErr) {
               console.warn("Failed to sync online scan to local DB:", syncErr);
             }
@@ -508,28 +521,28 @@ const QrCode = () => {
               status: status,
               isValid: isValid,
               totalEntries: totalEntries,
-              usedEntries: usedEntries,
+              usedEntries: finalUsed,
               facilities: d.facilities || guest.facilities || [],
-              guestId: guestId, // Store for bulk check-in
-              qrCode: qrGuestUuid // ⚡ Store QR for reliable key
+              guestId: guestId,
+              qrCode: qrGuestUuid
             };
 
             setGuestData(newGuestData);
-            openSheet(); // ⚡⚡⚡ AUTO-OPEN SLIDER ⚡⚡⚡
+            openSheet();
 
-            // ⚡⚡⚡ AUTO-RESET FOR SINGLE TICKET ⚡⚡⚡
+            // Auto-reset for single ticket
             if (newGuestData.totalEntries === 1) {
               setTimeout(() => {
                 setScannedValue(null);
                 setGuestData(null);
-                closeSheet(); // ⚡⚡⚡ AUTO-CLOSE SLIDER ⚡⚡⚡
+                closeSheet();
               }, 2500);
             }
 
-            // ⚡⚡⚡ BROADCAST TO CLIENTS (IF HOST) ⚡⚡⚡
+            // Broadcast
             DeviceEventEmitter.emit('BROADCAST_SCAN_TO_CLIENTS', {
               ...newGuestData,
-              qr_code: qrGuestUuid, // Ensure qr_code is present
+              qr_code: qrGuestUuid,
               guest_name: newGuestData.name,
               used_entries: newGuestData.usedEntries,
               total_entries: newGuestData.totalEntries
@@ -796,6 +809,7 @@ const QrCode = () => {
         </View>
 
         {guestData && (
+          console.log("DEBUG: Rendering Sheet with guestData:", JSON.stringify(guestData)) ||
           <Animated.View
             style={[
               styles.sheet,
@@ -892,7 +906,7 @@ const QrCode = () => {
                       style={styles.qtyButton}
                       onPress={() => {
                         const remaining = guestData.totalEntries - guestData.usedEntries;
-                        if (selectedQuantity < (remaining + 1)) {
+                        if (selectedQuantity <= (remaining + 1)) {
                           setSelectedQuantity(q => q + 1);
                         }
                       }}

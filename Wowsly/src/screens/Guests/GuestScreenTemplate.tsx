@@ -31,11 +31,24 @@ const statusChipStyles: Record<
   string,
   { backgroundColor: string; color: string }
 > = {
-  'Checked In': { backgroundColor: '#E3F8EB', color: '#16794C' },
-  Pending: { backgroundColor: '#FFF2D4', color: '#A46A00' },
+  'Checked In': { backgroundColor: '#E3F2FD', color: '#1565C0' }, // Blue
+  'checked in': { backgroundColor: '#E3F2FD', color: '#1565C0' },
+  'checked_in': { backgroundColor: '#E3F2FD', color: '#1565C0' },
+
+  Pending: { backgroundColor: '#E8F5E9', color: '#2E7D32' }, // Green
+  'pending': { backgroundColor: '#E8F5E9', color: '#2E7D32' },
+
+  // Map Active to Pending (Green)
+  'Active': { backgroundColor: '#E8F5E9', color: '#2E7D32' },
+  'active': { backgroundColor: '#E8F5E9', color: '#2E7D32' },
+
+  Blocked: { backgroundColor: '#FFEBEE', color: '#C62828' }, // Red
+  'blocked': { backgroundColor: '#FFEBEE', color: '#C62828' },
+
+  // Map others to Pending (Green) as defaults
+  'registered': { backgroundColor: '#E8F5E9', color: '#2E7D32' },
+  'invited': { backgroundColor: '#E8F5E9', color: '#2E7D32' },
   'No-Show': { backgroundColor: '#FFE2E2', color: '#BE2F2F' },
-  'registered': { backgroundColor: '#E3F8EB', color: '#16794C' },
-  'invited': { backgroundColor: '#E0F2F1', color: '#00695C' },
 };
 
 const SEARCH_ICON = {
@@ -135,7 +148,12 @@ const GuestScreenTemplate: React.FC<GuestScreenTemplateProps> = ({
   const renderGuest = ({ item }: { item: any }) => {
     const name = item.name || item.first_name + ' ' + item.last_name || 'Guest';
     const avatar = item.avatar || item.profile_photo;
-    const status = item.status || 'Registered';
+    let status = item.status || 'Registered';
+
+    // ⚡⚡⚡ FIX: Map "Active" to "Pending" for display ⚡⚡⚡
+    if (status.toLowerCase() === 'active') {
+      status = 'Pending';
+    }
 
     const renderRightActions = () => (
       <View style={styles.rowActions}>
@@ -192,9 +210,7 @@ const GuestScreenTemplate: React.FC<GuestScreenTemplateProps> = ({
       <View style={styles.header}>
         <BackButton onPress={() => navigation.canGoBack() && navigation.goBack()} />
         <Text style={styles.headerTitle}>Guest List</Text>
-        <TouchableOpacity style={styles.headerButton}>
-          <Image source={SEARCH_ICON} style={styles.headerIcon} />
-        </TouchableOpacity>
+        <View style={{ width: 36 }} />
       </View>
 
       <View style={styles.tabRow}>

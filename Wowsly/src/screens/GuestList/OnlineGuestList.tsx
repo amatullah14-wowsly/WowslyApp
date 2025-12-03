@@ -9,6 +9,7 @@ import {
     FlatList,
     TextInput,
     ActivityIndicator,
+    DeviceEventEmitter,
 } from 'react-native';
 import { RouteProp, useNavigation, useRoute, useFocusEffect } from '@react-navigation/native';
 import { GestureHandlerRootView, Swipeable } from 'react-native-gesture-handler';
@@ -76,6 +77,35 @@ const OnlineGuestList = () => {
         }, [eventId, activeTab])
     );
 
+    // ⚡⚡⚡ REAL-TIME UPDATE LISTENER ⚡⚡⚡
+    useEffect(() => {
+        const subscription = DeviceEventEmitter.addListener('BROADCAST_SCAN_TO_CLIENTS', (data) => {
+            console.log("OnlineGuestList received broadcast:", data);
+            if (data && data.guestId) {
+                setGuests(currentGuests => {
+                    return currentGuests.map(g => {
+                        // Match by ID (string/number safe comparison)
+                        if (g.id == data.guestId || g.guest_id == data.guestId) {
+                            console.log(`Updating guest ${g.name} status to ${data.status}`);
+                            return {
+                                ...g,
+                                status: 'Checked In', // Force status to Checked In for UI
+                                used_entries: data.usedEntries,
+                                total_entries: data.totalEntries,
+                                checked_in_count: data.usedEntries // Ensure compatibility with both fields
+                            };
+                        }
+                        return g;
+                    });
+                });
+            }
+        });
+
+        return () => {
+            subscription.remove();
+        };
+    }, []);
+
     const fetchGuests = async () => {
         setLoading(true);
 
@@ -84,38 +114,9 @@ const OnlineGuestList = () => {
             const res = await getEventUsers(eventId, 1, type);
             let fetchedGuests = res?.data || [];
 
-            // 🟢 MERGE WITH LOCAL OFFLINE STATUS
-            try {
-                await initDB();
-                const localTickets = await getTicketsForEvent(eventId);
-
-                if (localTickets && localTickets.length > 0) {
-                    console.log(`Merging ${localTickets.length} local tickets with online list`);
-
-                    // Create a map for faster lookup: guest_id -> local_ticket
-                    const localMap = new Map();
-                    localTickets.forEach(t => {
-                        if (t.guest_id) localMap.set(t.guest_id.toString(), t);
-                    });
-
-                    fetchedGuests = fetchedGuests.map((g: any) => {
-                        const localT = localMap.get(g.id?.toString());
-                        if (localT) {
-                            // If locally checked in, override status
-                            if (localT.status === 'checked_in' || (localT.used_entries > 0)) {
-                                return {
-                                    ...g,
-                                    status: 'Checked In', // Override status for UI
-                                    // You could also merge used_entries if needed
-                                };
-                            }
-                        }
-                        return g;
-                    });
-                }
-            } catch (localErr) {
-                console.warn("Error merging local offline data:", localErr);
-            }
+            // 🟢 MERGE WITH LOCAL OFFLINE STATUS - REMOVED AS PER USER REQUEST
+            // The user wants to rely solely on the online API data for counts (e.g. 3/6).
+            // Previous local merge logic was potentially overwriting correct online data with stale local data.
 
             setGuests(fetchedGuests);
         } catch (error) {
@@ -143,7 +144,23 @@ const OnlineGuestList = () => {
         const name = item.name || item.first_name + ' ' + item.last_name || 'Guest';
         const avatar = item.avatar || item.profile_photo;
         const rawStatus = item.status || activeTab;
-        const status = rawStatus.toLowerCase() === 'active' ? 'Pending' : rawStatus;
+        let status = rawStatus.toLowerCase() === 'active' ? 'Pending' : rawStatus;
+
+        // ⚡⚡⚡ MULTI-ENTRY LOGIC ⚡⚡⚡
+        const ticketData = item.ticket_data || {};
+        const totalEntries = item.total_entries || item.tickets_bought || ticketData.tickets_bought || item.quantity || ticketData.quantity || 1;
+        const usedEntries = item.used_entries || item.checked_in_count || ticketData.used_entries || ticketData.checked_in_count || 0;
+        let statusStyle = statusChipStyles[status] || statusChipStyles[status.toLowerCase()] || statusChipStyles['registered'];
+
+        if (totalEntries > 1) {
+            status = `${usedEntries}/${totalEntries}`;
+            // Determine color: Blue if fully checked in, Green if pending/partial
+            if (usedEntries >= totalEntries) {
+                statusStyle = statusChipStyles['Checked In'];
+            } else {
+                statusStyle = statusChipStyles['Pending'];
+            }
+        }
 
         const renderRightActions = () => (
             <View style={styles.rowActions}>
@@ -178,11 +195,11 @@ const OnlineGuestList = () => {
                         <View style={styles.guestInfo}>
                             <Text style={styles.guestName}>{name}</Text>
                         </View>
-                        <View style={[styles.statusChip, statusChipStyles[status] || statusChipStyles[status.toLowerCase()] || statusChipStyles['registered']]}>
+                        <View style={[styles.statusChip, statusStyle]}>
                             <Text
                                 style={[
                                     styles.statusChipText,
-                                    { color: (statusChipStyles[status] || statusChipStyles[status.toLowerCase()] || statusChipStyles['registered']).color },
+                                    { color: statusStyle.color },
                                 ]}
                             >
                                 {status}
@@ -204,9 +221,7 @@ const OnlineGuestList = () => {
                         {eventTitle}
                     </Text>
 
-                    <View style={styles.iconPlaceholder}>
-                        <Text style={styles.iconPlaceholderText}>⚙︎</Text>
-                    </View>
+                    <View style={{ width: 40 }} />
                 </View>
 
                 <Text style={styles.pageTitle}>Guest Lists</Text>
