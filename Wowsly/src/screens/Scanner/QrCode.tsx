@@ -320,7 +320,7 @@ const QrCode = () => {
           console.log(`DEBUG: total_entries: ${ticket.total_entries}, used_entries: ${ticket.used_entries}`);
 
           if (usedEntries >= totalEntries) {
-            showStatus('Already Scanned', 'error');
+            showStatus('Already Scanned', 'warning');
             setGuestData({
               name: ticket.guest_name || "Guest",
               ticketId: ticket.qr_code || "N/A",
@@ -376,13 +376,15 @@ const QrCode = () => {
                 qrCode: ticket.qr_code || qrGuestUuid
               });
 
-              openSheet();
+              // openSheet(); // 👈 REMOVED
+
+              showStatus(`Checked in ${ticket.guest_name || "Guest"}`, 'success');
 
               setTimeout(() => {
                 setScannedValue(null);
                 setGuestData(null);
-                closeSheet();
-              }, 2500);
+                // closeSheet(); // 👈 REMOVED
+              }, 1500);
             }
           }
 
@@ -451,7 +453,7 @@ const QrCode = () => {
             if (currentUsed >= totalEntries) {
               // 🛑 BLOCKED: Already full
               console.log("DEBUG: Ticket is full. Blocking check-in.");
-              showStatus('Limit Reached', 'error');
+              showStatus('Already Scanned', 'warning');
 
               // Do NOT open sheet. Just reset scanner.
               setTimeout(() => setScannedValue(null), 2000);
@@ -460,7 +462,8 @@ const QrCode = () => {
             }
 
             // ✅ VALID: Proceed to check-in
-            setGuestData({
+            // ✅ VALID: Proceed to check-in
+            const newGuestData = {
               name: d.name || d.guest_name || guest.name || guest.guest_name || "Guest",
               ticketId: guest.ticket_id || d.ticket_id || ticketData.qr_code || guest.qr_code || "Remote",
               actualTicketId: guest.ticket_id || d.ticket_id || 0, // 👈 Store numeric ID
@@ -471,25 +474,143 @@ const QrCode = () => {
               facilities: d.facilities || [],
               guestId: guestId,
               qrCode: qrGuestUuid
-            });
-            openSheet();
+            };
+            setGuestData(newGuestData);
+
+            // ⚡⚡⚡ AUTO CHECK-IN FOR SINGLE TICKET ⚡⚡⚡
+            if (totalEntries === 1) {
+              // Trigger bulk check-in immediately with quantity 1
+              // We need to use a timeout or effect to ensure state is set, 
+              // OR just call a modified check-in function directly.
+              // Better: Call check-in logic directly to avoid state race conditions.
+              handleDirectCheckIn(newGuestData, 1);
+            } else {
+              openSheet();
+            }
           } // End if (detailsResponse?.data)
         } catch (detailsError) {
           console.warn("Failed to fetch guest details", detailsError);
           showStatus('Failed to fetch guest details', 'error');
         }
       } else {
-        showStatus(response?.message || 'Invalid QR', 'error');
+        showStatus(response?.message === "QR verification failed" ? "Invalid QR Code" : (response?.message || 'Invalid QR Code'), 'error');
         setTimeout(() => setScannedValue(null), 2000);
       }
     } catch (error) {
       console.error("Online verification error:", error);
-      showStatus('Failed to verify QR code', 'error');
+      showStatus('Invalid QR Code', 'error');
       setTimeout(() => setScannedValue(null), 2000);
     } finally {
       setIsVerifying(false);
     }
   };
+
+  // ⚡⚡⚡ REFACTORED CHECK-IN LOGIC FOR DIRECT CALLS ⚡⚡⚡
+  // ⚡⚡⚡ REFACTORED CHECK-IN LOGIC FOR DIRECT CALLS ⚡⚡⚡
+  const handleDirectCheckIn = async (data: any, quantity: number) => {
+    const checkInCount = quantity;
+    const guestId = data?.guestId;
+    const qrCode = data?.qrCode;
+
+    if (!guestId || !qrCode) return;
+
+    setIsVerifying(true);
+    try {
+      // ⚡⚡⚡ OFFLINE MODE DIRECT CHECK-IN ⚡⚡⚡
+      if (isOfflineMode) {
+        // Just update local DB with increment
+        await updateTicketStatusLocal(qrCode, 'checked_in', checkInCount);
+        console.log(`Offline Direct Check-in: +${checkInCount} for ${qrCode}`);
+
+        // Update local history
+        const newUsed = (data.usedEntries || 0) + checkInCount;
+        // @ts-ignore
+        localScanHistory.set(qrCode, newUsed);
+
+        // Broadcast
+        const broadcastData = {
+          guest_name: data.name,
+          qr_code: qrCode,
+          total_entries: data.totalEntries,
+          used_entries: newUsed,
+          facilities: data.facilities,
+          guest_id: data.guestId
+        };
+        DeviceEventEmitter.emit('BROADCAST_SCAN_TO_CLIENTS', broadcastData);
+
+        showStatus(`Checked in ${data.name}`, 'success');
+        setTimeout(() => {
+          setScannedValue(null);
+          setGuestData(null);
+        }, 1500);
+
+        return; // Exit after offline handling
+      }
+
+      // ⚡⚡⚡ ONLINE MODE DIRECT CHECK-IN ⚡⚡⚡
+      const payload = {
+        event_id: parseInt(eventId),
+        guest_id: guestId,
+        ticket_id: data.actualTicketId || 0,
+        check_in_count: checkInCount,
+        category_check_in_count: "",
+        other_category_check_in_count: 0,
+        guest_facility_id: ""
+      };
+
+      const res = await checkInGuest(eventId, payload);
+      console.log("DIRECT CHECK-IN RESPONSE:", JSON.stringify(res));
+
+      if (!res?.id && !res?.check_in_time && !res?.success && !res?.status) {
+        throw new Error(res?.message || "Check-in failed");
+      }
+
+      const newUsed = (data.usedEntries || 0) + checkInCount;
+
+      // Update local history
+      // @ts-ignore
+      localScanHistory.set(qrCode, newUsed);
+
+      // Sync to local DB
+      try {
+        const guestToSync = {
+          qr_code: qrCode,
+          name: data.name,
+          guest_id: data.guestId,
+          ticket_id: data.ticketId,
+          total_entries: data.totalEntries,
+          used_entries: newUsed,
+          facilities: data.facilities,
+          status: 'checked_in'
+        };
+        await insertOrReplaceGuests(eventId, [guestToSync]);
+
+        // Broadcast
+        DeviceEventEmitter.emit('BROADCAST_SCAN_TO_CLIENTS', {
+          ...guestToSync,
+          guestId: guestToSync.guest_id,
+          usedEntries: newUsed,
+          totalEntries: data.totalEntries
+        });
+      } catch (syncErr) {
+        console.warn("Failed to sync direct check-in:", syncErr);
+      }
+
+      showStatus(`Checked in ${data.name}`, 'success');
+      setTimeout(() => {
+        setScannedValue(null);
+        setGuestData(null);
+      }, 1500);
+
+    } catch (error) {
+      console.error("Direct check-in error:", error);
+      showStatus('Check-in failed', 'error');
+      setTimeout(() => setScannedValue(null), 2000);
+    } finally {
+      setIsVerifying(false);
+    }
+  };
+
   const handleBulkCheckIn = async () => {
     const checkInCount = selectedQuantity; // ⚡⚡⚡ FIX: Use full quantity, not -1 ⚡⚡⚡
     const guestId = guestData?.guestId;
@@ -791,7 +912,13 @@ const QrCode = () => {
                       onPress={() => {
                         const remaining = guestData.totalEntries - guestData.usedEntries;
                         if (selectedQuantity < remaining) {
-                          setSelectedQuantity(q => q + 1);
+                          const newQty = selectedQuantity + 1;
+                          setSelectedQuantity(newQty);
+
+                          // ⚡⚡⚡ AUTO-SUBMIT IF MAX REACHED ⚡⚡⚡
+                          if (newQty === remaining) {
+                            handleDirectCheckIn(guestData, newQty);
+                          }
                         } else {
                           showStatus(`Limit Reached: Max ${guestData.totalEntries} tickets`, 'warning');
                         }
@@ -1113,7 +1240,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#F44336', // Red
   },
   statusBannerWarning: {
-    backgroundColor: '#FF9800', // Orange
+    backgroundColor: '#FFC107', // Yellow
   },
   statusBannerText: {
     color: '#FFFFFF',

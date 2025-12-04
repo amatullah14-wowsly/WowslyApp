@@ -53,7 +53,7 @@ export const verifyQRCode = async (eventId, qrGuestUuid) => {
       "VERIFY QR CODE ERROR:",
       error.response?.data || error.message
     );
-    return { status: false, message: "QR verification failed" };
+    return { status: false, message: "Invalid QR Code" };
   }
 };
 

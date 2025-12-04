@@ -43,9 +43,10 @@ const OfflineDashboard = () => {
     const checkedIn = offlineData.reduce((sum: number, g: any) => sum + (g.used_entries || 0), 0);
 
     return {
-      total,
-      checkedIn,
+      total: total,
+      checkedIn: checkedIn,
       remaining: total - checkedIn,
+      unique: offlineData.length
     };
   }, [offlineData]);
 
@@ -143,20 +144,28 @@ const OfflineDashboard = () => {
         // Delete guests that are no longer in the list (but keep unsynced ones)
         await deleteStaleGuests(eventId, activeQrCodes);
 
+        // ⚡⚡⚡ CALCULATE ADDED GUESTS ⚡⚡⚡
+        const initialCount = offlineData ? offlineData.length : 0;
+        
         // Save to SQLite database
         await insertOrReplaceGuests(eventId, res.guests_list);
 
         // Reload from database to update UI
         const tickets = await getTicketsForEvent(eventId);
         setOfflineData(tickets);
+        
+        const finalCount = tickets ? tickets.length : 0;
+        const addedCount = Math.max(0, finalCount - initialCount);
 
         // Also refresh ticket list
         fetchTicketList(eventId);
 
         Toast.show({
           type: 'success',
-          text1: 'Success',
-          text2: `Downloaded ${res.guests_list.length} guests`
+          text1: 'Download Complete',
+          text2: addedCount > 0 
+            ? `Added ${addedCount} new guests` 
+            : 'Data updated successfully'
         });
       } else {
         Toast.show({
@@ -226,7 +235,7 @@ const OfflineDashboard = () => {
         </View>
 
         <Text style={styles.subHeader}>
-          Last synced: Just now | {totals.total} guests downloaded
+          Last synced: Just now | {totals.unique} guests downloaded
         </Text>
 
         {/* CARDS */}
@@ -238,7 +247,7 @@ const OfflineDashboard = () => {
               icon={DOWNLOAD_ICON}
               title="Download Data"
               subtitle="Get the latest guest list"
-              meta={offlineData ? `${totals.total} guests downloaded` : 'Tap to download'}
+              meta={offlineData ? `Total: ${totals.unique} guests` : 'Tap to download'}
               onPress={() => {
                 handleDownloadData();
               }}
@@ -290,7 +299,7 @@ const OfflineDashboard = () => {
               icon={GUEST_ICON}
               title="Guest List"
               subtitle="View downloaded guests"
-              meta={`Total: ${totals.total} | Checked: ${totals.checkedIn}`}
+              meta={`Total: ${totals.unique} | Checked: ${totals.checkedIn}`}
               onPress={() => {
                 navigation.navigate('OfflineGuestList', {
                   eventId,
