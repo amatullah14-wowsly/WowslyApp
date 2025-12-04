@@ -19,6 +19,7 @@ type GuestDetailsModalProps = {
     onMakeManager?: (guestId: string) => void;
     onMakeGuest?: (guestId: string) => void;
     guest?: any;
+    offline?: boolean;
 };
 
 const CLOSE_ICON = require('../assets/img/common/close.png');
@@ -32,15 +33,16 @@ const GuestDetailsModal: React.FC<GuestDetailsModalProps> = ({
     onMakeManager,
     onMakeGuest,
     guest,
+    offline = false,
 }) => {
     const [loading, setLoading] = useState(false);
     const [guestData, setGuestData] = useState<any>(null);
 
     useEffect(() => {
-        if (visible && eventId && guestId) {
+        if (visible && eventId && guestId && !offline) {
             fetchGuestDetails();
         }
-    }, [visible, eventId, guestId]);
+    }, [visible, eventId, guestId, offline]);
 
     useEffect(() => {
         if (guest) {
@@ -89,11 +91,19 @@ const GuestDetailsModal: React.FC<GuestDetailsModalProps> = ({
         <Modal
             visible={visible}
             transparent
-            animationType="fade"
+            animationType="slide"
             onRequestClose={onClose}
         >
-            <View style={styles.overlay}>
-                <View style={styles.modalContainer}>
+            <TouchableOpacity
+                style={styles.overlay}
+                activeOpacity={1}
+                onPress={onClose}
+            >
+                <TouchableOpacity
+                    activeOpacity={1}
+                    style={styles.modalContainer}
+                    onPress={(e) => e.stopPropagation()}
+                >
                     <View style={styles.header}>
                         <Text style={styles.title}>Guest details</Text>
                         <TouchableOpacity onPress={onClose} style={styles.closeButton}>
@@ -139,30 +149,36 @@ const GuestDetailsModal: React.FC<GuestDetailsModalProps> = ({
                             </View>
 
                             <View style={styles.buttonContainer}>
-                                <TouchableOpacity
-                                    style={styles.actionButton}
-                                    onPress={handleManualCheckIn}
-                                    activeOpacity={0.8}
-                                >
-                                    <Text style={styles.buttonText}>Manual CheckIn</Text>
-                                </TouchableOpacity>
+                                {onManualCheckIn && (
+                                    <TouchableOpacity
+                                        style={styles.actionButton}
+                                        onPress={handleManualCheckIn}
+                                        activeOpacity={0.8}
+                                    >
+                                        <Text style={styles.buttonText}>Manual CheckIn</Text>
+                                    </TouchableOpacity>
+                                )}
 
                                 {isManager ? (
-                                    <TouchableOpacity
-                                        style={styles.actionButton}
-                                        onPress={handleMakeGuest}
-                                        activeOpacity={0.8}
-                                    >
-                                        <Text style={styles.buttonText}>Make Guest</Text>
-                                    </TouchableOpacity>
+                                    onMakeGuest && (
+                                        <TouchableOpacity
+                                            style={styles.actionButton}
+                                            onPress={handleMakeGuest}
+                                            activeOpacity={0.8}
+                                        >
+                                            <Text style={styles.buttonText}>Make Guest</Text>
+                                        </TouchableOpacity>
+                                    )
                                 ) : (
-                                    <TouchableOpacity
-                                        style={styles.actionButton}
-                                        onPress={handleMakeManager}
-                                        activeOpacity={0.8}
-                                    >
-                                        <Text style={styles.buttonText}>Make Manager</Text>
-                                    </TouchableOpacity>
+                                    onMakeManager && (
+                                        <TouchableOpacity
+                                            style={styles.actionButton}
+                                            onPress={handleMakeManager}
+                                            activeOpacity={0.8}
+                                        >
+                                            <Text style={styles.buttonText}>Make Manager</Text>
+                                        </TouchableOpacity>
+                                    )
                                 )}
                             </View>
                         </>
@@ -171,8 +187,8 @@ const GuestDetailsModal: React.FC<GuestDetailsModalProps> = ({
                             <Text style={styles.errorText}>Failed to load guest details</Text>
                         </View>
                     )}
-                </View>
-            </View>
+                </TouchableOpacity>
+            </TouchableOpacity>
         </Modal>
     );
 };
@@ -183,21 +199,22 @@ const styles = StyleSheet.create({
     overlay: {
         flex: 1,
         backgroundColor: 'rgba(0, 0, 0, 0.5)',
-        justifyContent: 'center',
+        justifyContent: 'flex-end',
         alignItems: 'center',
-        padding: 20,
+        padding: 0, // Remove padding to touch edges
     },
     modalContainer: {
         backgroundColor: '#FFFFFF',
-        borderRadius: 20,
+        borderTopLeftRadius: 24,
+        borderTopRightRadius: 24,
         width: '100%',
-        // maxWidth: 500,
         padding: 24,
+        paddingBottom: 40, // Extra padding for bottom safe area
         shadowColor: '#000',
         shadowOpacity: 0.25,
-        shadowRadius: 1,
-        shadowOffset: { width: 0, height: 4 },
-        elevation: 2,
+        shadowRadius: 4,
+        shadowOffset: { width: 0, height: -2 },
+        elevation: 5,
     },
     header: {
         flexDirection: 'row',

@@ -59,10 +59,13 @@ export const verifyQRCode = async (eventId, qrGuestUuid) => {
 
 /* ---------------------- CHECK-IN GUEST ---------------------- */
 
-export const checkInGuest = async (eventId, guestId) => {
+export const checkInGuest = async (eventId, payload) => {
   try {
+    // Payload matches OnlineCheckInRequest:
+    // { event_id, guest_id, ticket_id, check_in_count, category_check_in_count, other_category_check_in_count, guest_facility_id }
     const response = await client.post(
-      `/events/${eventId}/eventuser/${guestId}/checkin`
+      `/events/${eventId}/eventuser/checkin`,
+      payload
     );
 
     return response.data;
@@ -79,9 +82,8 @@ export const checkInGuest = async (eventId, guestId) => {
 
 export const syncOfflineCheckinsAPI = async (checkins) => {
   try {
-    const response = await client.post("/sync-offline-checkins", {
-      checkins,
-    });
+    // Matches Kotlin: @POST("checkin/bulk-sync") @Body list: List<CheckInRequest>
+    const response = await client.post("/checkin/bulk-sync", checkins);
 
     return response.data;
   } catch (error) {

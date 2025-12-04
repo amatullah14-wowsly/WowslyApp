@@ -190,10 +190,12 @@ export const downloadOfflineData = async (eventId) => {
 
         for (const g of allGuests) {
             // Try to find a unique ID
-            const uniqueId = g.qr_code || g.uuid || g.id || g.user_id;
+            // Fallback to mobile number if QR/UUID is missing (common in some API responses)
+            const uniqueId = g.qr_code || g.uuid || g.id || g.user_id || g.mobile;
 
             if (!uniqueId) {
-                console.warn("Skipping guest without unique ID:", g);
+                // Only warn if absolutely no identifier is found
+                // console.warn("Skipping guest without unique ID:", g.name);
                 continue;
             }
 
@@ -201,13 +203,13 @@ export const downloadOfflineData = async (eventId) => {
                 const existing = guestMap.get(uniqueId);
                 // Increment count (assuming each row is 1 ticket unless specified)
                 const currentCount = existing.tickets_bought || 1;
-                const newCount = g.tickets_bought || 1;
-                existing.tickets_bought = currentCount + newCount;
+                const incomingCount = g.tickets_bought || g.quantity || g.total_pax || g.pax || g.total_entries || 1;
+                existing.tickets_bought = currentCount + incomingCount;
 
                 // Keep the one with more info if possible (optional optimization)
             } else {
                 // Initialize tickets_bought if missing
-                g.tickets_bought = g.tickets_bought || 1;
+                g.tickets_bought = g.tickets_bought || g.quantity || g.total_pax || g.pax || g.total_entries || 1;
                 guestMap.set(uniqueId, g);
             }
         }
@@ -287,7 +289,7 @@ export const getTicketSoldUsers = async (eventId, ticketId, eventType = 'paid') 
 };
 
 import { getUnsyncedCheckins, markTicketsAsSynced } from '../db';
-import { checkInGuest } from './api';
+import { checkInGuest, syncOfflineCheckinsAPI } from './api';
 
 export const syncPendingCheckins = async (eventId) => {
     try {
@@ -299,43 +301,33 @@ export const syncPendingCheckins = async (eventId) => {
             return { success: true, count: 0, message: "No pending check-ins to sync" };
         }
 
-        let successCount = 0;
-        let failCount = 0;
+        // Format for API
+        const payload = unsynced.map((p) => ({
+            guest_id: p.guest_id,
+            scanned_at: p.scanned_at,
+            qr_code: p.qr_code,
+            event_id: p.event_id || eventId
+        }));
 
-        for (const ticket of unsynced) {
-            try {
-                // Use the guest_id (or id) to check in on server
-                // The DB stores guest_id. If missing, we might have an issue.
-                const guestId = ticket.guest_id || ticket.id;
+        const res = await syncOfflineCheckinsAPI(payload);
 
-                if (!guestId) {
-                    console.warn("Skipping sync for ticket without guest_id:", ticket);
-                    failCount++;
-                    continue;
-                }
-
-                console.log(`Syncing guest ${guestId} (QR: ${ticket.qr_code})...`);
-                const res = await checkInGuest(eventId, guestId);
-
-                if (res && (res.success || res.status === 'success' || res.message === 'Guest checked in successfully')) {
-                    await markTicketsAsSynced([ticket.qr_code]);
-                    successCount++;
-                } else {
-                    console.error(`Failed to sync guest ${guestId}:`, res);
-                    failCount++;
-                }
-            } catch (err) {
-                console.error(`Error syncing ticket ${ticket.qr_code}:`, err);
-                failCount++;
-            }
+        if (res && (res.success || res.status === true || res.message === "Synced successfully")) {
+            const qrCodes = unsynced.map(t => t.qr_code);
+            await markTicketsAsSynced(qrCodes);
+            return {
+                success: true,
+                count: unsynced.length,
+                failed: 0,
+                message: `Synced ${unsynced.length} guests successfully`
+            };
+        } else {
+            return {
+                success: false,
+                count: 0,
+                failed: unsynced.length,
+                message: res?.message || "Bulk sync failed"
+            };
         }
-
-        return {
-            success: true,
-            count: successCount,
-            failed: failCount,
-            message: `Synced ${successCount} guests. Failed: ${failCount}`
-        };
 
     } catch (error) {
         console.error("SYNC PENDING CHECKINS ERROR:", error);

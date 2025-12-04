@@ -209,3 +209,18 @@ export async function markTicketsAsSynced(qrCodes: string[] = []) {
     qrCodes.map(q => q.trim())
   );
 }
+
+export async function deleteStaleGuests(eventId: number, activeQrCodes: string[] = []) {
+  if (!activeQrCodes || activeQrCodes.length === 0) return;
+  const database = await openDB();
+
+  // Delete tickets for this event that are NOT in the active list AND are already synced (safe to delete)
+  // We do NOT delete synced=0 (pending offline scans)
+  const placeholders = activeQrCodes.map(() => '?').join(',');
+
+  await database.executeSql(
+    `DELETE FROM tickets WHERE event_id = ? AND synced = 1 AND qr_code NOT IN (${placeholders});`,
+    [eventId, ...activeQrCodes.map(q => q.trim())]
+  );
+  console.log(`Deleted stale guests for event ${eventId}`);
+}

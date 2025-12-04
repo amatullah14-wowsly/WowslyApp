@@ -13,8 +13,9 @@ import {
     DeviceEventEmitter,
 } from 'react-native';
 import { RouteProp, useNavigation, useRoute, useFocusEffect } from '@react-navigation/native';
-import { initDB, getTicketsForEvent } from '../../db';
+import { initDB, getTicketsForEvent, updateTicketStatusLocal } from '../../db';
 import BackButton from '../../components/BackButton';
+import GuestDetailsModal from '../../components/GuestDetailsModal';
 
 type OfflineGuestListRoute = RouteProp<
     {
@@ -33,8 +34,10 @@ const SEARCH_ICON = {
 const NOGUESTS_ICON = require('../../assets/img/common/noguests.png');
 
 const statusChipStyles: Record<string, { backgroundColor: string; color: string }> = {
-    'Checked In': { backgroundColor: '#E3F2FD', color: '#1565C0' }, // Blue
-    'Pending': { backgroundColor: '#E8F5E9', color: '#2E7D32' },      // Green
+    'Checked In': { backgroundColor: '#E3F2FD', color: '#1565C0' },
+    Pending: { backgroundColor: '#E8F5E9', color: '#2E7D32' },
+    'No-Show': { backgroundColor: '#FFE2E2', color: '#BE2F2F' },
+    blocked: { backgroundColor: '#FFEBEE', color: '#C62828' },
 };
 
 const OfflineGuestList = () => {
@@ -42,36 +45,21 @@ const OfflineGuestList = () => {
     const route = useRoute<OfflineGuestListRoute>();
     const { eventId, offlineData: initialData } = route.params;
 
-    const [searchQuery, setSearchQuery] = useState('');
     const [guests, setGuests] = useState<any[]>(initialData || []);
-    const [loading, setLoading] = useState(!initialData);
+    const [searchQuery, setSearchQuery] = useState('');
+    const [refreshing, setRefreshing] = useState(false);
+    const [modalVisible, setModalVisible] = useState(false);
+    const [selectedGuest, setSelectedGuest] = useState<any>(null);
 
     useEffect(() => {
-        if (!initialData && eventId) {
-            loadOfflineData();
-        }
-    }, [initialData, eventId]);
+        loadGuests();
+    }, [eventId]);
 
-    const loadOfflineData = async () => {
-        try {
-            await initDB();
-            const tickets = await getTicketsForEvent(eventId);
-            if (tickets && tickets.length > 0) {
-                setGuests(tickets);
-                console.log(`Loaded ${tickets.length} guests from database for offline guest list`);
-            }
-        } catch (error) {
-            console.error('Error loading offline guests:', error);
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    // Listen for real-time updates (from HostDashboard or ClientConnection)
+    // Listen for scan updates to refresh list in real-time
     useEffect(() => {
-        const subscription = DeviceEventEmitter.addListener('REFRESH_GUEST_LIST', () => {
-            console.log('Received REFRESH_GUEST_LIST event - reloading data');
-            loadOfflineData();
+        const subscription = DeviceEventEmitter.addListener('BROADCAST_SCAN_TO_CLIENTS', (data) => {
+            console.log("OfflineGuestList received broadcast:", data);
+            loadGuests();
         });
 
         return () => {
@@ -79,21 +67,65 @@ const OfflineGuestList = () => {
         };
     }, []);
 
+    const loadGuests = async () => {
+        try {
+            await initDB();
+            const tickets = await getTicketsForEvent(eventId);
+            if (tickets) {
+                setGuests(tickets);
+            }
+        } catch (error) {
+            console.error('Error loading offline guests:', error);
+        }
+    };
+
+    const onRefresh = async () => {
+        setRefreshing(true);
+        await loadGuests();
+        setRefreshing(false);
+    };
+
     const filteredGuests = useMemo(() => {
-        return guests.filter((guest) => {
-            const query = searchQuery.trim().toLowerCase();
-
-            if (!query) return true;
-
-            const name = (guest.guest_name || guest.name || guest.first_name + ' ' + guest.last_name || 'Guest').toLowerCase();
-            const phone = (guest.phone || guest.mobile || '').toString().toLowerCase();
-            const qr = (guest.qr_code || '').toString().toLowerCase();
-            const ticketId = (guest.ticket_id || '').toString().toLowerCase();
-            const uuid = (guest.guest_uuid || '').toString().toLowerCase();
-
+        if (!searchQuery) return guests;
+        const query = searchQuery.toLowerCase();
+        return guests.filter((g) => {
+            const name = (g.guest_name || g.name || '').toLowerCase();
+            const phone = (g.phone || '').toLowerCase();
+            const qr = (g.qr_code || '').toLowerCase();
+            const ticketId = (g.ticket_id || '').toString().toLowerCase();
+            const uuid = (g.guest_uuid || '').toLowerCase();
             return name.includes(query) || phone.includes(query) || qr.includes(query) || ticketId.includes(query) || uuid.includes(query);
         });
     }, [guests, searchQuery]);
+
+    const handleManualCheckIn = async (guestId: string) => {
+        if (!selectedGuest) return;
+
+        // Offline Manual Check-in
+        try {
+            const qrCode = selectedGuest.qr_code;
+            if (qrCode) {
+                await updateTicketStatusLocal(qrCode, 'checked_in', 1);
+
+                // Broadcast update
+                const broadcastData = {
+                    guest_name: selectedGuest.guest_name,
+                    qr_code: qrCode,
+                    total_entries: selectedGuest.total_entries,
+                    used_entries: (selectedGuest.used_entries || 0) + 1,
+                    facilities: selectedGuest.facilities,
+                    guest_id: selectedGuest.guest_id
+                };
+                DeviceEventEmitter.emit('BROADCAST_SCAN_TO_CLIENTS', broadcastData);
+
+                // Refresh list
+                loadGuests();
+                setModalVisible(false);
+            }
+        } catch (error) {
+            console.error("Manual check-in failed:", error);
+        }
+    };
 
     const renderGuest = ({ item }: { item: any }) => {
         const name = item.guest_name || item.name || item.first_name + ' ' + item.last_name || 'Guest';
@@ -103,7 +135,13 @@ const OfflineGuestList = () => {
         const style = statusChipStyles[status] || statusChipStyles['Pending'];
 
         return (
-            <View style={styles.guestRow}>
+            <TouchableOpacity
+                style={styles.guestRow}
+                onPress={() => {
+                    setSelectedGuest(item);
+                    setModalVisible(true);
+                }}
+            >
                 {avatar ? (
                     <Image source={{ uri: avatar }} style={styles.avatar} />
                 ) : (
@@ -125,7 +163,7 @@ const OfflineGuestList = () => {
                         </Text>
                     )}
                 </View>
-            </View>
+            </TouchableOpacity>
         );
     };
 
@@ -147,47 +185,39 @@ const OfflineGuestList = () => {
                     <Image source={SEARCH_ICON} style={styles.searchIcon} />
                     <TextInput
                         style={styles.searchInput}
-                        placeholder="Search by name"
-                        placeholderTextColor="#A1A1A1"
+                        placeholder="Search guests..."
+                        placeholderTextColor="#999"
                         value={searchQuery}
                         onChangeText={setSearchQuery}
                     />
                 </View>
 
-                {/* Guest List */}
-                {loading ? (
-                    <View style={styles.loadingContainer}>
-                        <ActivityIndicator size="large" color="#FF8A3C" />
-                    </View>
-                ) : (
-                    <FlatList
-                        data={filteredGuests}
-                        keyExtractor={(item, index) => `${item.guest_id || item.id}-${index}`}
-                        contentContainerStyle={styles.listContent}
-                        ItemSeparatorComponent={() => <View style={styles.separator} />}
-                        renderItem={renderGuest}
-                        ListEmptyComponent={
-                            <View style={styles.emptyState}>
-                                <Image source={NOGUESTS_ICON} style={styles.emptyIcon} />
-                                <Text style={styles.emptyTitle}>No guests found</Text>
-                                <Text style={styles.emptySubtitle}>
-                                    Try downloading data again if list is empty.
-                                </Text>
-                            </View>
-                        }
-                        refreshControl={
-                            <RefreshControl
-                                refreshing={loading}
-                                onRefresh={() => {
-                                    setLoading(true);
-                                    loadOfflineData();
-                                }}
-                                colors={['#FF8A3C']}
-                                tintColor="#FF8A3C"
-                            />
-                        }
-                    />
-                )}
+                {/* List */}
+                <FlatList
+                    data={filteredGuests}
+                    keyExtractor={(item, index) => (item.qr_code || index).toString()}
+                    renderItem={renderGuest}
+                    contentContainerStyle={styles.listContent}
+                    refreshControl={
+                        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#FF8A3C" />
+                    }
+                    ListEmptyComponent={
+                        <View style={styles.emptyContainer}>
+                            <Image source={NOGUESTS_ICON} style={styles.emptyIcon} />
+                            <Text style={styles.emptyText}>No guests found</Text>
+                        </View>
+                    }
+                />
+
+                <GuestDetailsModal
+                    visible={modalVisible}
+                    onClose={() => setModalVisible(false)}
+                    eventId={eventId?.toString()}
+                    guestId={selectedGuest?.guest_id?.toString()}
+                    guest={selectedGuest}
+                    offline={true}
+                    onManualCheckIn={() => handleManualCheckIn(selectedGuest?.guest_id)}
+                />
             </View>
         </SafeAreaView>
     );
@@ -260,6 +290,7 @@ const styles = StyleSheet.create({
         shadowRadius: 4,
         shadowOffset: { width: 0, height: 1 },
         elevation: 1,
+        marginBottom: 12,
     },
     avatar: {
         width: 40,
@@ -307,7 +338,7 @@ const styles = StyleSheet.create({
         marginTop: 2,
         textAlign: 'center',
     },
-    emptyState: {
+    emptyContainer: {
         marginTop: 80,
         alignItems: 'center',
         gap: 12,
@@ -317,14 +348,10 @@ const styles = StyleSheet.create({
         height: 120,
         resizeMode: 'contain',
     },
-    emptyTitle: {
+    emptyText: {
         fontSize: 16,
         fontWeight: '600',
         color: '#111111',
-    },
-    emptySubtitle: {
-        fontSize: 14,
-        color: '#7A7A7A',
     },
     loadingContainer: {
         flex: 1,

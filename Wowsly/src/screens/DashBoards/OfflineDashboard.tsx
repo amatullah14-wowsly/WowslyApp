@@ -14,7 +14,7 @@ import OfflineCard from '../../components/OfflineCard';
 import { downloadOfflineData, getTicketList } from '../../api/event';
 import { syncOfflineCheckinsAPI } from '../../api/api';
 import Toast from 'react-native-toast-message';
-import { initDB, insertOrReplaceGuests, getTicketsForEvent, getUnsyncedCheckins, markTicketsAsSynced } from '../../db';
+import { initDB, insertOrReplaceGuests, getTicketsForEvent, getUnsyncedCheckins, markTicketsAsSynced, deleteStaleGuests } from '../../db';
 import BackButton from '../../components/BackButton';
 
 const OFFLINE_ICON = require('../../assets/img/Mode/offlinemode.png');
@@ -125,6 +125,15 @@ const OfflineDashboard = () => {
       await initDB();
       const res = await downloadOfflineData(eventId);
       if (res?.guests_list) {
+        // ⚡⚡⚡ CLEANUP STALE DATA ⚡⚡⚡
+        // Collect all valid QR codes from the new list
+        const activeQrCodes = res.guests_list
+          .map((g: any) => (g.qr_code || g.qr || g.code || g.uuid || g.guest_uuid || '').toString().trim())
+          .filter((q: string) => q.length > 0);
+
+        // Delete guests that are no longer in the list (but keep unsynced ones)
+        await deleteStaleGuests(eventId, activeQrCodes);
+
         // Save to SQLite database
         await insertOrReplaceGuests(eventId, res.guests_list);
 
@@ -177,7 +186,15 @@ const OfflineDashboard = () => {
       }
 
       // 2. Upload to server
-      const res = await syncOfflineCheckinsAPI(pending);
+      // Format for API (matches Kotlin CheckInRequest)
+      const payload = pending.map((p: any) => ({
+        guest_id: p.guest_id,
+        scanned_at: p.scanned_at,
+        qr_code: p.qr_code,
+        event_id: p.event_id
+      }));
+
+      const res = await syncOfflineCheckinsAPI(payload);
 
       if (res?.success || res?.status === true || res?.message === "Synced successfully") {
         // 3. Mark as synced locally
@@ -356,118 +373,110 @@ const styles = StyleSheet.create({
   backButtonContainer: {
     position: 'absolute',
     left: 20,
-    top: 0,
     zIndex: 10,
   },
   headerTitle: {
     fontSize: 20,
     fontWeight: '700',
     color: '#1F1F1F',
-    textAlign: 'center',
-    flex: 1,
   },
   subHeader: {
     textAlign: 'center',
-    marginTop: 8,
-    color: '#7A6255',
     fontSize: 12,
+    color: '#7A7A7A',
+    marginBottom: 24,
   },
   cardGrid: {
-    marginTop: 22,
     flexDirection: 'row',
     flexWrap: 'wrap',
-    justifyContent: 'center',
-    gap: 10,
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    gap: 12,
   },
   cardItem: {
-    width: '45%',
-    position: 'relative',
+    width: '48%',
+    marginBottom: 12,
   },
   downloadingOverlay: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: 'rgba(255, 255, 255, 0.8)',
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(255,255,255,0.7)',
     justifyContent: 'center',
     alignItems: 'center',
-    borderRadius: 18,
+    borderRadius: 16,
   },
   summaryCard: {
+    marginHorizontal: 20,
     marginTop: 12,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 28,
-    padding: 22,
-    shadowColor: '#D7C5BA',
-    shadowOpacity: 0.35,
-    shadowRadius: 12,
-    shadowOffset: { width: 0, height: 8 },
-    elevation: 3,
-    gap: 18,
+    backgroundColor: '#F9F9F9',
+    borderRadius: 16,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: '#EFEFEF',
   },
   summaryTitle: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: '700',
-    color: '#2B1D16',
+    color: '#1F1F1F',
+    marginBottom: 12,
   },
   summaryRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
-    columnGap: 12,
+    marginBottom: 16,
+    paddingBottom: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#EFEFEF',
   },
   summaryStat: {
-    fontSize: 13,
-    color: '#7A6255',
-    marginRight: 8,
-    marginTop: 4,
-    flexShrink: 0,
+    fontSize: 12,
+    color: '#7A7A7A',
   },
   summaryValue: {
-    color: '#2B1D16',
     fontWeight: '700',
+    color: '#1F1F1F',
   },
   bucketGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'space-between',
-    rowGap: 14,
+    gap: 8,
   },
   bucketCard: {
-    width: '48%',
-    backgroundColor: '#FFF5EE',
-    borderRadius: 18,
-    padding: 14,
-    gap: 6,
+    backgroundColor: '#FFFFFF',
+    padding: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#EFEFEF',
   },
   bucketTitle: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: '#2B1D16',
-  },
-  bucketMeta: {
-    fontSize: 13,
-    color: '#8E7465',
-  },
-  bucketRemaining: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#FF8A3C',
-  },
-  pendingRow: {
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: '#F1E4DC',
-    paddingTop: 16,
-    gap: 6,
-  },
-  pendingText: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#2B1D16',
+    color: '#1F1F1F',
+    marginBottom: 4,
+  },
+  bucketMeta: {
+    fontSize: 12,
+    color: '#7A7A7A',
+  },
+  bucketRemaining: {
+    fontSize: 12,
+    color: '#FF8A3C',
+    marginTop: 2,
+    fontWeight: '600',
+  },
+  pendingRow: {
+    marginTop: 16,
+    paddingTop: 16,
+    borderTopWidth: 1,
+    borderTopColor: '#EFEFEF',
+  },
+  pendingText: {
+    fontSize: 12,
+    color: '#FF8A3C',
+    fontWeight: '600',
+    textAlign: 'center',
   },
   storageText: {
-    fontSize: 13,
-    color: '#8E7465',
+    fontSize: 10,
+    color: '#9E9E9E',
+    textAlign: 'center',
+    marginTop: 4,
   },
 });
