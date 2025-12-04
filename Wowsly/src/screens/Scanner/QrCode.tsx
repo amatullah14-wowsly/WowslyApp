@@ -333,36 +333,51 @@ const QrCode = () => {
             // Reset scan after delay
             setTimeout(() => setScannedValue(null), 2000);
           } else {
-            // Mark as checked-in in local database (increment used_entries)
-            await updateTicketStatusLocal(qrGuestUuid, 'checked_in')
 
-            // ⚡⚡⚡ BROADCAST TO CLIENTS (IF HOST) ⚡⚡⚡
-            const broadcastData = {
-              guest_name: ticket.guest_name || "Guest",
-              qr_code: ticket.qr_code || qrGuestUuid,
-              total_entries: totalEntries,
-              used_entries: usedEntries + 1,
-              facilities: facilities,
-              guest_id: ticket.guest_id || ticket.id // Required for ScanStore
-            };
-            DeviceEventEmitter.emit('BROADCAST_SCAN_TO_CLIENTS', broadcastData);
+            // ⚡⚡⚡ MULTI-ENTRY LOGIC ⚡⚡⚡
+            if (totalEntries > 1) {
+              // DO NOT auto-increment yet. Let the user select quantity.
+              setGuestData({
+                name: ticket.guest_name || "Guest",
+                ticketId: ticket.qr_code || "N/A",
+                status: "VALID ENTRY (OFFLINE)",
+                isValid: true,
+                totalEntries,
+                usedEntries, // Show current used count
+                facilities,
+                guestId: ticket.guest_id || ticket.id,
+                qrCode: ticket.qr_code || qrGuestUuid
+              });
+              openSheet();
+            } else {
+              // Single entry: Auto check-in
+              await updateTicketStatusLocal(qrGuestUuid, 'checked_in');
 
-            setGuestData({
-              name: ticket.guest_name || "Guest",
-              ticketId: ticket.qr_code || "N/A",
-              status: "VALID ENTRY (OFFLINE)",
-              isValid: true,
-              totalEntries,
-              usedEntries: usedEntries + 1, // Increment for display
-              facilities,
-              guestId: ticket.guest_id || ticket.id, // Required for bulk check-in
-              qrCode: ticket.qr_code || qrGuestUuid
-            })
+              // Broadcast
+              const broadcastData = {
+                guest_name: ticket.guest_name || "Guest",
+                qr_code: ticket.qr_code || qrGuestUuid,
+                total_entries: totalEntries,
+                used_entries: usedEntries + 1,
+                facilities: facilities,
+                guest_id: ticket.guest_id || ticket.id
+              };
+              DeviceEventEmitter.emit('BROADCAST_SCAN_TO_CLIENTS', broadcastData);
 
-            openSheet();
+              setGuestData({
+                name: ticket.guest_name || "Guest",
+                ticketId: ticket.qr_code || "N/A",
+                status: "VALID ENTRY (OFFLINE)",
+                isValid: true,
+                totalEntries,
+                usedEntries: usedEntries + 1,
+                facilities,
+                guestId: ticket.guest_id || ticket.id,
+                qrCode: ticket.qr_code || qrGuestUuid
+              });
 
-            // Auto-reset for single ticket
-            if (totalEntries === 1) {
+              openSheet();
+
               setTimeout(() => {
                 setScannedValue(null);
                 setGuestData(null);
@@ -406,7 +421,7 @@ const QrCode = () => {
           const verifiedUsed = checkInData.reduce((acc: number, curr: any) => acc + (curr.check_in_count || 0), 0);
 
           // Default values
-          const initialTotal = guest.total_entries || guest.total_pax || 1;
+          const initialTotal = guest.tickets_bought || guest.total_entries || guest.total_pax || 1;
 
           if (detailsResponse?.data) {
             const d = detailsResponse.data;
@@ -414,7 +429,8 @@ const QrCode = () => {
 
             // Total tickets bought
             const freshTotal = parseInt(String(ticketData.tickets_bought || d.tickets_bought || d.total_entries || 0), 10);
-            const totalEntries = freshTotal > 0 ? freshTotal : parseInt(String(initialTotal), 10);
+            // ⚡⚡⚡ FIX: Use MAX of fresh and initial to avoid regression if one API returns 1 ⚡⚡⚡
+            const totalEntries = Math.max(freshTotal, parseInt(String(initialTotal), 10));
 
             // Current used entries (API)
             // Use the max of details response or verification response to be safe
@@ -428,6 +444,7 @@ const QrCode = () => {
             // The actual used count is the max of API or Local (in case API hasn't updated yet)
             const currentUsed = Math.max(apiUsed, localUsed);
 
+            console.log("DEBUG: Online Verify Details:", JSON.stringify(d));
             console.log(`DEBUG: Online Verify - Total: ${totalEntries}, API Used: ${apiUsed}, Local Used: ${localUsed}, Max Used: ${currentUsed}`);
 
             // 2. VALIDATE LIMIT
@@ -558,7 +575,8 @@ const QrCode = () => {
             ticket_id: guestData.ticketId,
             total_entries: guestData.totalEntries,
             used_entries: newUsed,
-            facilities: guestData.facilities
+            facilities: guestData.facilities,
+            status: 'checked_in' // ⚡⚡⚡ EXPLICITLY SET STATUS FOR PERSISTENCE ⚡⚡⚡
           };
           // Online check-in is already synced, so insertOrReplaceGuests (synced=1) is correct
           await insertOrReplaceGuests(eventId, [guestToSync]);
@@ -698,7 +716,7 @@ const QrCode = () => {
                 </Text>
 
                 {/* ⚡⚡⚡ CONDITIONAL STATS (DYNAMIC) ⚡⚡⚡ */}
-                {guestData && guestData.totalEntries > 1 && (
+                {guestData && (
                   <View style={styles.statsContainer}>
                     <View style={styles.statItem}>
                       <Text style={styles.statLabel}>Bought</Text>
@@ -755,7 +773,7 @@ const QrCode = () => {
               })()}
 
               {/* ⚡⚡⚡ QUANTITY SELECTOR ⚡⚡⚡ */}
-              {guestData && guestData.totalEntries > 1 && (guestData.totalEntries - guestData.usedEntries > 0) && (
+              {guestData && (
                 <View style={styles.quantityContainer}>
                   <Text style={styles.quantityLabel}>Check-in Quantity:</Text>
                   <View style={styles.quantityControls}>

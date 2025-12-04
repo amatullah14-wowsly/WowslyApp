@@ -129,6 +129,11 @@ export async function insertOrReplaceGuests(eventId: number, guestsArray: any[] 
       totalEntries = g.available_tickets;
     }
 
+    if (guestName.toLowerCase().includes('lamiya') || index < 3) {
+      console.log(`DEBUG: DB Insert ${guestName} - Raw:`, JSON.stringify(g));
+      console.log(`DEBUG: DB Insert ${guestName} - Calculated totalEntries: ${totalEntries}`);
+    }
+
     const usedEntries = g.used_entries || g.checked_in_count || 0;
     const facilities = g.facilities ? JSON.stringify(g.facilities) : null;
 
@@ -194,6 +199,17 @@ export async function getUnsyncedCheckins() {
   const database = await openDB();
   const [result] = await database.executeSql(
     `SELECT * FROM tickets WHERE synced = 0 AND status = 'checked_in' LIMIT 500;`
+  );
+  const items = [];
+  for (let i = 0; i < result.rows.length; i++) items.push(result.rows.item(i));
+  return items;
+}
+
+export async function getLocalCheckedInGuests(eventId: number) {
+  const database = await openDB();
+  const [result] = await database.executeSql(
+    `SELECT * FROM tickets WHERE event_id = ? AND (status = 'checked_in' OR used_entries > 0);`,
+    [eventId]
   );
   const items = [];
   for (let i = 0; i < result.rows.length; i++) items.push(result.rows.item(i));

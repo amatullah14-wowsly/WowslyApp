@@ -104,75 +104,35 @@ export const getEventDetails = async (id) => {
     }
 };
 
-export const getEventUsers = async (id, page = 1, type = 'all') => {
-    try {
-        const response = await client.get(`/events/${id}/eventuser?page=${page}&type=${type}`);
-        return response.data;
-    } catch (error) {
-        console.log("GET EVENT USERS ERROR:", error.response?.data || error.message);
-        return { status: false, data: [] };
-    }
-};
-
-export const getGuestDetails = async (eventId, guestId) => {
-    try {
-        const response = await client.get(`/events/${eventId}/eventuser/getguestdetails?event_user_id=${guestId}`);
-        return response.data;
-    } catch (error) {
-        console.log("GET GUEST DETAILS ERROR:", error.response?.data || error.message);
-        return { status: false, data: null };
-    }
-};
-
 export const downloadOfflineData = async (eventId) => {
     try {
-        console.log("Downloading offline data via Ticket List strategy...");
+        console.log("Starting offline data download for event:", eventId);
 
-        // 1. Get Ticket List
+        // 1. Fetch Ticket List
         const ticketListRes = await getTicketList(eventId);
         const tickets = ticketListRes?.data || [];
+        console.log(`Found ${tickets.length} ticket types.`);
 
-        if (!tickets.length) {
-            // Fallback to simple eventuser list if no tickets found
-            console.log("No tickets found, falling back to simple eventuser list");
-            const url = `/events/${eventId}/eventuser?type=all&per_page=5000`;
-            const response = await client.get(url);
-            const guests = response.data?.data || response.data || [];
-            return { guests_list: Array.isArray(guests) ? guests : [] };
-        }
-
+        // 2. Fetch Users per Ticket (to get accurate tickets_bought count)
         let allGuests = [];
 
-        // 2. Fetch users for each ticket
         for (const ticket of tickets) {
             try {
-                // Determine event type (free/paid) based on ticket type or default
-                // The API seems to expect 'paid' or 'free'. 
-                // ticket.type might be 'FREE' or 'PAID' or 'DONATION'
                 const eventType = (ticket.type || 'paid').toLowerCase();
-
                 console.log(`Fetching users for ticket: ${ticket.title} (${ticket.id}) type: ${eventType}`);
 
                 const soldRes = await getTicketSoldUsers(eventId, ticket.id, eventType);
 
-                // ⚡⚡⚡ IMPROVED EXTRACTION & LOGGING ⚡⚡⚡
                 let soldUsers = [];
                 if (Array.isArray(soldRes)) {
                     soldUsers = soldRes;
                 } else if (soldRes && Array.isArray(soldRes.data)) {
                     soldUsers = soldRes.data;
                 } else if (soldRes && soldRes.data && Array.isArray(soldRes.data.data)) {
-                    // Handle nested pagination structure { data: { data: [...] } }
                     soldUsers = soldRes.data.data;
                 }
 
-                console.log(`DEBUG: Ticket ${ticket.id} raw response keys:`, Object.keys(soldRes || {}));
-                console.log(`DEBUG: Extracted ${soldUsers.length} soldUsers for ticket ${ticket.id}`);
-
                 if (Array.isArray(soldUsers) && soldUsers.length > 0) {
-                    console.log(`DEBUG: Fetched ${soldUsers.length} users for ticket ${ticket.id}. Sample User:`, JSON.stringify(soldUsers[0]));
-                    console.log(`DEBUG: Sample User tickets_bought: ${soldUsers[0].tickets_bought}, quantity: ${soldUsers[0].quantity}`);
-                    // Enrich users with ticket info if missing
                     const enrichedUsers = soldUsers.map(u => ({
                         ...u,
                         ticket_id: ticket.id,
@@ -189,62 +149,92 @@ export const downloadOfflineData = async (eventId) => {
         const guestMap = new Map();
 
         for (const g of allGuests) {
-            // Try to find a unique ID
-            // Fallback to mobile number if QR/UUID is missing (common in some API responses)
             const uniqueId = g.qr_code || g.uuid || g.id || g.user_id || g.mobile;
-
-            if (!uniqueId) {
-                // Only warn if absolutely no identifier is found
-                // console.warn("Skipping guest without unique ID:", g.name);
-                continue;
-            }
+            if (!uniqueId) continue;
 
             if (guestMap.has(uniqueId)) {
                 const existing = guestMap.get(uniqueId);
-                // Increment count (assuming each row is 1 ticket unless specified)
                 const currentCount = existing.tickets_bought || 1;
                 const incomingCount = g.tickets_bought || g.quantity || g.total_pax || g.pax || g.total_entries || 1;
                 existing.tickets_bought = currentCount + incomingCount;
-
-                // Keep the one with more info if possible (optional optimization)
             } else {
-                // Initialize tickets_bought if missing
                 g.tickets_bought = g.tickets_bought || g.quantity || g.total_pax || g.pax || g.total_entries || 1;
                 guestMap.set(uniqueId, g);
             }
         }
 
         const uniqueGuests = Array.from(guestMap.values());
-
         console.log(`Total unique guests fetched via tickets: ${uniqueGuests.length}`);
-        if (uniqueGuests.length > 0) {
-            console.log(`DEBUG: Aggregated Guest Sample: Name=${uniqueGuests[0].name}, TicketsBought=${uniqueGuests[0].tickets_bought}`);
-        }
 
-        // 3. Fallback: If ticket-based fetch yielded 0 guests, try the general list
-        if (uniqueGuests.length === 0) {
-            console.log("Ticket-based fetch returned 0 guests. Attempting fallback to general list...");
-            try {
-                const url = `/events/${eventId}/eventuser?type=all&per_page=5000`;
-                const response = await client.get(url);
-                const fallbackGuests = response.data?.data || response.data || [];
+        // ⚡⚡⚡ MERGE STRATEGY ⚡⚡⚡
+        // 1. Ticket-based fetch: Good for 'tickets_bought' count, but often misses 'uuid' (QR).
+        // 2. General list fetch: Good for 'uuid' (QR), but often misses 'tickets_bought'.
+        // SOLUTION: Fetch BOTH and merge by MOBILE number.
 
-                if (Array.isArray(fallbackGuests) && fallbackGuests.length > 0) {
-                    console.log(`Fallback successful. Found ${fallbackGuests.length} guests.`);
-                    console.log("DEBUG: Full Fallback Guest Object:", JSON.stringify(fallbackGuests[0]));
-                    return { guests_list: fallbackGuests };
-                }
-            } catch (fallbackErr) {
-                console.log("Fallback fetch failed:", fallbackErr.message);
+        // A. Create Map from Ticket-Based Data (Mobile -> TicketInfo)
+        const ticketInfoMap = new Map();
+
+        for (const g of uniqueGuests) {
+            if (g.mobile) {
+                const mobile = String(g.mobile).trim();
+                ticketInfoMap.set(mobile, {
+                    count: g.tickets_bought || g.quantity || 1,
+                    ticket_id: g.ticket_id,
+                    ticket_title: g.ticket_title
+                });
             }
         }
+        console.log(`DEBUG: Populated ticket info map with ${ticketInfoMap.size} entries.`);
 
-        if (uniqueGuests.length > 0) {
-            console.log("DEBUG: Sample guest from bulk fetch:", JSON.stringify(uniqueGuests[0]));
+        // B. Fetch General List (Primary source for QR/UUID)
+        console.log("Fetching general list for QR codes...");
+        let generalGuests = [];
+        try {
+            const url = `/events/${eventId}/eventuser?type=all&per_page=5000`;
+            const response = await client.get(url);
+            const data = response.data?.data || response.data || [];
+            if (Array.isArray(data)) {
+                generalGuests = data;
+            }
+        } catch (err) {
+            console.log("General list fetch failed:", err.message);
+        }
+
+        console.log(`DEBUG: Fetched ${generalGuests.length} guests from general list.`);
+
+        // C. Merge
+        const mergedGuests = generalGuests.map(g => {
+            const mobile = g.mobile ? String(g.mobile).trim() : null;
+            let count = 1;
+            let ticketId = g.ticket_id; // Preserve if already exists
+            let ticketTitle = g.ticket_title;
+
+            if (mobile && ticketInfoMap.has(mobile)) {
+                const info = ticketInfoMap.get(mobile);
+                count = info.count;
+                ticketId = info.ticket_id; // Get Ticket Type ID (e.g. 4292)
+                ticketTitle = info.ticket_title;
+                console.log(`DEBUG: Merged ${g.name} (Mobile: ${mobile}) -> Tickets: ${count}, ID: ${ticketId}`);
+            } else {
+                // Fallback: check if the guest object itself has it (rare but possible)
+                count = g.tickets_bought || g.quantity || g.total_pax || g.pax || g.total_entries || 1;
+            }
+
+            return {
+                ...g,
+                tickets_bought: count, // Ensure this field is set for DB
+                total_entries: count,   // Explicitly set for DB mapping
+                ticket_id: ticketId,    // ⚡⚡⚡ Ensure Ticket Type ID is set ⚡⚡⚡
+                ticket_title: ticketTitle
+            };
+        });
+
+        if (mergedGuests.length > 0) {
+            console.log("DEBUG: Sample Merged Guest:", JSON.stringify(mergedGuests[0]));
         }
 
         return {
-            guests_list: uniqueGuests
+            guests_list: mergedGuests
         };
 
     } catch (error) {
@@ -301,36 +291,98 @@ export const syncPendingCheckins = async (eventId) => {
             return { success: true, count: 0, message: "No pending check-ins to sync" };
         }
 
-        // Format for API
-        const payload = unsynced.map((p) => ({
-            guest_id: p.guest_id,
-            scanned_at: p.scanned_at,
-            qr_code: p.qr_code,
-            event_id: p.event_id || eventId
-        }));
+        let successCount = 0;
+        let failCount = 0;
 
-        const res = await syncOfflineCheckinsAPI(payload);
+        for (const guest of unsynced) {
+            try {
+                const payload = {
+                    event_id: parseInt(eventId),
+                    guest_id: guest.guest_id,
+                    ticket_id: guest.ticket_id || 0,
+                    check_in_count: 1, // Defaulting to 1 as we don't track delta
+                    category_check_in_count: "",
+                    other_category_check_in_count: 0,
+                    guest_facility_id: ""
+                };
 
-        if (res && (res.success || res.status === true || res.message === "Synced successfully")) {
-            const qrCodes = unsynced.map(t => t.qr_code);
-            await markTicketsAsSynced(qrCodes);
-            return {
-                success: true,
-                count: unsynced.length,
-                failed: 0,
-                message: `Synced ${unsynced.length} guests successfully`
-            };
-        } else {
-            return {
-                success: false,
-                count: 0,
-                failed: unsynced.length,
-                message: res?.message || "Bulk sync failed"
-            };
+                console.log(`DEBUG: Syncing guest ${guest.guest_name} (ID: ${guest.guest_id}) - Payload:`, JSON.stringify(payload));
+
+                const res = await checkInGuest(eventId, payload);
+
+                // Check for success indicators (API might return object with id, or success: true)
+                if (res && (res.id || res.check_in_time || res.success || res.status === true)) {
+                    await markTicketsAsSynced([guest.qr_code]);
+                    successCount++;
+                } else {
+                    console.warn(`Failed to sync guest ${guest.guest_name}:`, res);
+                    failCount++;
+                }
+            } catch (err) {
+                console.error(`Error syncing guest ${guest.guest_name}:`, err);
+                failCount++;
+            }
         }
+
+        return {
+            success: successCount > 0,
+            count: successCount,
+            failed: failCount,
+            message: `Synced ${successCount} guests, ${failCount} failed`
+        };
 
     } catch (error) {
         console.error("SYNC PENDING CHECKINS ERROR:", error);
         return { success: false, message: "Sync process failed" };
+    }
+};
+
+export const getEventUsers = async (eventId, page = 1, type = 'all') => {
+    try {
+        const response = await client.get(`/events/${eventId}/eventuser?page=${page}&type=${type}&per_page=100`);
+        return response.data;
+    } catch (error) {
+        console.log("GET EVENT USERS ERROR:", error.response?.data || error.message);
+        return { status: false, data: [] };
+    }
+};
+
+export const makeGuestManager = async (eventId, guestId) => {
+    try {
+        const response = await client.post(`/events/${eventId}/eventuser/${guestId}/make-manager`);
+        return response.data;
+    } catch (error) {
+        console.log("MAKE MANAGER ERROR:", error.response?.data || error.message);
+        return { status: false, message: "Failed to make manager" };
+    }
+};
+
+export const makeGuestUser = async (eventId, guestId, type = 'registered') => {
+    try {
+        const response = await client.post(`/events/${eventId}/eventuser/${guestId}/make-guest`, { type });
+        return response.data;
+    } catch (error) {
+        console.log("MAKE GUEST ERROR:", error.response?.data || error.message);
+        return { status: false, message: "Failed to make guest" };
+    }
+};
+
+export const getCheckinDistribution = async (eventId) => {
+    try {
+        const response = await client.get(`/events/${eventId}/checkin/tickets`);
+        return response.data;
+    } catch (error) {
+        console.log("GET CHECKIN DISTRIBUTION ERROR:", error.response?.data || error.message);
+        return { status: false, data: [] };
+    }
+};
+
+export const getGuestDetails = async (eventId, guestId) => {
+    try {
+        const response = await client.get(`/events/${eventId}/eventuser/${guestId}`);
+        return response.data;
+    } catch (error) {
+        console.log("GET GUEST DETAILS ERROR:", error.response?.data || error.message);
+        return { status: false, data: null };
     }
 };

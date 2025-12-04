@@ -16,7 +16,7 @@ import { GestureHandlerRootView, Swipeable } from 'react-native-gesture-handler'
 import { getEventUsers, makeGuestManager, makeGuestUser } from '../../api/event';
 import GuestDetailsModal from '../../components/GuestDetailsModal';
 import BackButton from '../../components/BackButton';
-import { initDB, getTicketsForEvent } from '../../db';
+import { initDB, getTicketsForEvent, getUnsyncedCheckins, getLocalCheckedInGuests } from '../../db';
 import { scanStore, getMergedGuest } from '../../context/ScanStore';
 
 type GuestListRoute = RouteProp<
@@ -101,6 +101,39 @@ const OnlineGuestList = () => {
             const type = activeTab.toLowerCase();
             const res = await getEventUsers(eventId, 1, type);
             let fetchedGuests = res?.data || [];
+
+            // ⚡⚡⚡ MERGE ALL LOCAL CHECK-INS (SYNCED OR NOT) ⚡⚡⚡
+            try {
+                const localCheckins = await getLocalCheckedInGuests(Number(eventId));
+                console.log(`Found ${localCheckins.length} local check-ins to merge`);
+
+                fetchedGuests = fetchedGuests.map((apiGuest: any) => {
+                    const localMatch = localCheckins.find(u =>
+                        (u.qr_code && u.qr_code === apiGuest.qr_code) ||
+                        (u.guest_id && u.guest_id.toString() === apiGuest.id?.toString())
+                    );
+
+                    if (localMatch) {
+                        // Trust local data if it shows a check-in
+                        const localUsed = localMatch.used_entries || 0;
+                        const apiUsed = apiGuest.used_entries || 0;
+
+                        if (localUsed > apiUsed || localMatch.status === 'checked_in') {
+                            console.log(`Merging local data for ${apiGuest.name}`, localMatch);
+                            return {
+                                ...apiGuest,
+                                status: 'Checked In',
+                                used_entries: Math.max(apiUsed, localUsed),
+                            };
+                        }
+                    }
+                    return apiGuest;
+                });
+
+            } catch (dbErr) {
+                console.warn("Failed to fetch local check-ins", dbErr);
+            }
+
             setGuests(fetchedGuests);
         } catch (error) {
             console.error('Error fetching guests:', error);

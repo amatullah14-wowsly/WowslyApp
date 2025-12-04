@@ -11,8 +11,7 @@ import {
 } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import OfflineCard from '../../components/OfflineCard';
-import { downloadOfflineData, getTicketList } from '../../api/event';
-import { syncOfflineCheckinsAPI } from '../../api/api';
+import { downloadOfflineData, getTicketList, syncPendingCheckins } from '../../api/event';
 import Toast from 'react-native-toast-message';
 import { initDB, insertOrReplaceGuests, getTicketsForEvent, getUnsyncedCheckins, markTicketsAsSynced, deleteStaleGuests } from '../../db';
 import BackButton from '../../components/BackButton';
@@ -36,8 +35,13 @@ const OfflineDashboard = () => {
 
   const totals = useMemo(() => {
     if (!offlineData) return { total: 0, checkedIn: 0, remaining: 0 };
-    const total = offlineData.length;
-    const checkedIn = offlineData.filter((g: any) => g.used_entries > 0).length;
+
+    // Sum of all total_entries (Pax count)
+    const total = offlineData.reduce((sum: number, g: any) => sum + (g.total_entries || 1), 0);
+
+    // Sum of all used_entries
+    const checkedIn = offlineData.reduce((sum: number, g: any) => sum + (g.used_entries || 0), 0);
+
     return {
       total,
       checkedIn,
@@ -65,10 +69,8 @@ const OfflineDashboard = () => {
         };
       }
 
-      buckets[key].total += 1;
-      if (guest.used_entries > 0) {
-        buckets[key].checkedIn += 1;
-      }
+      buckets[key].total += (guest.total_entries || 1);
+      buckets[key].checkedIn += (guest.used_entries || 0);
     });
 
     return Object.values(buckets);
@@ -125,11 +127,18 @@ const OfflineDashboard = () => {
       await initDB();
       const res = await downloadOfflineData(eventId);
       if (res?.guests_list) {
+        console.log("DEBUG: Downloaded list length:", res.guests_list.length);
+        if (res.guests_list.length > 0) {
+          console.log("DEBUG: First guest sample:", JSON.stringify(res.guests_list[0]));
+        }
+
         // ⚡⚡⚡ CLEANUP STALE DATA ⚡⚡⚡
         // Collect all valid QR codes from the new list
         const activeQrCodes = res.guests_list
           .map((g: any) => (g.qr_code || g.qr || g.code || g.uuid || g.guest_uuid || '').toString().trim())
           .filter((q: string) => q.length > 0);
+
+        console.log("DEBUG: Active QR codes count:", activeQrCodes.length);
 
         // Delete guests that are no longer in the list (but keep unsynced ones)
         await deleteStaleGuests(eventId, activeQrCodes);
@@ -173,43 +182,19 @@ const OfflineDashboard = () => {
 
     setUploading(true);
     try {
-      // 1. Get pending check-ins
-      const pending = await getUnsyncedCheckins();
-      if (pending.length === 0) {
-        Toast.show({
-          type: 'info',
-          text1: 'Up to date',
-          text2: 'No pending check-ins to upload'
-        });
-        setUploading(false);
-        return;
-      }
+      // Use the iterative sync function from event.js that handles the 404 issue
+      const res = await syncPendingCheckins(eventId);
 
-      // 2. Upload to server
-      // Format for API (matches Kotlin CheckInRequest)
-      const payload = pending.map((p: any) => ({
-        guest_id: p.guest_id,
-        scanned_at: p.scanned_at,
-        qr_code: p.qr_code,
-        event_id: p.event_id
-      }));
-
-      const res = await syncOfflineCheckinsAPI(payload);
-
-      if (res?.success || res?.status === true || res?.message === "Synced successfully") {
-        // 3. Mark as synced locally
-        const qrCodes = pending.map((p: any) => p.qr_code);
-        await markTicketsAsSynced(qrCodes);
-
+      if (res?.success) {
         setPendingCount(0);
 
         Toast.show({
           type: 'success',
           text1: 'Synced',
-          text2: `Uploaded ${pending.length} check-ins`
+          text2: res.message || 'Uploaded check-ins'
         });
 
-        // 4. Auto-download to get latest state from server
+        // Auto-download to get latest state from server
         handleDownloadData();
 
       } else {
@@ -241,7 +226,7 @@ const OfflineDashboard = () => {
         </View>
 
         <Text style={styles.subHeader}>
-          Last synced: Just now | {offlineData?.length || 0} guests downloaded
+          Last synced: Just now | {totals.total} guests downloaded
         </Text>
 
         {/* CARDS */}
@@ -253,7 +238,7 @@ const OfflineDashboard = () => {
               icon={DOWNLOAD_ICON}
               title="Download Data"
               subtitle="Get the latest guest list"
-              meta={offlineData ? `${offlineData.length} guests downloaded` : 'Tap to download'}
+              meta={offlineData ? `${totals.total} guests downloaded` : 'Tap to download'}
               onPress={() => {
                 handleDownloadData();
               }}
@@ -391,7 +376,7 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     justifyContent: 'space-between',
     paddingHorizontal: 20,
-    gap: 12,
+    gap: 0,
   },
   cardItem: {
     width: '48%',

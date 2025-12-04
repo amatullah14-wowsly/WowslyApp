@@ -2,7 +2,8 @@ import { StyleSheet, Text, View, Image, TouchableOpacity, ImageBackground, Scrol
 import React, { useState, useEffect, useCallback } from 'react'
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import Grid from '../../components/Grid';
-import { getEventDetails, getEventUsers, getTicketList } from '../../api/event';
+import { getEventUsers, getEventDetails, getTicketList, getCheckinDistribution } from '../../api/event';
+import { getUnsyncedCheckins, getLocalCheckedInGuests } from '../../db';
 import BackButton from '../../components/BackButton';
 import Svg, { G, Path, Circle, Text as SvgText } from 'react-native-svg';
 import * as d3 from 'd3-shape';
@@ -31,6 +32,7 @@ const EventDashboard = ({ route }: EventDashboardProps) => {
     const [details, setDetails] = useState<any>(null);
     const [guestCounts, setGuestCounts] = useState({ total: 0, checkedIn: 0 });
     const [ticketList, setTicketList] = useState<any[]>([]);
+    const [checkinData, setCheckinData] = useState<any[]>([]);
 
     // Refresh data when screen comes into focus
     useFocusEffect(
@@ -39,6 +41,7 @@ const EventDashboard = ({ route }: EventDashboardProps) => {
                 fetchDetails(eventData.id);
                 fetchGuestCounts(eventData.id);
                 fetchTicketList(eventData.id);
+                fetchCheckinData(eventData.id);
             }
         }, [eventData])
     );
@@ -56,7 +59,29 @@ const EventDashboard = ({ route }: EventDashboardProps) => {
             // Assuming getEventUsers returns a list of guests in res.data
             const res = await getEventUsers(id);
             if (res?.data) {
-                const allGuests = res.data;
+                let allGuests = res.data;
+
+                // ⚡⚡⚡ MERGE ALL LOCAL CHECK-INS (SYNCED OR NOT) ⚡⚡⚡
+                try {
+                    const localCheckins = await getLocalCheckedInGuests(Number(id));
+                    allGuests = allGuests.map((g: any) => {
+                        const local = localCheckins.find((u: any) =>
+                            (u.guest_id && u.guest_id.toString() === g.id?.toString()) ||
+                            (u.qr_code && u.qr_code === g.qr_code)
+                        );
+                        if (local) {
+                            const localUsed = local.used_entries || 0;
+                            const apiUsed = g.used_entries || 0;
+                            if (localUsed > apiUsed || local.status === 'checked_in') {
+                                return { ...g, status: 'checked_in', used_entries: Math.max(apiUsed, localUsed) };
+                            }
+                        }
+                        return g;
+                    });
+                } catch (e) {
+                    console.warn("Failed to merge local counts", e);
+                }
+
                 const total = allGuests.length;
                 // Check for checked_in status or used_entries > 0
                 const checkedIn = allGuests.filter((g: any) =>
@@ -83,6 +108,20 @@ const EventDashboard = ({ route }: EventDashboardProps) => {
             }
         } catch (e) {
             console.error("Error fetching ticket list in dashboard:", e);
+        }
+    };
+
+    const fetchCheckinData = async (id: string) => {
+        try {
+            const res = await getCheckinDistribution(id);
+            console.log("Checkin distribution response:", res);
+            if (res?.data) {
+                setCheckinData(res.data);
+            } else if (Array.isArray(res)) {
+                setCheckinData(res);
+            }
+        } catch (e) {
+            console.error("Error fetching checkin data:", e);
         }
     };
 
@@ -114,6 +153,14 @@ const EventDashboard = ({ route }: EventDashboardProps) => {
         }));
 
     const validPieData = chartData.filter(d => d.value > 0);
+
+    const checkinTotal = checkinData.reduce((acc, t) => acc + (Number(t.total_check_in) || 0), 0);
+    const checkinChartData = checkinData.map((t, i) => ({
+        value: Number(t.total_check_in) || 0,
+        color: COLORS[i % COLORS.length],
+        title: t.ticket_name || t.title,
+    }));
+    const validCheckinPieData = checkinChartData.filter(d => d.value > 0);
 
     return (
         <View style={styles.container}>
@@ -286,6 +333,82 @@ const EventDashboard = ({ route }: EventDashboardProps) => {
                         </View>
                     </View>
                 </View>
+
+                {/* Check-in Distribution Section */}
+                <View style={styles.ticketSection}>
+                    <Text style={styles.sectionTitle}>Check-in Distribution</Text>
+
+                    <View style={styles.chartContainer}>
+                        {/* Pie Chart */}
+                        <View style={styles.donutWrapper}>
+                            <Svg height="140" width="140" viewBox="0 0 160 160">
+                                <G x="80" y="80">
+                                    {validCheckinPieData.length > 0 ? (
+                                        (() => {
+                                            const pieData = d3
+                                                .pie()
+                                                .value((d: any) => d.value)
+                                                .sort(null)(validCheckinPieData);
+
+                                            const arcGenerator = d3
+                                                .arc()
+                                                .outerRadius(70)
+                                                .innerRadius(0) // Pie chart
+                                                .padAngle(0.02)
+                                                .cornerRadius(4);
+
+                                            return pieData.map((slice: any, index: number) => (
+                                                <Path
+                                                    key={index}
+                                                    d={arcGenerator(slice as any) || undefined}
+                                                    fill={slice.data.color}
+                                                />
+                                            ));
+                                        })()
+                                    ) : (
+                                        <Circle
+                                            cx="0"
+                                            cy="0"
+                                            r="70"
+                                            fill="#F0F0F0"
+                                        />
+                                    )}
+                                </G>
+                            </Svg>
+                        </View>
+
+                        {/* Legend */}
+                        <View style={styles.legendContainer}>
+                            {checkinChartData.length > 0 ? (
+                                checkinChartData.map((ticket, index) => {
+                                    const percentage =
+                                        checkinTotal > 0
+                                            ? Math.round((ticket.value / checkinTotal) * 100)
+                                            : 0;
+
+                                    return (
+                                        <View key={index} style={styles.legendItem}>
+                                            <View
+                                                style={[
+                                                    styles.legendDot,
+                                                    { backgroundColor: ticket.color },
+                                                ]}
+                                            />
+                                            <View>
+                                                <Text style={styles.legendTitle}>
+                                                    {ticket.title}{' '}
+                                                    <Text style={styles.legendPercent}>({percentage}%)</Text>
+                                                </Text>
+                                            </View>
+                                        </View>
+                                    );
+                                })
+                            ) : (
+                                <Text style={styles.emptyChartText}>No check-in data</Text>
+                            )}
+                        </View>
+                    </View>
+                </View>
             </ScrollView >
             <View />
         </View>
@@ -454,14 +577,13 @@ const styles = StyleSheet.create({
         gap: 20,
     },
     button: {
-        height: '7%',
+        height: '5%',
         width: '90%',
         backgroundColor: '#FF8A3C',
         alignSelf: "center",
         justifyContent: 'center',
         alignItems: 'center',
         borderRadius: 10,
-        marginTop: 30,
         flexDirection: 'row',
         gap: 10,
     },
