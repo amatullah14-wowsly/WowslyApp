@@ -10,11 +10,13 @@ import {
   TouchableOpacity,
   View,
   ActivityIndicator,
+  DeviceEventEmitter,
 } from 'react-native';
 import { GestureHandlerRootView, Swipeable } from 'react-native-gesture-handler';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { Guest, GuestGroup } from './guestData';
 import { getEventUsers, makeGuestManager, makeGuestUser } from '../../api/event';
+import { scanStore, getMergedGuest } from '../../context/ScanStore';
 import GuestDetailsModal from '../../components/GuestDetailsModal';
 import BackButton from '../../components/BackButton';
 
@@ -68,6 +70,7 @@ const GuestScreenTemplate: React.FC<GuestScreenTemplateProps> = ({
   const [loading, setLoading] = useState(false);
   const [modalVisible, setModalVisible] = useState(false);
   const [selectedGuestId, setSelectedGuestId] = useState<string | null>(null);
+  const [lastUpdate, setLastUpdate] = useState(0);
 
   useEffect(() => {
     if (eventId) {
@@ -81,9 +84,22 @@ const GuestScreenTemplate: React.FC<GuestScreenTemplateProps> = ({
       if (eventId) {
         console.log('GuestScreenTemplate focused - refreshing guest data');
         fetchGuests();
+        setLastUpdate(Date.now());
       }
     }, [eventId, activeFilter])
   );
+
+  // ⚡⚡⚡ REAL-TIME UPDATE LISTENER ⚡⚡⚡
+  useEffect(() => {
+    const subscription = (DeviceEventEmitter as any).addListener('BROADCAST_SCAN_TO_CLIENTS', (data: any) => {
+      console.log("GuestScreenTemplate received broadcast:", data);
+      setLastUpdate(Date.now());
+    });
+
+    return () => {
+      subscription.remove();
+    };
+  }, []);
 
   const fetchGuests = async () => {
     setLoading(true);
@@ -133,7 +149,10 @@ const GuestScreenTemplate: React.FC<GuestScreenTemplateProps> = ({
   };
 
   const filteredGuests = useMemo(() => {
-    return guests.filter((guest) => {
+    return guests.map(g => {
+      // ⚡⚡⚡ MERGE LOCAL SCANS FROM GLOBAL STORE ⚡⚡⚡
+      return getMergedGuest(g);
+    }).filter((guest) => {
       const query = searchQuery.trim().toLowerCase();
       if (!query) return true;
 
@@ -143,7 +162,7 @@ const GuestScreenTemplate: React.FC<GuestScreenTemplateProps> = ({
 
       return name.includes(query) || phone.includes(query) || id.includes(query);
     });
-  }, [guests, searchQuery]);
+  }, [guests, searchQuery, lastUpdate]);
 
   const renderGuest = ({ item }: { item: any }) => {
     const name = item.name || item.first_name + ' ' + item.last_name || 'Guest';
@@ -153,6 +172,24 @@ const GuestScreenTemplate: React.FC<GuestScreenTemplateProps> = ({
     // ⚡⚡⚡ FIX: Map "Active" to "Pending" for display ⚡⚡⚡
     if (status.toLowerCase() === 'active') {
       status = 'Pending';
+    }
+
+    // ⚡⚡⚡ MULTI-ENTRY LOGIC ⚡⚡⚡
+    const ticketData = item.ticket_data || {};
+    const totalEntries = item.total_entries || item.tickets_bought || ticketData.tickets_bought || item.quantity || ticketData.quantity || 1;
+    const usedEntries = item.used_entries || item.checked_in_count || ticketData.used_entries || ticketData.checked_in_count || 0;
+
+    // Default style
+    let statusStyle = statusChipStyles[status] || statusChipStyles[status.toLowerCase()] || statusChipStyles['registered'];
+
+    if (totalEntries > 1) {
+      status = `${usedEntries}/${totalEntries}`;
+      // Determine color: Blue if fully checked in, Green if pending/partial
+      if (usedEntries >= totalEntries) {
+        statusStyle = statusChipStyles['Checked In'];
+      } else {
+        statusStyle = statusChipStyles['Pending'];
+      }
     }
 
     const renderRightActions = () => (
@@ -188,11 +225,11 @@ const GuestScreenTemplate: React.FC<GuestScreenTemplateProps> = ({
             <View style={styles.guestInfo}>
               <Text style={styles.guestName}>{name}</Text>
             </View>
-            <View style={[styles.statusChip, statusChipStyles[status] || statusChipStyles[status.toLowerCase()] || statusChipStyles['registered']]}>
+            <View style={[styles.statusChip, statusStyle]}>
               <Text
                 style={[
                   styles.statusChipText,
-                  { color: (statusChipStyles[status] || statusChipStyles[status.toLowerCase()] || statusChipStyles['registered']).color },
+                  { color: statusStyle.color },
                 ]}
               >
                 {status}

@@ -14,7 +14,7 @@ import {
   Dimensions,
   DeviceEventEmitter,
 } from 'react-native'
-import Toast from 'react-native-toast-message';
+
 import { initDB, findTicketByQr, updateTicketStatusLocal, getTicketsForEvent, insertOrReplaceGuests } from '../../db'
 import { RouteProp, useRoute, useNavigation } from '@react-navigation/native'
 import { Camera } from 'react-native-camera-kit'
@@ -53,6 +53,20 @@ const QrCode = () => {
   const [guestData, setGuestData] = useState<any>(null)
   const [isVerifying, setIsVerifying] = useState(false)
   const [selectedQuantity, setSelectedQuantity] = useState(1);
+  const [scanStatus, setScanStatus] = useState<{ text: string, type: 'success' | 'error' | 'warning' } | null>(null);
+
+  useEffect(() => {
+    if (scanStatus) {
+      const timer = setTimeout(() => {
+        setScanStatus(null);
+      }, 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [scanStatus]);
+
+  const showStatus = (text: string, type: 'success' | 'error' | 'warning') => {
+    setScanStatus({ text, type });
+  };
 
   // Animation State
   const SCREEN_HEIGHT = Dimensions.get('window').height;
@@ -131,11 +145,7 @@ const QrCode = () => {
 
   useEffect(() => {
     if (!eventId) {
-      Toast.show({
-        type: 'error',
-        text1: 'Error',
-        text2: 'Invalid Event ID passed to QR scanner'
-      });
+      showStatus('Invalid Event ID passed to QR scanner', 'error');
     }
   }, [eventId])
 
@@ -156,11 +166,7 @@ const QrCode = () => {
           if (granted === PermissionsAndroid.RESULTS.GRANTED) {
             setHasPermission(true)
           } else {
-            Toast.show({
-              type: 'error',
-              text1: 'Permission Denied',
-              text2: 'Camera permission is required to scan QR codes.'
-            });
+            showStatus('Camera permission is required', 'error');
           }
         } catch (err) {
           console.warn(err)
@@ -251,7 +257,7 @@ const QrCode = () => {
             const response = JSON.parse(responseStr);
             if (response.status === 'success') {
               const ticket = response.data;
-              Toast.show({ type: 'success', text1: 'Host Verified', text2: response.message || 'Valid Entry' });
+              showStatus(response.message || 'Valid Entry', 'success');
               setGuestData({
                 name: ticket.guest_name || "Guest",
                 ticketId: ticket.qr_code || "Remote",
@@ -263,7 +269,7 @@ const QrCode = () => {
               });
             } else {
               const ticket = response.data;
-              Toast.show({ type: 'error', text1: response.message || 'Error', text2: ticket ? 'Ticket already used' : 'Invalid QR' });
+              showStatus(ticket ? 'Ticket already used' : 'Invalid QR', 'error');
               if (ticket) {
                 setGuestData({
                   name: ticket.guest_name || "Guest",
@@ -280,10 +286,10 @@ const QrCode = () => {
             }
           } catch (e) {
             if (responseStr.includes("count")) {
-              Toast.show({ type: 'success', text1: 'Host Verified', text2: responseStr });
+              showStatus(responseStr, 'success');
               setGuestData({ name: "Host Verified", ticketId: "Remote", status: "VALID ENTRY", isValid: true, totalEntries: 1, usedEntries: 1, facilities: [] });
             } else {
-              Toast.show({ type: 'error', text1: 'Host Error', text2: responseStr });
+              showStatus(responseStr, 'error');
               setGuestData({ name: "Host Rejected", ticketId: "Remote", status: "INVALID", isValid: false, totalEntries: 0, usedEntries: 0, facilities: [] });
             }
           }
@@ -292,7 +298,7 @@ const QrCode = () => {
         };
         client.on('data', onData);
       } else {
-        Toast.show({ type: 'error', text1: 'Connection Error', text2: 'Not connected to host' });
+        showStatus('Not connected to host', 'error');
         setIsVerifying(false);
       }
       return;
@@ -314,11 +320,7 @@ const QrCode = () => {
           console.log(`DEBUG: total_entries: ${ticket.total_entries}, used_entries: ${ticket.used_entries}`);
 
           if (usedEntries >= totalEntries) {
-            Toast.show({
-              type: 'error',
-              text1: 'Already Scanned',
-              text2: 'This ticket has already been used.'
-            });
+            showStatus('Already Scanned', 'error');
             setGuestData({
               name: ticket.guest_name || "Guest",
               ticketId: ticket.qr_code || "N/A",
@@ -356,22 +358,14 @@ const QrCode = () => {
           }
 
         } else {
-          Toast.show({
-            type: 'error',
-            text1: 'Invalid QR Code',
-            text2: 'Guest not found in offline database'
-          });
+          showStatus('Invalid QR Code', 'error');
           // Reset scan after delay to allow reading toast
           setTimeout(() => setScannedValue(null), 2000);
           setGuestData(null)
         }
       } catch (error) {
         console.error("Offline verification error:", error)
-        Toast.show({
-          type: 'error',
-          text1: 'Error',
-          text2: 'Failed to verify ticket'
-        });
+        showStatus('Failed to verify ticket', 'error');
         setTimeout(() => setScannedValue(null), 2000);
         setGuestData(null)
       } finally {
@@ -421,11 +415,7 @@ const QrCode = () => {
             if (currentUsed >= totalEntries) {
               // 🛑 BLOCKED: Already full
               console.log("DEBUG: Ticket is full. Blocking check-in.");
-              Toast.show({
-                type: 'error',
-                text1: 'Limit Reached',
-                text2: `All ${totalEntries} tickets have been used.`
-              });
+              showStatus('Limit Reached', 'error');
 
               // Do NOT open sheet. Just reset scanner.
               setTimeout(() => setScannedValue(null), 2000);
@@ -501,50 +491,30 @@ const QrCode = () => {
 
             } catch (checkInError) {
               console.warn("Check-in API failed:", checkInError);
-              Toast.show({
-                type: 'error',
-                text1: 'Check-in Failed',
-                text2: 'Could not update server. Try again.'
-              });
+              showStatus('Check-in Failed. Try again.', 'error');
               setTimeout(() => setScannedValue(null), 2000);
               setIsVerifying(false);
             }
 
           } else {
             // Fallback if details fail (Rare)
-            Toast.show({
-              type: 'error',
-              text1: 'Error',
-              text2: 'Could not fetch guest details.'
-            });
+            showStatus('Could not fetch guest details.', 'error');
             setTimeout(() => setScannedValue(null), 2000);
           }
         } catch (err) {
           console.log("Error fetching details", err);
-          Toast.show({
-            type: 'error',
-            text1: 'Error',
-            text2: 'Network error during verification.'
-          });
+          showStatus('Network error during verification.', 'error');
           setTimeout(() => setScannedValue(null), 2000);
         }
 
       } else {
-        Toast.show({
-          type: 'error',
-          text1: 'Invalid QR Code',
-          text2: response?.message || "QR verification failed"
-        });
+        showStatus(response?.message || "QR verification failed", 'error');
         setTimeout(() => setScannedValue(null), 2000);
         setGuestData(null)
       }
     } catch (error) {
       console.error("QR Verification Error:", error)
-      Toast.show({
-        type: 'error',
-        text1: 'Error',
-        text2: 'Failed to verify QR code'
-      });
+      showStatus('Failed to verify QR code', 'error');
       setTimeout(() => setScannedValue(null), 2000);
       setGuestData(null)
       return;
@@ -570,11 +540,7 @@ const QrCode = () => {
     const totalEntries = guestData.totalEntries || 1;
 
     if (currentUsed + additionalCheckins > totalEntries) {
-      Toast.show({
-        type: 'error',
-        text1: 'Limit Exceeded',
-        text2: `Cannot check in more than ${totalEntries} tickets.`
-      });
+      showStatus(`Cannot check in more than ${totalEntries} tickets.`, 'error');
       return;
     }
 
@@ -628,24 +594,25 @@ const QrCode = () => {
           // Online check-in is already synced, so insertOrReplaceGuests (synced=1) is correct
           await insertOrReplaceGuests(eventId, [guestToSync]);
           console.log("Synced bulk check-in to local DB:", guestToSync);
+
+          // ⚡⚡⚡ BROADCAST UPDATE ⚡⚡⚡
+          DeviceEventEmitter.emit('BROADCAST_SCAN_TO_CLIENTS', {
+            ...guestToSync,
+            guestId: guestToSync.guest_id, // Ensure compatibility
+            usedEntries: newUsed,
+            totalEntries: guestData.totalEntries
+          });
+
         } catch (syncErr) {
           console.warn("Failed to sync bulk check-in:", syncErr);
         }
       }
 
-      Toast.show({
-        type: 'success',
-        text1: 'Bulk Check-in',
-        text2: `Checked in ${selectedQuantity} guests`
-      });
+      showStatus(`Checked in ${selectedQuantity} guests`, 'success');
 
     } catch (error) {
       console.error("Bulk check-in error:", error);
-      Toast.show({
-        type: 'error',
-        text1: 'Error',
-        text2: 'Failed to complete bulk check-in'
-      });
+      showStatus('Failed to complete bulk check-in', 'error');
     } finally {
       setIsVerifying(false);
       setScannedValue(null);
@@ -716,6 +683,18 @@ const QrCode = () => {
             />
           </TouchableOpacity>
         </View>
+
+        {/* ⚡⚡⚡ ON-SCREEN STATUS BANNER ⚡⚡⚡ */}
+        {scanStatus && (
+          <View style={[
+            styles.statusBanner,
+            scanStatus.type === 'success' && styles.statusBannerSuccess,
+            scanStatus.type === 'error' && styles.statusBannerError,
+            scanStatus.type === 'warning' && styles.statusBannerWarning,
+          ]}>
+            <Text style={styles.statusBannerText}>{scanStatus.text}</Text>
+          </View>
+        )}
 
         <View style={styles.scannerWrapper}>
           <View style={styles.dashedBox}>
@@ -1128,5 +1107,39 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 24,
     fontWeight: '700',
+  },
+  statusBanner: {
+    position: 'absolute',
+    top: 110,
+    left: 20,
+    right: 20,
+    paddingVertical: 16,
+    paddingHorizontal: 24,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 999,
+    elevation: 5,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+  },
+  statusBannerSuccess: {
+    backgroundColor: '#4CAF50', // Green
+  },
+  statusBannerError: {
+    backgroundColor: '#F44336', // Red
+  },
+  statusBannerWarning: {
+    backgroundColor: '#FF9800', // Orange
+  },
+  statusBannerText: {
+    color: '#FFFFFF',
+    fontSize: 18,
+    fontWeight: 'bold',
+    textAlign: 'center',
+    textTransform: 'uppercase',
+    letterSpacing: 1,
   },
 })

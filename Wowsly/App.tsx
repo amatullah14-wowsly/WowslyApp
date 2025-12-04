@@ -6,10 +6,12 @@ import SystemNavigationBar from 'react-native-system-navigation-bar';
 import Toast from 'react-native-toast-message';
 import { toastConfig } from './src/components/ToastConfig';
 import { initDB } from './src/db';
+import { initScanStore } from './src/context/ScanStore';
 
 const App = () => {
   useEffect(() => {
     SystemNavigationBar.stickyImmersive();
+    initScanStore();
 
     // Initialize SQLite database
     initDB()

@@ -17,6 +17,7 @@ import { getEventUsers, makeGuestManager, makeGuestUser } from '../../api/event'
 import GuestDetailsModal from '../../components/GuestDetailsModal';
 import BackButton from '../../components/BackButton';
 import { initDB, getTicketsForEvent } from '../../db';
+import { scanStore, getMergedGuest } from '../../context/ScanStore';
 
 type GuestListRoute = RouteProp<
     {
@@ -57,6 +58,9 @@ const OnlineGuestList = () => {
     const [loading, setLoading] = useState(false);
     const [modalVisible, setModalVisible] = useState(false);
     const [selectedGuestId, setSelectedGuestId] = useState<string | null>(null);
+    const [lastUpdate, setLastUpdate] = useState(0);
+
+
 
     const eventTitle = route.params?.eventTitle ?? 'Selected Event';
     const eventId = route.params?.eventId;
@@ -81,24 +85,8 @@ const OnlineGuestList = () => {
     useEffect(() => {
         const subscription = DeviceEventEmitter.addListener('BROADCAST_SCAN_TO_CLIENTS', (data) => {
             console.log("OnlineGuestList received broadcast:", data);
-            if (data && data.guestId) {
-                setGuests(currentGuests => {
-                    return currentGuests.map(g => {
-                        // Match by ID (string/number safe comparison)
-                        if (g.id == data.guestId || g.guest_id == data.guestId) {
-                            console.log(`Updating guest ${g.name} status to ${data.status}`);
-                            return {
-                                ...g,
-                                status: 'Checked In', // Force status to Checked In for UI
-                                used_entries: data.usedEntries,
-                                total_entries: data.totalEntries,
-                                checked_in_count: data.usedEntries // Ensure compatibility with both fields
-                            };
-                        }
-                        return g;
-                    });
-                });
-            }
+            // Store is updated globally, we just need to trigger re-render
+            setLastUpdate(Date.now());
         });
 
         return () => {
@@ -113,11 +101,6 @@ const OnlineGuestList = () => {
             const type = activeTab.toLowerCase();
             const res = await getEventUsers(eventId, 1, type);
             let fetchedGuests = res?.data || [];
-
-            // 🟢 MERGE WITH LOCAL OFFLINE STATUS - REMOVED AS PER USER REQUEST
-            // The user wants to rely solely on the online API data for counts (e.g. 3/6).
-            // Previous local merge logic was potentially overwriting correct online data with stale local data.
-
             setGuests(fetchedGuests);
         } catch (error) {
             console.error('Error fetching guests:', error);
@@ -128,7 +111,15 @@ const OnlineGuestList = () => {
     };
 
     const filteredGuests = useMemo(() => {
-        return guests.filter((guest) => {
+        console.log("OnlineGuestList: Recalculating filteredGuests. Store keys:", Object.keys(scanStore));
+        return guests.map(g => {
+            // ⚡⚡⚡ MERGE LOCAL SCANS FROM GLOBAL STORE ⚡⚡⚡
+            const merged = getMergedGuest(g);
+            if (merged !== g) {
+                console.log(`OnlineGuestList: Merged guest ${g.id} with local data:`, merged);
+            }
+            return merged;
+        }).filter((guest) => {
             const query = searchQuery.trim().toLowerCase();
             if (!query) return true;
 
@@ -138,7 +129,7 @@ const OnlineGuestList = () => {
 
             return name.includes(query) || phone.includes(query) || id.includes(query);
         });
-    }, [guests, searchQuery]);
+    }, [guests, searchQuery, lastUpdate]);
 
     const renderGuest = ({ item }: { item: any }) => {
         const name = item.name || item.first_name + ' ' + item.last_name || 'Guest';
