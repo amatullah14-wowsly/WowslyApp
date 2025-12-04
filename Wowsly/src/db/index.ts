@@ -195,10 +195,11 @@ export async function getTicketsForEvent(eventId: number) {
   return items;
 }
 
-export async function getUnsyncedCheckins() {
+export async function getUnsyncedCheckins(eventId: number) {
   const database = await openDB();
   const [result] = await database.executeSql(
-    `SELECT * FROM tickets WHERE synced = 0 AND status = 'checked_in' LIMIT 500;`
+    `SELECT * FROM tickets WHERE event_id = ? AND synced = 0 AND (status = 'checked_in' OR used_entries > 0) LIMIT 500;`,
+    [eventId]
   );
   const items = [];
   for (let i = 0; i < result.rows.length; i++) items.push(result.rows.item(i));

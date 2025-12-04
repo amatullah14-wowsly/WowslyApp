@@ -329,7 +329,7 @@ const QrCode = () => {
               totalEntries,
               usedEntries,
               facilities
-            })
+            });
             // Reset scan after delay
             setTimeout(() => setScannedValue(null), 2000);
           } else {

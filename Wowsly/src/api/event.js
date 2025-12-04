@@ -284,7 +284,7 @@ import { checkInGuest, syncOfflineCheckinsAPI } from './api';
 export const syncPendingCheckins = async (eventId) => {
     try {
         console.log("Starting sync for event:", eventId);
-        const unsynced = await getUnsyncedCheckins();
+        const unsynced = await getUnsyncedCheckins(eventId);
         console.log(`Found ${unsynced.length} unsynced check-ins`);
 
         if (unsynced.length === 0) {
@@ -337,26 +337,6 @@ export const syncPendingCheckins = async (eventId) => {
     }
 };
 
-export const getEventUsers = async (eventId, page = 1, type = 'all') => {
-    try {
-        const response = await client.get(`/events/${eventId}/eventuser?page=${page}&type=${type}&per_page=100`);
-        return response.data;
-    } catch (error) {
-        console.log("GET EVENT USERS ERROR:", error.response?.data || error.message);
-        return { status: false, data: [] };
-    }
-};
-
-export const makeGuestManager = async (eventId, guestId) => {
-    try {
-        const response = await client.post(`/events/${eventId}/eventuser/${guestId}/make-manager`);
-        return response.data;
-    } catch (error) {
-        console.log("MAKE MANAGER ERROR:", error.response?.data || error.message);
-        return { status: false, message: "Failed to make manager" };
-    }
-};
-
 export const makeGuestUser = async (eventId, guestId, type = 'registered') => {
     try {
         const response = await client.post(`/events/${eventId}/eventuser/${guestId}/make-guest`, { type });
@@ -384,5 +364,25 @@ export const getGuestDetails = async (eventId, guestId) => {
     } catch (error) {
         console.log("GET GUEST DETAILS ERROR:", error.response?.data || error.message);
         return { status: false, data: null };
+    }
+};
+
+export const getEventUsers = async (eventId, page = 1, type = 'all') => {
+    try {
+        const response = await client.get(`/events/${eventId}/eventuser?page=${page}&type=${type}&per_page=100`);
+        return response.data;
+    } catch (error) {
+        console.log("GET EVENT USERS ERROR:", error.response?.data || error.message);
+        return { status: false, data: [] };
+    }
+};
+
+export const makeGuestManager = async (eventId, guestId) => {
+    try {
+        const response = await client.post(`/events/${eventId}/eventuser/${guestId}/make-manager`);
+        return response.data;
+    } catch (error) {
+        console.log("MAKE MANAGER ERROR:", error.response?.data || error.message);
+        return { status: false, message: "Failed to make manager" };
     }
 };
