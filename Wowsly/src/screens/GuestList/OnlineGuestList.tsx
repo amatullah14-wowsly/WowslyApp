@@ -98,9 +98,20 @@ const OnlineGuestList = () => {
         setLoading(true);
 
         try {
-            const type = activeTab.toLowerCase();
-            const res = await getEventUsers(eventId, 1, type);
-            let fetchedGuests = res?.data || [];
+            // ⚡⚡⚡ FETCH ALL & FILTER LOCALLY ⚡⚡⚡
+            // User requested to fetch ALL and filter by generated_by_owner
+            const res = await getEventUsers(eventId, 1, 'all');
+            let allGuests = res?.data || [];
+
+            let fetchedGuests = allGuests.filter((g: any) => {
+                const isOwnerGenerated = g.generated_by_owner === 1;
+                if (activeTab === 'invited') {
+                    return isOwnerGenerated;
+                } else {
+                    // Registered
+                    return !isOwnerGenerated;
+                }
+            });
 
             // ⚡⚡⚡ MERGE ALL LOCAL CHECK-INS (SYNCED OR NOT) ⚡⚡⚡
             try {

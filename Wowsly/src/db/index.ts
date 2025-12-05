@@ -96,7 +96,7 @@ export async function insertOrReplaceGuests(eventId: number, guestsArray: any[])
   const db = await openDB();
 
   for (const g of guestsArray) {
-    const qr = (g.qr_code || g.code || g.uuid || '').toString().trim();
+    const qr = (g.qr_code || g.code || g.uuid || g.guest_uuid || '').toString().trim();
     const guestName = g.name || `${g.first_name || ''} ${g.last_name || ''}`.trim();
 
     const ticketId = g.ticket_id || g.id || null;
