@@ -58,14 +58,15 @@ const EventListing = () => {
     const today = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
 
     const filtered = sourceEvents.filter((event: any) => {
-      const endDate = event.end_date ? event.end_date.split('T')[0] : null;
+      // const endDate = event.end_date ? event.end_date.split('T')[0] : null;
 
-      if (!endDate) return false;
+      // if (!endDate) return false; // 👈 REMOVED STRICT CHECK
 
       // Search Filter
       const matchesSearch = event.title?.toLowerCase().includes(query.toLowerCase());
 
-      return endDate >= today && matchesSearch;
+      // ⚡⚡⚡ SHOW ALL EVENTS (PAST & UPCOMING) ⚡⚡⚡
+      return matchesSearch;
     });
 
     setEvents(filtered);

@@ -17,21 +17,48 @@ const fetchEventsByType = async (type) => {
 
     while (hasMore) {
         try {
-            const response = await client.get(`/events?page=${page}&type=${type}&per_page=100`);
+            const url = `/events?page=${page}&type=${type}&per_page=100`;
+            console.log(`Requesting: ${url}`);
+            const response = await client.get(url);
             const data = response.data;
 
+            // ⚡⚡⚡ DEBUG PAGINATION ⚡⚡⚡
+            if (page === 1) {
+                console.log("Pagination keys:", Object.keys(data));
+                console.log("Next Page URL (root):", data.next_page_url);
+                console.log("Next Page URL (links):", data.links?.next);
+                console.log("Meta Total:", data.meta?.total);
+            }
+
             if (data && data.data && Array.isArray(data.data)) {
+                console.log(`Page ${page} received ${data.data.length} events.`);
                 events = [...events, ...data.data];
 
-                if (data.data.length === 0 || data.next_page_url === null) {
+                // Check for next page URL in root OR links.next
+                const nextPageUrl = data.next_page_url || data.links?.next;
+                const total = data.meta?.total || data.total;
+
+                // ⚡⚡⚡ ROBUST PAGINATION LOGIC ⚡⚡⚡
+                // Continue if:
+                // 1. nextPageUrl exists
+                // 2. OR we haven't fetched 'total' items yet (fallback for buggy API)
+                const shouldContinue = nextPageUrl || (total && events.length < total);
+
+                if (data.data.length === 0 || !shouldContinue) {
+                    console.log("No more pages. Stopping.");
                     hasMore = false;
                 } else {
+                    console.log(`Moving to page ${page + 1} (Total: ${total}, Fetched: ${events.length})...`);
                     page++;
                 }
 
                 // Safety break
-                if (page > 50) hasMore = false;
+                if (page > 50) {
+                    console.warn("Hit safety limit of 50 pages. Stopping.");
+                    hasMore = false;
+                }
             } else {
+                console.warn("Invalid data structure received:", data);
                 hasMore = false;
             }
         } catch (error) {
@@ -39,6 +66,7 @@ const fetchEventsByType = async (type) => {
             hasMore = false;
         }
     }
+    console.log(`Total ${type} events fetched: ${events.length}`);
     return events;
 };
 
@@ -55,17 +83,16 @@ export const getEvents = async (forceRefresh = false) => {
             return eventsCache.data;
         }
 
-        console.log("Fetching all events (created + joined)...");
+        console.log("Fetching created events only...");
 
-        const [createdEvents, joinedEvents] = await Promise.all([
-            fetchEventsByType('created'),
-            fetchEventsByType('join')
-        ]);
+        // ⚡⚡⚡ USER REQUEST: ONLY FETCH CREATED EVENTS ⚡⚡⚡
+        const createdEvents = await fetchEventsByType('created');
+        const joinedEvents = []; // Empty for now as per request
 
-        console.log(`Fetched ${createdEvents.length} created events and ${joinedEvents.length} joined events.`);
+        console.log(`Fetched ${createdEvents.length} created events.`);
 
         // Merge and deduplicate based on ID
-        const allEvents = [...createdEvents, ...joinedEvents];
+        const allEvents = [...createdEvents];
         const uniqueEvents = [];
         const seenIds = new Set();
 
@@ -187,17 +214,39 @@ export const downloadOfflineData = async (eventId) => {
         console.log(`DEBUG: Populated ticket info map with ${ticketInfoMap.size} entries.`);
 
         // B. Fetch General List (Primary source for QR/UUID)
-        console.log("Fetching general list for QR codes...");
+        console.log("Fetching general list via /eventuser/fetch...");
         let generalGuests = [];
-        try {
-            const url = `/events/${eventId}/eventuser?type=all&per_page=5000`;
-            const response = await client.get(url);
-            const data = response.data?.data || response.data || [];
-            if (Array.isArray(data)) {
-                generalGuests = data;
+        let page = 1;
+        let hasMore = true;
+
+        while (hasMore) {
+            try {
+                console.log(`Fetching guest list page ${page}...`);
+                const res = await client.get(`/events/${eventId}/eventuser/fetch?page=${page}`);
+                const data = res.data;
+
+                if (data && data.guests_list && Array.isArray(data.guests_list)) {
+                    console.log(`Page ${page} received ${data.guests_list.length} guests.`);
+                    generalGuests = [...generalGuests, ...data.guests_list];
+
+                    // Check for next page
+                    // Stop if empty list OR current_page >= last_page
+                    if (data.guests_list.length === 0 || (data.meta && data.meta.current_page >= data.meta.last_page)) {
+                        hasMore = false;
+                    } else {
+                        page++;
+                    }
+
+                    // Safety break
+                    if (page > 50) hasMore = false;
+                } else {
+                    console.warn("Invalid guest list structure:", data);
+                    hasMore = false;
+                }
+            } catch (err) {
+                console.error(`Error fetching guest list page ${page}:`, err.message);
+                hasMore = false;
             }
-        } catch (err) {
-            console.log("General list fetch failed:", err.message);
         }
 
         console.log(`DEBUG: Fetched ${generalGuests.length} guests from general list.`);
@@ -291,45 +340,40 @@ export const syncPendingCheckins = async (eventId) => {
             return { success: true, count: 0, message: "No pending check-ins to sync" };
         }
 
-        let successCount = 0;
-        let failCount = 0;
+        // ⚡⚡⚡ BULK SYNC IMPLEMENTATION ⚡⚡⚡
+        // ⚡⚡⚡ BULK SYNC IMPLEMENTATION ⚡⚡⚡
+        const bulkPayload = unsynced.map(guest => {
+            return {
+                qrGuestUuid: guest.qrGuestUuid || guest.qr_code, // Use stored UUID or fallback to QR
+                check_in_count: guest.check_in_count || 1,
+                qrTicketId: guest.qrTicketId || guest.ticket_id || 0,
+                checkInTime: guest.checkInTime || new Date().toISOString(), // Use stored time or now
+                facility_checkIn_count: [] // Empty array as requested
+            };
+        });
 
-        for (const guest of unsynced) {
-            try {
-                const payload = {
-                    event_id: parseInt(eventId),
-                    guest_id: guest.guest_id,
-                    ticket_id: guest.ticket_id || 0,
-                    check_in_count: 1, // Defaulting to 1 as we don't track delta
-                    category_check_in_count: "",
-                    other_category_check_in_count: 0,
-                    guest_facility_id: ""
-                };
+        console.log(`DEBUG: Sending bulk sync for ${bulkPayload.length} guests`);
 
-                console.log(`DEBUG: Syncing guest ${guest.guest_name} (ID: ${guest.guest_id}) - Payload:`, JSON.stringify(payload));
+        const res = await syncOfflineCheckinsAPI(eventId, bulkPayload);
+        console.log("Bulk sync response:", JSON.stringify(res));
 
-                const res = await checkInGuest(eventId, payload);
+        if (res && (res.success || res.status === true || res.message === "Check-in successful")) {
+            // Mark all as synced
+            const qrCodes = unsynced.map(g => g.qr_code);
+            await markTicketsAsSynced(qrCodes);
 
-                // Check for success indicators (API might return object with id, or success: true)
-                if (res && (res.id || res.check_in_time || res.success || res.status === true)) {
-                    await markTicketsAsSynced([guest.qr_code]);
-                    successCount++;
-                } else {
-                    console.warn(`Failed to sync guest ${guest.guest_name}:`, res);
-                    failCount++;
-                }
-            } catch (err) {
-                console.error(`Error syncing guest ${guest.guest_name}:`, err);
-                failCount++;
-            }
+            return {
+                success: true,
+                count: qrCodes.length,
+                message: `Synced ${qrCodes.length} guests successfully`
+            };
+        } else {
+            console.warn("Bulk sync failed:", res);
+            return {
+                success: false,
+                message: res?.message || "Bulk sync failed"
+            };
         }
-
-        return {
-            success: successCount > 0,
-            count: successCount,
-            failed: failCount,
-            message: `Synced ${successCount} guests, ${failCount} failed`
-        };
 
     } catch (error) {
         console.error("SYNC PENDING CHECKINS ERROR:", error);
@@ -369,8 +413,66 @@ export const getGuestDetails = async (eventId, guestId) => {
 
 export const getEventUsers = async (eventId, page = 1, type = 'all') => {
     try {
-        const response = await client.get(`/events/${eventId}/eventuser?page=${page}&type=${type}&per_page=100`);
-        return response.data;
+        let allGuests = [];
+        let currentPage = page;
+        let hasMore = true;
+
+        console.log(`Fetching ALL event users starting from page ${currentPage}...`);
+
+        while (hasMore) {
+            // ⚡⚡⚡ UPDATED ENDPOINT: /eventuser/fetch ⚡⚡⚡
+            const url = `/events/${eventId}/eventuser/fetch?page=${currentPage}&type=${type}&per_page=50`;
+            console.log(`Requesting: ${url}`);
+            const response = await client.get(url);
+            const data = response.data;
+
+            // Handle "guests_list" structure (from /fetch endpoint)
+            if (data && data.guests_list && Array.isArray(data.guests_list)) {
+                allGuests = [...allGuests, ...data.guests_list];
+                console.log(`Page ${currentPage} fetched ${data.guests_list.length} guests. Total so far: ${allGuests.length}`);
+
+                // Check pagination
+                if (data.guests_list.length === 0 || (data.meta && data.meta.current_page >= data.meta.last_page)) {
+                    hasMore = false;
+                } else {
+                    currentPage++;
+                }
+                
+                // Safety break
+                if (currentPage > 50) hasMore = false;
+
+            } else if (data && data.data && Array.isArray(data.data)) {
+                // Fallback for standard structure
+                allGuests = [...allGuests, ...data.data];
+                console.log(`Page ${currentPage} fetched ${data.data.length} guests. Total so far: ${allGuests.length}`);
+
+                if (data.data.length === 0 || !data.next_page_url) {
+                    hasMore = false;
+                } else {
+                    currentPage++;
+                }
+                if (currentPage > 50) hasMore = false;
+
+            } else {
+                // Handle direct array
+                if (Array.isArray(data)) {
+                    allGuests = [...allGuests, ...data];
+                    console.log(`Page ${currentPage} (Direct Array) fetched ${data.length} guests.`);
+                    
+                    if (data.length < 50) {
+                        hasMore = false;
+                    } else {
+                        currentPage++;
+                    }
+                } else {
+                    hasMore = false;
+                }
+            }
+        }
+
+        console.log(`Total guests fetched: ${allGuests.length}`);
+        return { data: allGuests };
+
     } catch (error) {
         console.log("GET EVENT USERS ERROR:", error.response?.data || error.message);
         return { status: false, data: [] };

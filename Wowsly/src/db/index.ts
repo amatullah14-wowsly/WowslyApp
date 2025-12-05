@@ -7,6 +7,9 @@ SQLite.enablePromise(true);
 const DB_NAME = 'wowsly.db';
 let db: SQLite.SQLiteDatabase | null = null;
 
+// ======================================================
+// OPEN / CLOSE
+// ======================================================
 export async function openDB() {
   if (db) return db;
   db = await SQLite.openDatabase({ name: DB_NAME, location: 'default' });
@@ -20,8 +23,15 @@ export async function closeDB() {
   }
 }
 
+// ======================================================
+// INIT DB — FINAL SCHEMA (ONLY tickets + events)
+// ======================================================
 export async function initDB() {
   const database = await openDB();
+
+  // ------------------------
+  // TICKETS = FULL SOURCE OF TRUTH
+  // ------------------------
   await database.executeSql(`
     CREATE TABLE IF NOT EXISTS tickets (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -33,23 +43,23 @@ export async function initDB() {
       email TEXT,
       phone TEXT,
       status TEXT DEFAULT 'pending',
-      scanned_at TEXT,
-      synced INTEGER DEFAULT 0,
+
+      scanned_at TEXT,              -- ISO timestamp
+      synced INTEGER DEFAULT 1,      -- 0 = needs sync
+
       total_entries INTEGER DEFAULT 1,
       used_entries INTEGER DEFAULT 0,
-      facilities TEXT
-    );
+      facilities TEXT,
+      ticket_title TEXT,
 
-      CREATE TABLE IF NOT EXISTS checkins (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    event_id INTEGER,
-    guest_id INTEGER,
-    ticket_id INTEGER,
-    qr_code TEXT,
-    scanned_at TEXT,
-    synced INTEGER DEFAULT 0
-  );
+      qrGuestUuid TEXT,              -- required for sync API
+      qrTicketId INTEGER,            -- ticket_id mapped for sync API
+      check_in_count INTEGER DEFAULT 0,
+      given_check_in_time TEXT       -- SQL timestamp for sync API
+    );
   `);
+
+  // EVENTS TABLE
   await database.executeSql(`
     CREATE TABLE IF NOT EXISTS events (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -59,183 +69,216 @@ export async function initDB() {
     );
   `);
 
-  // Migration: Add new columns if they don't exist
-  // We wrap each in a try-catch because SQLite doesn't support "ADD COLUMN IF NOT EXISTS" universally/cleanly in one go
-  try {
-    await database.executeSql(`ALTER TABLE tickets ADD COLUMN total_entries INTEGER DEFAULT 1;`);
-    console.log('Added total_entries column');
-  } catch (e) {
-    // Column likely exists
-  }
+  // ------------------------
+  // MIGRATIONS (safe)
+  // ------------------------
+  const safeAddColumn = async (column: string, type: string) => {
+    try {
+      await database.executeSql(`ALTER TABLE tickets ADD COLUMN ${column} ${type};`);
+      console.log(`Migration added column: ${column}`);
+    } catch (e) { }
+  };
 
-  try {
-    await database.executeSql(`ALTER TABLE tickets ADD COLUMN used_entries INTEGER DEFAULT 0;`);
-    console.log('Added used_entries column');
-  } catch (e) {
-    // Column likely exists
-  }
-
-  try {
-    await database.executeSql(`ALTER TABLE tickets ADD COLUMN facilities TEXT;`);
-    console.log('Added facilities column');
-  } catch (e) {
-    // Column likely exists
-  }
-
-  try {
-    await database.executeSql(`ALTER TABLE tickets ADD COLUMN ticket_title TEXT;`);
-    console.log('Added ticket_title column');
-  } catch (e) {
-    // Column likely exists
-  }
+  await safeAddColumn("qrGuestUuid", "TEXT");
+  await safeAddColumn("qrTicketId", "INTEGER");
+  await safeAddColumn("check_in_count", "INTEGER DEFAULT 0");
+  await safeAddColumn("given_check_in_time", "TEXT");
 
   return database;
 }
 
-export async function insertOrReplaceGuests(eventId: number, guestsArray: any[] = []) {
+// ======================================================
+// INSERT DOWNLOADED GUESTS
+// ======================================================
+export async function insertOrReplaceGuests(eventId: number, guestsArray: any[]) {
   if (!Array.isArray(guestsArray) || guestsArray.length === 0) return;
-  const database = await openDB();
 
-  // Use executeSql directly instead of transaction with async callback
-  for (const [index, g] of guestsArray.entries()) {
-    if (index < 3) console.log(`DEBUG: DB Insert Guest [${index}]:`, JSON.stringify(g));
-    const qr = (g.qr_code || g.qr || g.code || g.uuid || g.guest_uuid || '').toString().trim();
+  const db = await openDB();
+
+  for (const g of guestsArray) {
+    const qr = (g.qr_code || g.code || g.uuid || '').toString().trim();
     const guestName = g.name || `${g.first_name || ''} ${g.last_name || ''}`.trim();
+
     const ticketId = g.ticket_id || g.id || null;
     const guestId = g.guest_id || g.user_id || null;
     const status = g.status || 'pending';
     const ticketTitle = g.ticket_title || g.ticket_name || g.ticket_type || 'General';
 
-    // Prioritize tickets_bought from the tickets array as it represents the original total purchase count.
-    // available_tickets might decrease as they are used, so it's not a reliable "total".
-    let totalEntries = 1;
-    if (g.ticket_data && g.ticket_data.tickets_bought) {
-      totalEntries = g.ticket_data.tickets_bought;
-    } else if (g.tickets_bought) {
-      // ⚡⚡⚡ FIX: Check root level tickets_bought (common in some API responses)
-      totalEntries = g.tickets_bought;
-    } else if (g.tickets && g.tickets.length > 0 && g.tickets[0].tickets_bought) {
-      totalEntries = g.tickets[0].tickets_bought;
-    } else if (g.total_entries) {
-      totalEntries = g.total_entries;
-    } else if (g.total_pax) {
-      totalEntries = g.total_pax;
-    } else if (g.pax) {
-      totalEntries = g.pax;
-    } else if (g.quantity) {
-      totalEntries = g.quantity;
-    } else if (g.available_tickets) {
-      // Fallback, but risky if available_tickets means "remaining"
-      totalEntries = g.available_tickets;
-    }
-
-    if (guestName.toLowerCase().includes('lamiya') || index < 3) {
-      console.log(`DEBUG: DB Insert ${guestName} - Raw:`, JSON.stringify(g));
-      console.log(`DEBUG: DB Insert ${guestName} - Calculated totalEntries: ${totalEntries}`);
-    }
+    const totalEntries =
+      g.ticket_data?.tickets_bought ||
+      g.tickets_bought ||
+      g.total_entries ||
+      g.total_pax ||
+      g.quantity ||
+      1;
 
     const usedEntries = g.used_entries || g.checked_in_count || 0;
+
     const facilities = g.facilities ? JSON.stringify(g.facilities) : null;
 
-    try {
-      await database.executeSql(
-        `INSERT OR REPLACE INTO tickets (event_id, ticket_id, guest_id, qr_code, guest_name, email, phone, status, synced, total_entries, used_entries, facilities, ticket_title)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?, ?);`,
-        [eventId, ticketId, guestId, qr, guestName, g.email || null, g.phone || null, status, totalEntries, usedEntries, facilities, ticketTitle]
-      );
-    } catch (error) {
-      console.error('Error inserting guest:', error);
-    }
+    // ⚠️ CRITICAL: Store backend sync required fields
+    const qrGuestUuid = g.guest_uuid || g.uuid || null;
+    const qrTicketId = ticketId;
+
+    await db.executeSql(
+      `INSERT OR REPLACE INTO tickets 
+        (event_id, ticket_id, guest_id, qr_code, guest_name, email, phone, 
+         status, synced, total_entries, used_entries, facilities, ticket_title,
+         qrGuestUuid, qrTicketId)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?, ?, ?, ?);`,
+      [
+        eventId,
+        ticketId,
+        guestId,
+        qr,
+        guestName,
+        g.email || null,
+        g.phone || null,
+        status,
+        totalEntries,
+        usedEntries,
+        facilities,
+        ticketTitle,
+        qrGuestUuid,
+        qrTicketId
+      ]
+    );
   }
-  console.log(`Inserted/Updated ${guestsArray.length} guests for event ${eventId}`);
 }
 
+// ======================================================
+// FIND TICKET BY QR
+// ======================================================
 export async function findTicketByQr(qrValue: string) {
   if (!qrValue) return null;
-  const database = await openDB();
-  const [result] = await database.executeSql(
+  const db = await openDB();
+
+  const [res] = await db.executeSql(
     `SELECT * FROM tickets WHERE qr_code = ? LIMIT 1;`,
     [qrValue.trim()]
   );
-  if (result.rows.length > 0) return result.rows.item(0);
-  return null;
+
+  return res.rows.length > 0 ? res.rows.item(0) : null;
 }
 
-export async function updateTicketStatusLocal(qrValue: string, newStatus = 'checked_in', usedEntriesIncrement = 1) {
-  const database = await openDB();
-  const now = new Date().toISOString();
+// ======================================================
+// UPDATE LOCAL TICKET ON SCAN (OFFLINE)
+// ======================================================
+export async function updateTicketStatusLocal(qrValue: string, newStatus = 'checked_in', count = 1) {
+  const db = await openDB();
+  const iso = new Date().toISOString();
+  const sqlTime = formatToSQLDatetime(iso);
 
-  // First get current used entries to increment correctly
-  const [current] = await database.executeSql(
-    `SELECT used_entries FROM tickets WHERE qr_code = ? LIMIT 1;`,
+  const [current] = await db.executeSql(
+    `SELECT used_entries FROM tickets WHERE qr_code = ?;`,
     [qrValue.trim()]
   );
 
-  let currentUsed = 0;
-  if (current.rows.length > 0) {
-    currentUsed = current.rows.item(0).used_entries || 0;
-  }
+  const previouslyUsed = current.rows.length > 0 ? current.rows.item(0).used_entries : 0;
 
-  const newUsed = currentUsed + usedEntriesIncrement;
-
-  await database.executeSql(
-    `UPDATE tickets SET status = ?, scanned_at = ?, synced = 0, used_entries = ? WHERE qr_code = ?;`,
-    [newStatus, now, newUsed, qrValue.trim()]
+  await db.executeSql(
+    `UPDATE tickets 
+        SET status = ?, 
+            scanned_at = ?, 
+            synced = 0, 
+            used_entries = ?, 
+            check_in_count = ?, 
+            given_check_in_time = ?
+      WHERE qr_code = ?;`,
+    [
+      newStatus,
+      iso,
+      previouslyUsed + count,
+      count,
+      sqlTime,
+      qrValue.trim()
+    ]
   );
 }
 
+// ======================================================
+// GET ALL TICKETS FOR EVENT
+// ======================================================
 export async function getTicketsForEvent(eventId: number) {
-  const database = await openDB();
-  const [result] = await database.executeSql(
+  const db = await openDB();
+  const [res] = await db.executeSql(
     `SELECT * FROM tickets WHERE event_id = ? ORDER BY guest_name COLLATE NOCASE;`,
     [eventId]
   );
-  const items = [];
-  for (let i = 0; i < result.rows.length; i++) items.push(result.rows.item(i));
-  return items;
+
+  const arr = [];
+  for (let i = 0; i < res.rows.length; i++) arr.push(res.rows.item(i));
+  return arr;
 }
 
+// ======================================================
+// GET UNSYNCED CHECK-INS
+// ======================================================
 export async function getUnsyncedCheckins(eventId: number) {
-  const database = await openDB();
-  const [result] = await database.executeSql(
-    `SELECT * FROM tickets WHERE event_id = ? AND synced = 0 AND (status = 'checked_in' OR used_entries > 0) LIMIT 500;`,
+  const db = await openDB();
+  const [res] = await db.executeSql(
+    `SELECT * FROM tickets 
+     WHERE event_id = ? 
+       AND synced = 0 
+       AND check_in_count > 0
+     LIMIT 500;`,
     [eventId]
   );
-  const items = [];
-  for (let i = 0; i < result.rows.length; i++) items.push(result.rows.item(i));
-  return items;
+
+  const arr = [];
+  for (let i = 0; i < res.rows.length; i++) arr.push(res.rows.item(i));
+  return arr;
 }
 
-export async function getLocalCheckedInGuests(eventId: number) {
-  const database = await openDB();
-  const [result] = await database.executeSql(
-    `SELECT * FROM tickets WHERE event_id = ? AND (status = 'checked_in' OR used_entries > 0);`,
-    [eventId]
-  );
-  const items = [];
-  for (let i = 0; i < result.rows.length; i++) items.push(result.rows.item(i));
-  return items;
-}
-
-export async function markTicketsAsSynced(qrCodes: string[] = []) {
+// ======================================================
+// MARK AS SYNCED
+// ======================================================
+export async function markTicketsAsSynced(qrCodes: string[]) {
   if (!qrCodes || qrCodes.length === 0) return;
-  const database = await openDB();
+
+  const db = await openDB();
   const placeholders = qrCodes.map(() => '?').join(',');
-  await database.executeSql(
+
+  await db.executeSql(
     `UPDATE tickets SET synced = 1 WHERE qr_code IN (${placeholders});`,
     qrCodes.map(q => q.trim())
   );
 }
 
+// ======================================================
+// HELPERS
+// ======================================================
+export function formatToSQLDatetime(iso: string) {
+  const d = new Date(iso);
+  return d.toISOString().slice(0, 19).replace("T", " ");
+}
+
+// ======================================================
+// GET LOCAL CHECKED-IN GUESTS
+// ======================================================
+export async function getLocalCheckedInGuests(eventId: number) {
+  const db = await openDB();
+  const [res] = await db.executeSql(
+    `SELECT * FROM tickets WHERE event_id = ? AND (status = 'checked_in' OR used_entries > 0);`,
+    [eventId]
+  );
+  const arr = [];
+  for (let i = 0; i < res.rows.length; i++) arr.push(res.rows.item(i));
+  return arr;
+}
+
+// ======================================================
+// DELETE STALE GUESTS
+// ======================================================
 export async function deleteStaleGuests(eventId: number, activeQrCodes: string[] = []) {
   if (!activeQrCodes || activeQrCodes.length === 0) return;
-  const database = await openDB();
+  const db = await openDB();
 
   // Delete tickets for this event that are NOT in the active list AND are already synced (safe to delete)
   // We do NOT delete synced=0 (pending offline scans)
   const placeholders = activeQrCodes.map(() => '?').join(',');
 
-  await database.executeSql(
+  await db.executeSql(
     `DELETE FROM tickets WHERE event_id = ? AND synced = 1 AND qr_code NOT IN (${placeholders});`,
     [eventId, ...activeQrCodes.map(q => q.trim())]
   );

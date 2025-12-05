@@ -80,10 +80,12 @@ export const checkInGuest = async (eventId, payload) => {
 
 /* ---------------------- SYNC OFFLINE CHECK-INS ---------------------- */
 
-export const syncOfflineCheckinsAPI = async (checkins) => {
+export const syncOfflineCheckinsAPI = async (eventId, checkins) => {
   try {
-    // Matches Kotlin: @POST("checkin/bulk-sync") @Body list: List<CheckInRequest>
-    const response = await client.post("/checkin/bulk-sync", checkins);
+    // ⚡⚡⚡ UPDATED BULK SYNC ENDPOINT ⚡⚡⚡
+    // POST /events/{eventId}/eventuser/verifyqrandcheckin
+    // Payload: Array of objects
+    const response = await client.post(`/events/${eventId}/eventuser/verifyqrandcheckin`, checkins);
 
     return response.data;
   } catch (error) {
@@ -91,6 +93,6 @@ export const syncOfflineCheckinsAPI = async (checkins) => {
       "SYNC OFFLINE ERROR:",
       error.response?.data || error.message
     );
-    return { success: false };
+    return { success: false, message: error.message };
   }
 };

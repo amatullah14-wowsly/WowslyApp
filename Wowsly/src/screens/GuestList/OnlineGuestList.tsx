@@ -108,9 +108,11 @@ const OnlineGuestList = () => {
                 console.log(`Found ${localCheckins.length} local check-ins to merge`);
 
                 fetchedGuests = fetchedGuests.map((apiGuest: any) => {
+                    if (!apiGuest) return apiGuest; // Safety check
+
                     const localMatch = localCheckins.find(u =>
-                        (u.qr_code && u.qr_code === apiGuest.qr_code) ||
-                        (u.guest_id && u.guest_id.toString() === apiGuest.id?.toString())
+                        (u.qr_code && apiGuest.qr_code && u.qr_code === apiGuest.qr_code) ||
+                        (u.guest_id && apiGuest.id && String(u.guest_id) === String(apiGuest.id))
                     );
 
                     if (localMatch) {
@@ -335,7 +337,7 @@ const OnlineGuestList = () => {
                     }}
                     eventId={eventId}
                     guestId={selectedGuestId || undefined}
-                    guest={guests.find(g => g.id.toString() === selectedGuestId?.toString())}
+                    guest={guests.find(g => g.id && selectedGuestId && String(g.id) === String(selectedGuestId))}
                     onManualCheckIn={(guestId) => {
                         console.log('Manual check-in for guest:', guestId);
                         // TODO: Implement manual check-in API call

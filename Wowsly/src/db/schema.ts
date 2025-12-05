@@ -17,10 +17,11 @@ export const createCheckinsTable = `
   CREATE TABLE IF NOT EXISTS checkins (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     event_id INTEGER,
-    guest_id INTEGER,
-    ticket_id INTEGER,
-    qr_code TEXT,
-    scanned_at TEXT,
+    qrGuestUuid TEXT,
+    qrTicketId INTEGER,
+    check_in_count INTEGER,
+    given_check_in_time TEXT,
     synced INTEGER DEFAULT 0
   );
 `;
+

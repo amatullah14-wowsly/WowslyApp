@@ -38,20 +38,39 @@ export async function getTicketByQR(qr) {
 }
 
 // -------------------- STORE OFFLINE CHECK-IN --------------------
-export async function saveOfflineCheckin(data) {
+export async function saveOfflineCheckin(ticket) {
   const db = getDB();
+
+  // Prevent duplicates
+  const existing = await db.executeSql(
+    "SELECT 1 FROM checkins WHERE qrGuestUuid = ?",
+    [ticket.qrGuestUuid]
+  );
+  if (existing[0].rows.length > 0) return;
+
   const query = `
-    INSERT INTO checkins (event_id, guest_id, ticket_id, qr_code, scanned_at, synced)
-    VALUES (?, ?, ?, ?, ?, 0)
+    INSERT INTO checkins (
+      event_id,
+      qrGuestUuid,
+      qrTicketId,
+      check_in_count,
+      given_check_in_time,
+      synced
+    ) VALUES (?, ?, ?, ?, ?, 0)
   `;
 
   await db.executeSql(query, [
-    data.event_id,
-    data.guest_id,
-    data.ticket_id,
-    data.qr_code,
-    data.scanned_at,
+    ticket.event_id,
+    ticket.qrGuestUuid,
+    ticket.qrTicketId,
+    ticket.check_in_count,
+    formatToSQLDatetime(ticket.scanned_at),
   ]);
+}
+
+function formatToSQLDatetime(iso) {
+  const d = new Date(iso);
+  return d.toISOString().slice(0, 19).replace("T", " ");
 }
 
 // -------------------- GET UNSYNCED CHECKINS --------------------
@@ -62,12 +81,12 @@ export async function getUnsyncedCheckins() {
 }
 
 // -------------------- MARK CHECKINS AS SYNCED --------------------
-export async function markTicketsAsSynced(qrList) {
-  if (qrList.length === 0) return;
+export async function markTicketsAsSynced(uuidList) {
+  if (uuidList.length === 0) return;
   const db = getDB();
 
-  const placeholders = qrList.map(() => "?").join(",");
-  const query = `UPDATE checkins SET synced = 1 WHERE qr_code IN (${placeholders})`;
+  const placeholders = uuidList.map(() => "?").join(",");
+  const query = `UPDATE checkins SET synced = 1 WHERE qrGuestUuid IN (${placeholders})`;
 
-  await db.executeSql(query, qrList);
+  await db.executeSql(query, uuidList);
 }
