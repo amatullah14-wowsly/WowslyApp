@@ -733,11 +733,16 @@ const QrCode = () => {
   const getDisplayedStats = () => {
     if (!guestData) return { bought: 0, scanned: 0, remaining: 0 };
 
-    const currentUsed = guestData.usedEntries + selectedQuantity;
-    const currentRemaining = guestData.totalEntries - currentUsed;
+    // Only add selectedQuantity if it's a multi-entry ticket AND valid for check-in
+    // For single entry, it auto-checks in, so we don't add the projection.
+    const isMultiEntry = guestData.totalEntries > 1;
+    const quantityToAdd = (isMultiEntry && guestData.isValid) ? selectedQuantity : 0;
+
+    const currentUsed = (guestData.usedEntries || 0) + quantityToAdd;
+    const currentRemaining = (guestData.totalEntries || 1) - currentUsed;
 
     return {
-      bought: guestData.totalEntries,
+      bought: guestData.totalEntries || 1,
       scanned: currentUsed,
       remaining: Math.max(0, currentRemaining)
     };

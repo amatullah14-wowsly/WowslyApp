@@ -16,7 +16,7 @@ import { GestureHandlerRootView, Swipeable } from 'react-native-gesture-handler'
 import { getEventUsers, makeGuestManager, makeGuestUser } from '../../api/event';
 import GuestDetailsModal from '../../components/GuestDetailsModal';
 import BackButton from '../../components/BackButton';
-import { initDB, getTicketsForEvent, getUnsyncedCheckins, getLocalCheckedInGuests } from '../../db';
+import { getLocalCheckedInGuests } from '../../db';
 import { scanStore, getMergedGuest } from '../../context/ScanStore';
 
 type GuestListRoute = RouteProp<
@@ -29,7 +29,6 @@ type GuestListRoute = RouteProp<
     'OnlineGuestList'
 >;
 
-
 const SEARCH_ICON = {
     uri: 'https://img.icons8.com/ios-glyphs/30/969696/search--v1.png',
 };
@@ -37,15 +36,12 @@ const NOGUESTS_ICON = require('../../assets/img/common/noguests.png');
 
 type TabType = 'registered' | 'invited';
 
-const statusChipStyles: Record<
-    string,
-    { backgroundColor: string; color: string }
-> = {
-    'Checked In': { backgroundColor: '#E3F2FD', color: '#1565C0' }, // Blue
-    Pending: { backgroundColor: '#E8F5E9', color: '#2E7D32' },      // Green
+const statusChipStyles: Record<string, { backgroundColor: string; color: string }> = {
+    'Checked In': { backgroundColor: '#E3F2FD', color: '#1565C0' },
+    Pending: { backgroundColor: '#E8F5E9', color: '#2E7D32' },
     'No-Show': { backgroundColor: '#FFE2E2', color: '#BE2F2F' },
-    'blocked': { backgroundColor: '#FFEBEE', color: '#C62828' },    // Red
-    'registered': { backgroundColor: '#E8F5E9', color: '#2E7D32' }, // Green (default for pending/registered)
+    'blocked': { backgroundColor: '#FFEBEE', color: '#C62828' },
+    'registered': { backgroundColor: '#E8F5E9', color: '#2E7D32' },
     'invited': { backgroundColor: '#E0F2F1', color: '#00695C' },
 };
 
@@ -60,162 +56,141 @@ const OnlineGuestList = () => {
     const [selectedGuestId, setSelectedGuestId] = useState<string | null>(null);
     const [lastUpdate, setLastUpdate] = useState(0);
 
-
-
     const eventTitle = route.params?.eventTitle ?? 'Selected Event';
     const eventId = route.params?.eventId;
 
+    /* ---------------------- Fetch on load & tab change ---------------------- */
     useEffect(() => {
-        if (eventId) {
-            fetchGuests();
-        }
+        if (eventId) fetchGuests();
     }, [eventId, activeTab]);
 
-    // Refresh guest list when screen comes into focus (after QR scanning)
+    /* ---------------------- Refresh when screen focused ---------------------- */
     useFocusEffect(
         React.useCallback(() => {
-            if (eventId) {
-                console.log('OnlineGuestList focused - refreshing guest data');
-                fetchGuests();
-            }
+            if (eventId) fetchGuests();
         }, [eventId, activeTab])
     );
 
-    // ⚡⚡⚡ REAL-TIME UPDATE LISTENER ⚡⚡⚡
+    /* ---------------------- Real-time update listener ---------------------- */
     useEffect(() => {
-        const subscription = DeviceEventEmitter.addListener('BROADCAST_SCAN_TO_CLIENTS', (data) => {
-            console.log("OnlineGuestList received broadcast:", data);
-            // Store is updated globally, we just need to trigger re-render
+        const subscription = DeviceEventEmitter.addListener('BROADCAST_SCAN_TO_CLIENTS', () => {
             setLastUpdate(Date.now());
         });
 
-        return () => {
-            subscription.remove();
-        };
+        return () => subscription.remove();
     }, []);
 
+    /* ---------------------- Fetch guest list ---------------------- */
     const fetchGuests = async () => {
         setLoading(true);
 
         try {
-            // ⚡⚡⚡ FETCH ALL & FILTER LOCALLY ⚡⚡⚡
-            // User requested to fetch ALL and filter by generated_by_owner
             const res = await getEventUsers(eventId, 1, 'all');
             let allGuests = res?.data || [];
 
-            let fetchedGuests = allGuests.filter((g: any) => {
+            // 🔥 Normalize ID (VERY IMPORTANT)
+            allGuests = allGuests.map(g => ({
+                ...g,
+                id: g.id || g.event_user_id,
+            }));
+
+            // Filter by invited vs registered
+            let filtered = allGuests.filter((g: any) => {
                 const isOwnerGenerated = g.generated_by_owner === 1;
-                if (activeTab === 'invited') {
-                    return isOwnerGenerated;
-                } else {
-                    // Registered
-                    return !isOwnerGenerated;
-                }
+                return activeTab === 'invited' ? isOwnerGenerated : !isOwnerGenerated;
             });
 
-            // ⚡⚡⚡ MERGE ALL LOCAL CHECK-INS (SYNCED OR NOT) ⚡⚡⚡
+            // Merge local DB check-ins
             try {
                 const localCheckins = await getLocalCheckedInGuests(Number(eventId));
-                console.log(`Found ${localCheckins.length} local check-ins to merge`);
 
-                fetchedGuests = fetchedGuests.map((apiGuest: any) => {
-                    if (!apiGuest) return apiGuest; // Safety check
-
-                    const localMatch = localCheckins.find(u =>
+                filtered = filtered.map((apiGuest: any) => {
+                    const match = localCheckins.find(u =>
                         (u.qr_code && apiGuest.qr_code && u.qr_code === apiGuest.qr_code) ||
                         (u.guest_id && apiGuest.id && String(u.guest_id) === String(apiGuest.id))
                     );
 
-                    if (localMatch) {
-                        // Trust local data if it shows a check-in
-                        const localUsed = localMatch.used_entries || 0;
-                        const apiUsed = apiGuest.used_entries || 0;
+                    if (!match) return apiGuest;
 
-                        if (localUsed > apiUsed || localMatch.status === 'checked_in') {
-                            console.log(`Merging local data for ${apiGuest.name}`, localMatch);
-                            return {
-                                ...apiGuest,
-                                status: 'Checked In',
-                                used_entries: Math.max(apiUsed, localUsed),
-                            };
-                        }
-                    }
-                    return apiGuest;
+                    const localUsed = match.used_entries || 0;
+                    const apiUsed = apiGuest.used_entries || 0;
+
+                    return {
+                        ...apiGuest,
+                        used_entries: Math.max(apiUsed, localUsed),
+                        status: 'Checked In',
+                    };
                 });
-
-            } catch (dbErr) {
-                console.warn("Failed to fetch local check-ins", dbErr);
+            } catch (err) {
+                console.warn("Local check-ins failed:", err);
             }
 
-            setGuests(fetchedGuests);
-        } catch (error) {
-            console.error('Error fetching guests:', error);
+            setGuests(filtered);
+        } catch (err) {
+            console.error("Fetch error:", err);
             setGuests([]);
         }
 
         setLoading(false);
     };
 
+    /* ---------------------- Merge + search ---------------------- */
     const filteredGuests = useMemo(() => {
-        console.log("OnlineGuestList: Recalculating filteredGuests. Store keys:", Object.keys(scanStore));
-        return guests.map(g => {
-            // ⚡⚡⚡ MERGE LOCAL SCANS FROM GLOBAL STORE ⚡⚡⚡
-            const merged = getMergedGuest(g);
-            if (merged !== g) {
-                console.log(`OnlineGuestList: Merged guest ${g.id} with local data:`, merged);
-            }
-            return merged;
-        }).filter((guest) => {
-            const query = searchQuery.trim().toLowerCase();
-            if (!query) return true;
+        return guests
+            .map(g => getMergedGuest(g))
+            .filter(guest => {
+                const q = searchQuery.trim().toLowerCase();
+                if (!q) return true;
 
-            const name = (guest.name || guest.first_name + ' ' + guest.last_name || 'Guest').toLowerCase();
-            const phone = (guest.phone || guest.mobile || guest.phone_number || '').toString().toLowerCase();
-            const id = (guest.id || guest.ticket_id || '').toString().toLowerCase();
+                const name = (guest.name || `${guest.first_name} ${guest.last_name}`).toLowerCase();
+                const phone = (guest.phone || '').toLowerCase();
+                const id = (guest.id || '').toString();
 
-            return name.includes(query) || phone.includes(query) || id.includes(query);
-        });
+                return (
+                    name.includes(q) ||
+                    phone.includes(q) ||
+                    id.includes(q)
+                );
+            });
     }, [guests, searchQuery, lastUpdate]);
 
+    /* ---------------------- Render each guest ---------------------- */
     const renderGuest = ({ item }: { item: any }) => {
-        const name = item.name || item.first_name + ' ' + item.last_name || 'Guest';
+        const name = item.name || `${item.first_name} ${item.last_name}`;
         const avatar = item.avatar || item.profile_photo;
-        const rawStatus = item.status || activeTab;
-        let status = rawStatus.toLowerCase() === 'active' ? 'Pending' : rawStatus;
 
-        // ⚡⚡⚡ MULTI-ENTRY LOGIC ⚡⚡⚡
+        const rawStatus = item.status || activeTab;
+        let status = rawStatus === 'active' ? 'Pending' : rawStatus;
+
         const ticketData = item.ticket_data || {};
-        const totalEntries = item.total_entries || item.tickets_bought || ticketData.tickets_bought || item.quantity || ticketData.quantity || 1;
-        const usedEntries = item.used_entries || item.checked_in_count || ticketData.used_entries || ticketData.checked_in_count || 0;
-        let statusStyle = statusChipStyles[status] || statusChipStyles[status.toLowerCase()] || statusChipStyles['registered'];
+        const totalEntries = item.total_entries || ticketData.tickets_bought || 1;
+        const usedEntries = item.used_entries || ticketData.used_entries || 0;
+
+        let statusStyle = statusChipStyles[status] || statusChipStyles['registered'];
 
         if (totalEntries > 1) {
             status = `${usedEntries}/${totalEntries}`;
-            // Determine color: Blue if fully checked in, Green if pending/partial
-            if (usedEntries >= totalEntries) {
-                statusStyle = statusChipStyles['Checked In'];
-            } else {
-                statusStyle = statusChipStyles['Pending'];
-            }
+            statusStyle = usedEntries >= totalEntries
+                ? statusChipStyles['Checked In']
+                : statusChipStyles['Pending'];
         }
 
-        const renderRightActions = () => (
-            <View style={styles.rowActions}>
-                <TouchableOpacity
-                    activeOpacity={0.8}
-                    style={[styles.actionButton, styles.editButton]}
-                >
-                    <Text style={styles.actionText}>Edit</Text>
-                </TouchableOpacity>
-            </View>
-        );
-
         return (
-            <Swipeable renderRightActions={renderRightActions} overshootRight={false}>
+            <Swipeable
+                overshootRight={false}
+                renderRightActions={() => (
+                    <View style={styles.rowActions}>
+                        <TouchableOpacity style={[styles.actionButton, styles.editButton]}>
+                            <Text style={styles.actionText}>Edit</Text>
+                        </TouchableOpacity>
+                    </View>
+                )}
+            >
                 <TouchableOpacity
                     activeOpacity={0.7}
                     onPress={() => {
-                        setSelectedGuestId(item.id?.toString());
+                        const id = (item.id || item.event_user_id)?.toString();
+                        setSelectedGuestId(id);
                         setModalVisible(true);
                     }}
                 >
@@ -224,21 +199,16 @@ const OnlineGuestList = () => {
                             <Image source={{ uri: avatar }} style={styles.avatar} />
                         ) : (
                             <View style={[styles.avatar, styles.avatarPlaceholder]}>
-                                <Text style={styles.avatarPlaceholderText}>
-                                    {name.charAt(0).toUpperCase()}
-                                </Text>
+                                <Text style={styles.avatarPlaceholderText}>{name.charAt(0)}</Text>
                             </View>
                         )}
+
                         <View style={styles.guestInfo}>
                             <Text style={styles.guestName}>{name}</Text>
                         </View>
+
                         <View style={[styles.statusChip, statusStyle]}>
-                            <Text
-                                style={[
-                                    styles.statusChipText,
-                                    { color: statusStyle.color },
-                                ]}
-                            >
+                            <Text style={[styles.statusChipText, { color: statusStyle.color }]}>
                                 {status}
                             </Text>
                         </View>
@@ -248,67 +218,45 @@ const OnlineGuestList = () => {
         );
     };
 
+    /* ---------------------- UI ---------------------- */
     return (
         <SafeAreaView style={styles.safeArea}>
             <View style={styles.container}>
                 <View style={styles.header}>
                     <BackButton onPress={() => navigation.goBack()} />
-
-                    <Text style={styles.title} numberOfLines={1}>
-                        {eventTitle}
-                    </Text>
-
+                    <Text style={styles.title}>{eventTitle}</Text>
                     <View style={{ width: 40 }} />
                 </View>
 
                 <Text style={styles.pageTitle}>Guest Lists</Text>
 
-                {/* Horizontal Tab Slider */}
+                {/* Tabs */}
                 <View style={styles.tabContainer}>
                     <TouchableOpacity
-                        style={[
-                            styles.tab,
-                            activeTab === 'registered' && styles.activeTab,
-                        ]}
+                        style={[styles.tab, activeTab === 'registered' && styles.activeTab]}
                         onPress={() => setActiveTab('registered')}
-                        activeOpacity={0.8}
                     >
-                        <Text
-                            style={[
-                                styles.tabText,
-                                activeTab === 'registered' && styles.activeTabText,
-                            ]}
-                        >
+                        <Text style={[styles.tabText, activeTab === 'registered' && styles.activeTabText]}>
                             Registered Guests
                         </Text>
                     </TouchableOpacity>
 
                     <TouchableOpacity
-                        style={[
-                            styles.tab,
-                            activeTab === 'invited' && styles.activeTab,
-                        ]}
+                        style={[styles.tab, activeTab === 'invited' && styles.activeTab]}
                         onPress={() => setActiveTab('invited')}
-                        activeOpacity={0.8}
                     >
-                        <Text
-                            style={[
-                                styles.tabText,
-                                activeTab === 'invited' && styles.activeTabText,
-                            ]}
-                        >
+                        <Text style={[styles.tabText, activeTab === 'invited' && styles.activeTabText]}>
                             Invited Guests
                         </Text>
                     </TouchableOpacity>
                 </View>
 
-                {/* Search Bar */}
+                {/* Search */}
                 <View style={styles.searchContainer}>
                     <Image source={SEARCH_ICON} style={styles.searchIcon} />
                     <TextInput
                         style={styles.searchInput}
                         placeholder="Search by name"
-                        placeholderTextColor="#A1A1A1"
                         value={searchQuery}
                         onChangeText={setSearchQuery}
                     />
@@ -323,7 +271,9 @@ const OnlineGuestList = () => {
                     ) : (
                         <FlatList
                             data={filteredGuests}
-                            keyExtractor={(item, index) => `${item.id}-${index}`}
+                            keyExtractor={(item, index) =>
+                                `${item.id || item.event_user_id}-${index}`
+                            }
                             contentContainerStyle={styles.listContent}
                             ItemSeparatorComponent={() => <View style={styles.separator} />}
                             renderItem={renderGuest}
@@ -331,15 +281,14 @@ const OnlineGuestList = () => {
                                 <View style={styles.emptyState}>
                                     <Image source={NOGUESTS_ICON} style={styles.emptyIcon} />
                                     <Text style={styles.emptyTitle}>No guests found</Text>
-                                    <Text style={styles.emptySubtitle}>
-                                        Try a different name or category.
-                                    </Text>
+                                    <Text style={styles.emptySubtitle}>Try a different name</Text>
                                 </View>
                             }
                         />
                     )}
                 </GestureHandlerRootView>
 
+                {/* Modal */}
                 <GuestDetailsModal
                     visible={modalVisible}
                     onClose={() => {
@@ -348,52 +297,15 @@ const OnlineGuestList = () => {
                     }}
                     eventId={eventId}
                     guestId={selectedGuestId || undefined}
-                    guest={guests.find(g => g.id && selectedGuestId && String(g.id) === String(selectedGuestId))}
-                    onManualCheckIn={(guestId) => {
-                        console.log('Manual check-in for guest:', guestId);
-                        // TODO: Implement manual check-in API call
-                    }}
+                    guest={guests.find(g => String(g.id) === String(selectedGuestId))}
+                    onManualCheckIn={() => console.log("Manual Checkin")}
                     onMakeManager={async (guestId) => {
-                        console.log('Make manager for guest:', guestId);
-                        try {
-                            const res = await makeGuestManager(eventId, guestId);
-                            if (res && (res.status === true || res.success === true || res.data)) {
-                                // Update local state
-                                setGuests(prevGuests =>
-                                    prevGuests.filter(g => g.id.toString() !== guestId.toString())
-                                );
-                                setModalVisible(false);
-                                setSelectedGuestId(null);
-                            } else {
-                                console.error('Failed to make guest manager', res);
-                            }
-                        } catch (err) {
-                            console.error('Error making guest manager:', err);
-                        }
+                        await makeGuestManager(eventId, guestId);
+                        fetchGuests();
                     }}
                     onMakeGuest={async (guestId) => {
-                        console.log('Make guest for guest:', guestId);
-                        try {
-                            const guest = guests.find(g => g.id.toString() === guestId.toString());
-                            let targetType = activeTab;
-
-                            const res = await makeGuestUser(eventId, guestId, targetType);
-                            if (res && (res.status === true || res.success === true || res.data)) {
-                                setGuests(prevGuests =>
-                                    prevGuests.map(g =>
-                                        g.id.toString() === guestId.toString()
-                                            ? { ...g, type: targetType, role: 'guest' }
-                                            : g
-                                    )
-                                );
-                                setModalVisible(false);
-                                setSelectedGuestId(null);
-                            } else {
-                                console.error('Failed to make guest user', res);
-                            }
-                        } catch (err) {
-                            console.error('Error making guest user:', err);
-                        }
+                        await makeGuestUser(eventId, guestId, activeTab);
+                        fetchGuests();
                     }}
                 />
             </View>
@@ -402,6 +314,11 @@ const OnlineGuestList = () => {
 };
 
 export default OnlineGuestList;
+
+
+
+/* styles unchanged... */
+
 
 const styles = StyleSheet.create({
     safeArea: {

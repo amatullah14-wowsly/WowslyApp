@@ -6,7 +6,6 @@ import {
     TouchableOpacity,
     StyleSheet,
     ActivityIndicator,
-    Image,
 } from 'react-native';
 import { getGuestDetails } from '../api/event';
 
@@ -22,8 +21,6 @@ type GuestDetailsModalProps = {
     offline?: boolean;
 };
 
-const CLOSE_ICON = require('../assets/img/common/close.png');
-
 const GuestDetailsModal: React.FC<GuestDetailsModalProps> = ({
     visible,
     onClose,
@@ -38,75 +35,43 @@ const GuestDetailsModal: React.FC<GuestDetailsModalProps> = ({
     const [loading, setLoading] = useState(false);
     const [guestData, setGuestData] = useState<any>(null);
 
+    /* ---------------------- Fetch API details ---------------------- */
     useEffect(() => {
         if (visible && eventId && guestId && !offline) {
             fetchGuestDetails();
         }
     }, [visible, eventId, guestId, offline]);
 
+    /* ---------------------- Merge list guest → modal guest ---------------------- */
     useEffect(() => {
         if (guest) {
-            setGuestData((prev: any) => ({ ...prev, ...guest }));
+            setGuestData(prev => ({ ...prev, ...guest }));
         }
     }, [guest]);
 
     const fetchGuestDetails = async () => {
         setLoading(true);
-        console.log('Fetching guest details for:', { eventId, guestId });
         const res = await getGuestDetails(eventId, guestId);
-        console.log('Guest details response:', res);
+
         if (res?.data) {
-            setGuestData((prev: any) => ({ ...prev, ...res.data }));
-        } else {
-            console.error('Failed to fetch guest details:', res);
+            setGuestData(prev => ({ ...prev, ...res.data }));
         }
+
         setLoading(false);
     };
 
-    const handleManualCheckIn = () => {
-        if (onManualCheckIn && guestId) {
-            onManualCheckIn(guestId);
-        }
-        onClose();
-    };
-
-    const handleMakeManager = () => {
-        if (onMakeManager && guestId) {
-            onMakeManager(guestId);
-        }
-        onClose();
-    };
-
-    const handleMakeGuest = () => {
-        if (onMakeGuest && guestId) {
-            onMakeGuest(guestId);
-        }
-        onClose();
-    };
-
-    const isManager = (guest?.type === 'manager' || guest?.role === 'manager' || guest?.is_manager) ||
-        (guestData?.type === 'manager' || guestData?.is_manager || guestData?.role === 'manager');
+    const isManager =
+        guestData?.type === "manager" ||
+        guestData?.role === "manager" ||
+        guestData?.is_manager;
 
     return (
-        <Modal
-            visible={visible}
-            transparent
-            animationType="slide"
-            onRequestClose={onClose}
-        >
-            <TouchableOpacity
-                style={styles.overlay}
-                activeOpacity={1}
-                onPress={onClose}
-            >
-                <TouchableOpacity
-                    activeOpacity={1}
-                    style={styles.modalContainer}
-                    onPress={(e) => e.stopPropagation()}
-                >
+        <Modal visible={visible} transparent animationType="slide">
+            <TouchableOpacity style={styles.overlay} activeOpacity={1} onPress={onClose}>
+                <TouchableOpacity activeOpacity={1} style={styles.modalContainer} onPress={(e) => e.stopPropagation()}>
                     <View style={styles.header}>
                         <Text style={styles.title}>Guest details</Text>
-                        <TouchableOpacity onPress={onClose} style={styles.closeButton}>
+                        <TouchableOpacity onPress={onClose}>
                             <Text style={styles.closeText}>✕</Text>
                         </TouchableOpacity>
                     </View>
@@ -120,65 +85,61 @@ const GuestDetailsModal: React.FC<GuestDetailsModalProps> = ({
                             <View style={styles.detailsContainer}>
                                 <View style={styles.detailRow}>
                                     <Text style={styles.label}>Name:</Text>
-                                    <Text style={styles.value}>
-                                        {guestData.name || guestData.first_name + ' ' + guestData.last_name || 'N/A'}
-                                    </Text>
+                                    <Text style={styles.value}>{guestData.name || "N/A"}</Text>
                                 </View>
 
                                 <View style={styles.detailRow}>
                                     <Text style={styles.label}>Email:</Text>
-                                    <Text style={styles.value}>{guestData.email || 'N/A'}</Text>
+                                    <Text style={styles.value}>{guestData.email || "N/A"}</Text>
                                 </View>
 
                                 <View style={styles.detailRow}>
                                     <Text style={styles.label}>Contact:</Text>
-                                    <Text style={styles.value}>{guestData.phone || guestData.contact || 'N/A'}</Text>
+                                    <Text style={styles.value}>{guestData.phone || "N/A"}</Text>
                                 </View>
 
                                 <View style={styles.detailRow}>
                                     <Text style={styles.label}>Registration Time:</Text>
                                     <Text style={styles.value}>
-                                        {guestData.registration_time || guestData.created_at || 'N/A'}
+                                        {guestData.registration_time || guestData.created_at || "N/A"}
                                     </Text>
                                 </View>
 
                                 <View style={styles.detailRow}>
                                     <Text style={styles.label}>Registered By:</Text>
-                                    <Text style={styles.value}>{guestData.registered_by || 'N/A'}</Text>
+                                    <Text style={styles.value}>{guestData.registered_by || "N/A"}</Text>
                                 </View>
+
+                                {guestData?.ticket_data && (
+                                    <>
+                                        <View style={styles.detailRow}>
+                                            <Text style={styles.label}>Ticket Title:</Text>
+                                            <Text style={styles.value}>{guestData.ticket_data.ticket_title}</Text>
+                                        </View>
+
+                                        <View style={styles.detailRow}>
+                                            <Text style={styles.label}>Tickets Bought:</Text>
+                                            <Text style={styles.value}>{guestData.ticket_data.tickets_bought}</Text>
+                                        </View>
+                                    </>
+                                )}
                             </View>
 
                             <View style={styles.buttonContainer}>
                                 {onManualCheckIn && (
-                                    <TouchableOpacity
-                                        style={styles.actionButton}
-                                        onPress={handleManualCheckIn}
-                                        activeOpacity={0.8}
-                                    >
+                                    <TouchableOpacity style={styles.actionButton} onPress={() => onManualCheckIn(guestId!)}>
                                         <Text style={styles.buttonText}>Manual CheckIn</Text>
                                     </TouchableOpacity>
                                 )}
 
                                 {isManager ? (
-                                    onMakeGuest && (
-                                        <TouchableOpacity
-                                            style={styles.actionButton}
-                                            onPress={handleMakeGuest}
-                                            activeOpacity={0.8}
-                                        >
-                                            <Text style={styles.buttonText}>Make Guest</Text>
-                                        </TouchableOpacity>
-                                    )
+                                    <TouchableOpacity style={styles.actionButton} onPress={() => onMakeGuest?.(guestId!)}>
+                                        <Text style={styles.buttonText}>Make Guest</Text>
+                                    </TouchableOpacity>
                                 ) : (
-                                    onMakeManager && (
-                                        <TouchableOpacity
-                                            style={styles.actionButton}
-                                            onPress={handleMakeManager}
-                                            activeOpacity={0.8}
-                                        >
-                                            <Text style={styles.buttonText}>Make Manager</Text>
-                                        </TouchableOpacity>
-                                    )
+                                    <TouchableOpacity style={styles.actionButton} onPress={() => onMakeManager?.(guestId!)}>
+                                        <Text style={styles.buttonText}>Make Manager</Text>
+                                    </TouchableOpacity>
                                 )}
                             </View>
                         </>

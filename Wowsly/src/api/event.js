@@ -403,7 +403,10 @@ export const getCheckinDistribution = async (eventId) => {
 
 export const getGuestDetails = async (eventId, guestId) => {
     try {
-        const response = await client.get(`/events/${eventId}/eventuser/${guestId}`);
+        const url = `/events/${eventId}/eventuser/getguestdetails?event_user_id=${guestId}`;
+        console.log("DEBUG: getGuestDetails Requesting:", url);
+        const response = await client.get(url);
+        console.log("DEBUG: getGuestDetails Response:", JSON.stringify(response.data));
         return response.data;
     } catch (error) {
         console.log("GET GUEST DETAILS ERROR:", error.response?.data || error.message);

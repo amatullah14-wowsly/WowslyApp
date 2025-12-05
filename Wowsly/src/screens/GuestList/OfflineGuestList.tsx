@@ -214,7 +214,14 @@ const OfflineGuestList = () => {
                     onClose={() => setModalVisible(false)}
                     eventId={eventId?.toString()}
                     guestId={selectedGuest?.guest_id?.toString()}
-                    guest={selectedGuest}
+                    guest={{
+                        ...selectedGuest,
+                        name: selectedGuest?.guest_name,
+                        ticket_data: {
+                            ticket_title: selectedGuest?.ticket_title,
+                            tickets_bought: selectedGuest?.total_entries
+                        }
+                    }}
                     offline={true}
                     onManualCheckIn={() => handleManualCheckIn(selectedGuest?.guest_id)}
                 />

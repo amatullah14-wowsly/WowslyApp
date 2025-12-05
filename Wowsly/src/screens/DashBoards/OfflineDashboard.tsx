@@ -8,12 +8,13 @@ import {
   TouchableOpacity,
   View,
   ActivityIndicator,
+  DeviceEventEmitter,
 } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import OfflineCard from '../../components/OfflineCard';
 import { downloadOfflineData, getTicketList, syncPendingCheckins } from '../../api/event';
 import Toast from 'react-native-toast-message';
-import { initDB, insertOrReplaceGuests, getTicketsForEvent, getUnsyncedCheckins, markTicketsAsSynced, deleteStaleGuests } from '../../db';
+import { initDB, insertOrReplaceGuests, getTicketsForEvent, getUnsyncedCheckins, markTicketsAsSynced, deleteStaleGuests, getEventSummary } from '../../db';
 import BackButton from '../../components/BackButton';
 
 const OFFLINE_ICON = require('../../assets/img/Mode/offlinemode.png');
@@ -30,64 +31,47 @@ const OfflineDashboard = () => {
   const [downloading, setDownloading] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [offlineData, setOfflineData] = useState<any>(null);
+  const [summary, setSummary] = useState<any[]>([]);
   const [pendingCount, setPendingCount] = useState(0);
   const [ticketList, setTicketList] = useState<any[]>([]);
 
   const totals = useMemo(() => {
-    if (!offlineData) return { total: 0, checkedIn: 0, remaining: 0 };
-
-    // Sum of all total_entries (Pax count)
-    const total = offlineData.reduce((sum: number, g: any) => sum + (g.total_entries || 1), 0);
-
-    // Sum of all used_entries
-    const checkedIn = offlineData.reduce((sum: number, g: any) => sum + (g.used_entries || 0), 0);
+    const total = summary.reduce((acc, item) => acc + (item.total_pax || 0), 0);
+    const checkedIn = summary.reduce((acc, item) => acc + (item.checked_in || 0), 0);
+    const unique = summary.reduce((acc, item) => acc + (item.count || 0), 0);
 
     return {
-      total: total,
-      checkedIn: checkedIn,
+      total,
+      checkedIn,
       remaining: total - checkedIn,
-      unique: offlineData.length
+      unique
     };
-  }, [offlineData]);
+  }, [summary]);
 
   const guestBuckets = useMemo(() => {
-    // Always calculate from local offlineData to reflect real-time offline scans
-    if (!offlineData) return [];
+    return summary.map(item => ({
+      id: item.ticket_title,
+      title: item.ticket_title,
+      total: item.total_pax,
+      checkedIn: item.checked_in
+    }));
+  }, [summary]);
 
-    const buckets: any = {};
-
-    offlineData.forEach((guest: any) => {
-      // Use ticket_title if available, otherwise fallback to 'General'
-      const title = guest.ticket_title || guest.ticket_name || guest.ticket_type || 'General';
-      const key = title.toLowerCase();
-
-      if (!buckets[key]) {
-        buckets[key] = {
-          id: key,
-          title: title,
-          total: 0,
-          checkedIn: 0
-        };
-      }
-
-      buckets[key].total += (guest.total_entries || 1);
-      buckets[key].checkedIn += (guest.used_entries || 0);
-    });
-
-    return Object.values(buckets);
-  }, [offlineData]);
-
+  // Initialize database and load saved offline data
   // Initialize database and load saved offline data
   useEffect(() => {
     const loadOfflineData = async () => {
       if (eventId) {
         try {
           await initDB();
+
+          // Load Summary (Dynamic)
+          const stats = await getEventSummary(eventId);
+          setSummary(stats);
+
+          // Load full list (optional, mostly for "Download" count comparison)
           const tickets = await getTicketsForEvent(eventId);
-          if (tickets && tickets.length > 0) {
-            setOfflineData(tickets);
-            console.log(`Loaded ${tickets.length} guests from database`);
-          }
+          if (tickets) setOfflineData(tickets);
 
           // Check for pending uploads
           const pending = await getUnsyncedCheckins(eventId);
@@ -101,6 +85,14 @@ const OfflineDashboard = () => {
       }
     };
     loadOfflineData();
+
+    // Listen for real-time scans
+    const sub = DeviceEventEmitter.addListener('BROADCAST_SCAN_TO_CLIENTS', () => {
+      console.log("OfflineDashboard: Refreshing summary due to scan");
+      loadOfflineData();
+    });
+
+    return () => sub.remove();
   }, [eventId]);
 
   const fetchTicketList = async (id: string) => {
@@ -146,14 +138,14 @@ const OfflineDashboard = () => {
 
         // ⚡⚡⚡ CALCULATE ADDED GUESTS ⚡⚡⚡
         const initialCount = offlineData ? offlineData.length : 0;
-        
+
         // Save to SQLite database
         await insertOrReplaceGuests(eventId, res.guests_list);
 
         // Reload from database to update UI
         const tickets = await getTicketsForEvent(eventId);
         setOfflineData(tickets);
-        
+
         const finalCount = tickets ? tickets.length : 0;
         const addedCount = Math.max(0, finalCount - initialCount);
 
@@ -163,8 +155,8 @@ const OfflineDashboard = () => {
         Toast.show({
           type: 'success',
           text1: 'Download Complete',
-          text2: addedCount > 0 
-            ? `Added ${addedCount} new guests` 
+          text2: addedCount > 0
+            ? `Added ${addedCount} new guests`
             : 'Data updated successfully'
         });
       } else {

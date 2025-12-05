@@ -33,12 +33,7 @@ export const verifyOTP = async (dialing_code, mobile, otp) => {
   }
 };
 
-/* ---------------------- QR CODE (ONLINE) — NOT USED FOR OFFLINE ---------------------- */
-/*
-  ⚠ IMPORTANT:
-  You will use verifyQRCode ONLY when online (optional).
-  For OFFLINE mode you will use SQLite findTicketByQr().
-*/
+/* ---------------------- QR CODE (ONLINE) ---------------------- */
 
 export const verifyQRCode = async (eventId, qrGuestUuid) => {
   try {
@@ -61,8 +56,6 @@ export const verifyQRCode = async (eventId, qrGuestUuid) => {
 
 export const checkInGuest = async (eventId, payload) => {
   try {
-    // Payload matches OnlineCheckInRequest:
-    // { event_id, guest_id, ticket_id, check_in_count, category_check_in_count, other_category_check_in_count, guest_facility_id }
     const response = await client.post(
       `/events/${eventId}/eventuser/checkin`,
       payload
@@ -78,14 +71,35 @@ export const checkInGuest = async (eventId, payload) => {
   }
 };
 
+/* ---------------------- GET FULL GUEST DETAILS ---------------------- */
+
+export const getGuestDetails = async (eventId, eventUserId) => {
+  try {
+    const response = await client.get(
+      `/events/${eventId}/eventuser/getguestdetails`,
+      {
+        params: { event_user_id: eventUserId }
+      }
+    );
+
+    return response.data;
+  } catch (error) {
+    console.log(
+      "GET GUEST DETAILS ERROR:",
+      error.response?.data || error.message
+    );
+    return { success: false, message: "Failed to load guest details" };
+  }
+};
+
 /* ---------------------- SYNC OFFLINE CHECK-INS ---------------------- */
 
 export const syncOfflineCheckinsAPI = async (eventId, checkins) => {
   try {
-    // ⚡⚡⚡ UPDATED BULK SYNC ENDPOINT ⚡⚡⚡
-    // POST /events/{eventId}/eventuser/verifyqrandcheckin
-    // Payload: Array of objects
-    const response = await client.post(`/events/${eventId}/eventuser/verifyqrandcheckin`, checkins);
+    const response = await client.post(
+      `/events/${eventId}/eventuser/verifyqrandcheckin`,
+      checkins
+    );
 
     return response.data;
   } catch (error) {

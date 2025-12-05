@@ -55,7 +55,9 @@ export async function initDB() {
       qrGuestUuid TEXT,              -- required for sync API
       qrTicketId INTEGER,            -- ticket_id mapped for sync API
       check_in_count INTEGER DEFAULT 0,
-      given_check_in_time TEXT       -- SQL timestamp for sync API
+      given_check_in_time TEXT,       -- SQL timestamp for sync API
+      registration_time TEXT,
+      registered_by TEXT
     );
   `);
 
@@ -124,8 +126,8 @@ export async function insertOrReplaceGuests(eventId: number, guestsArray: any[])
       `INSERT OR REPLACE INTO tickets 
         (event_id, ticket_id, guest_id, qr_code, guest_name, email, phone, 
          status, synced, total_entries, used_entries, facilities, ticket_title,
-         qrGuestUuid, qrTicketId)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?, ?, ?, ?);`,
+         qrGuestUuid, qrTicketId, registration_time, registered_by)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?, ?, ?, ?, ?, ?);`,
       [
         eventId,
         ticketId,
@@ -140,7 +142,9 @@ export async function insertOrReplaceGuests(eventId: number, guestsArray: any[])
         facilities,
         ticketTitle,
         qrGuestUuid,
-        qrTicketId
+        qrTicketId,
+        g.registration_time || g.created_at || null,
+        g.registered_by || 'Self'
       ]
     );
   }
@@ -283,4 +287,28 @@ export async function deleteStaleGuests(eventId: number, activeQrCodes: string[]
     [eventId, ...activeQrCodes.map(q => q.trim())]
   );
   console.log(`Deleted stale guests for event ${eventId}`);
+}
+
+// ======================================================
+// GET EVENT SUMMARY (DYNAMIC)
+// ======================================================
+export async function getEventSummary(eventId: number) {
+  const db = await openDB();
+  const [res] = await db.executeSql(
+    `SELECT 
+       ticket_title, 
+       COUNT(*) as count, 
+       SUM(total_entries) as total_pax, 
+       SUM(used_entries) as checked_in 
+     FROM tickets 
+     WHERE event_id = ? 
+     GROUP BY ticket_title;`,
+    [eventId]
+  );
+
+  const arr = [];
+  for (let i = 0; i < res.rows.length; i++) {
+    arr.push(res.rows.item(i));
+  }
+  return arr;
 }
