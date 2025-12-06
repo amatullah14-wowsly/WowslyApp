@@ -13,9 +13,10 @@ type GridProps = {
   title: string;
   value: string;
   onPress?: () => void;
+  showArrow?: boolean;
 };
 
-const Grid = ({ icon, title, value, onPress }: GridProps) => {
+const Grid = ({ icon, title, value, onPress, showArrow = true }: GridProps) => {
   return (
     <TouchableOpacity style={styles.card} onPress={onPress}>
       <View style={styles.row}>
@@ -24,7 +25,7 @@ const Grid = ({ icon, title, value, onPress }: GridProps) => {
       </View>
       <Text style={styles.value}>{value}</Text>
 
-      {onPress && (
+      {onPress && showArrow && (
         <Image
           source={require("../assets/img/common/forwardarrow.png")}
           style={styles.arrow}

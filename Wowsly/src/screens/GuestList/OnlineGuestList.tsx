@@ -13,7 +13,8 @@ import {
 } from 'react-native';
 import { RouteProp, useNavigation, useRoute, useFocusEffect } from '@react-navigation/native';
 import { GestureHandlerRootView, Swipeable } from 'react-native-gesture-handler';
-import { getEventUsers, makeGuestManager, makeGuestUser } from '../../api/event';
+import { getEventUsers, makeGuestManager, makeGuestUser, verifyQrCode } from '../../api/event';
+import Toast from 'react-native-toast-message';
 import GuestDetailsModal from '../../components/GuestDetailsModal';
 import BackButton from '../../components/BackButton';
 import { getLocalCheckedInGuests } from '../../db';
@@ -91,7 +92,7 @@ const OnlineGuestList = () => {
             // 🔥 Normalize ID (VERY IMPORTANT)
             allGuests = allGuests.map(g => ({
                 ...g,
-                id: g.id || g.event_user_id,
+                id: g.id || g.guest_id || g.event_user_id,
             }));
 
             // Filter by invited vs registered
@@ -189,7 +190,8 @@ const OnlineGuestList = () => {
                 <TouchableOpacity
                     activeOpacity={0.7}
                     onPress={() => {
-                        const id = (item.id || item.event_user_id)?.toString();
+                        const id = (item.id || item.guest_id || item.event_user_id)?.toString();
+                        console.log("Selected Guest ID:", id);
                         setSelectedGuestId(id);
                         setModalVisible(true);
                     }}
@@ -298,7 +300,46 @@ const OnlineGuestList = () => {
                     eventId={eventId}
                     guestId={selectedGuestId || undefined}
                     guest={guests.find(g => String(g.id) === String(selectedGuestId))}
-                    onManualCheckIn={() => console.log("Manual Checkin")}
+                    onManualCheckIn={async () => {
+                        const guest = guests.find(g => String(g.id) === String(selectedGuestId));
+                        if (!guest) return;
+
+                        const guestUuid = guest.uuid || guest.guest_uuid || guest.unique_id || guest.qr_code;
+
+                        if (guestUuid) {
+                            try {
+                                const res = await verifyQrCode(eventId, { qrGuestUuid: guestUuid });
+                                if (res && (res.message === "QR code verified" || res.success)) {
+                                    Toast.show({
+                                        type: 'success',
+                                        text1: 'Check-in Successful',
+                                        text2: `${guest.name || 'Guest'} checked in successfully`
+                                    });
+                                    fetchGuests(); // Refresh list
+                                    setModalVisible(false);
+                                } else {
+                                    Toast.show({
+                                        type: 'error',
+                                        text1: 'Check-in Failed',
+                                        text2: res?.message || 'Verification failed'
+                                    });
+                                }
+                            } catch (error) {
+                                console.error("Manual check-in error:", error);
+                                Toast.show({
+                                    type: 'error',
+                                    text1: 'Check-in Failed',
+                                    text2: 'An error occurred'
+                                });
+                            }
+                        } else {
+                            Toast.show({
+                                type: 'error',
+                                text1: 'Check-in Failed',
+                                text2: 'Guest UUID not found'
+                            });
+                        }
+                    }}
                     onMakeManager={async (guestId) => {
                         await makeGuestManager(eventId, guestId);
                         fetchGuests();

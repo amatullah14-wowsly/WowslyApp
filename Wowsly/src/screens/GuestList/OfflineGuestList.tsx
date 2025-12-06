@@ -14,6 +14,8 @@ import {
 } from 'react-native';
 import { RouteProp, useNavigation, useRoute, useFocusEffect } from '@react-navigation/native';
 import { initDB, getTicketsForEvent, updateTicketStatusLocal } from '../../db';
+import { verifyQrCode } from '../../api/event';
+import Toast from 'react-native-toast-message';
 import BackButton from '../../components/BackButton';
 import GuestDetailsModal from '../../components/GuestDetailsModal';
 
@@ -105,9 +107,26 @@ const OfflineGuestList = () => {
         try {
             const qrCode = selectedGuest.qr_code;
             if (qrCode) {
+                // 1. Update local DB
                 await updateTicketStatusLocal(qrCode, 'checked_in', 1);
 
-                // Broadcast update
+                // 2. Call API to verify/sync immediately if possible
+                const guestUuid = selectedGuest.guest_uuid || selectedGuest.uuid || selectedGuest.unique_id; // Try multiple fields if needed
+                if (guestUuid) {
+                    verifyQrCode(eventId, { qrGuestUuid: guestUuid })
+                        .then((res) => {
+                            if (res && (res.message === "QR code verified" || res.success)) {
+                                Toast.show({
+                                    type: 'success',
+                                    text1: 'Check-in Successful',
+                                    text2: `${selectedGuest.guest_name || 'Guest'} checked in successfully`
+                                });
+                            }
+                        })
+                        .catch(err => console.log("Manual verification API failed silently:", err));
+                }
+
+                // 3. Broadcast update
                 const broadcastData = {
                     guest_name: selectedGuest.guest_name,
                     qr_code: qrCode,
@@ -124,6 +143,11 @@ const OfflineGuestList = () => {
             }
         } catch (error) {
             console.error("Manual check-in failed:", error);
+            Toast.show({
+                type: 'error',
+                text1: 'Check-in Failed',
+                text2: 'Could not check in guest locally'
+            });
         }
     };
 
@@ -222,7 +246,7 @@ const OfflineGuestList = () => {
                             tickets_bought: selectedGuest?.total_entries
                         }
                     }}
-                    offline={true}
+
                     onManualCheckIn={() => handleManualCheckIn(selectedGuest?.guest_id)}
                 />
             </View>

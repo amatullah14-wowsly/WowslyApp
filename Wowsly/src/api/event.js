@@ -440,7 +440,7 @@ export const getEventUsers = async (eventId, page = 1, type = 'all') => {
                 } else {
                     currentPage++;
                 }
-                
+
                 // Safety break
                 if (currentPage > 50) hasMore = false;
 
@@ -461,7 +461,7 @@ export const getEventUsers = async (eventId, page = 1, type = 'all') => {
                 if (Array.isArray(data)) {
                     allGuests = [...allGuests, ...data];
                     console.log(`Page ${currentPage} (Direct Array) fetched ${data.length} guests.`);
-                    
+
                     if (data.length < 50) {
                         hasMore = false;
                     } else {
@@ -489,5 +489,17 @@ export const makeGuestManager = async (eventId, guestId) => {
     } catch (error) {
         console.log("MAKE MANAGER ERROR:", error.response?.data || error.message);
         return { status: false, message: "Failed to make manager" };
+    }
+};
+
+export const verifyQrCode = async (eventId, payload) => {
+    try {
+        console.log(`Verifying QR code for event ${eventId} with payload:`, payload);
+        const response = await client.post(`/events/${eventId}/eventuser/verifyqrcode`, payload);
+        console.log("VERIFY QR RESPONSE:", response.data);
+        return response.data;
+    } catch (error) {
+        console.log("VERIFY QR ERROR:", error.response?.data || error.message);
+        return { status: false, message: "Verification failed" };
     }
 };

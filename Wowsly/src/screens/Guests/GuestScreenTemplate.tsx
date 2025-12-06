@@ -76,7 +76,7 @@ const GuestScreenTemplate: React.FC<GuestScreenTemplateProps> = ({
     if (eventId) {
       fetchGuests();
     }
-  }, [eventId, activeFilter]);
+  }, [eventId]);
 
   // Refresh guest list when screen comes into focus (after QR scanning)
   useFocusEffect(
@@ -105,41 +105,27 @@ const GuestScreenTemplate: React.FC<GuestScreenTemplateProps> = ({
     setLoading(true);
 
     try {
-      if (activeFilter === 'All') {
-        // Fetch all categories and combine them
-        const [managerRes, invitedRes, registeredRes] = await Promise.all([
-          getEventUsers(eventId, 1, 'manager'),
-          getEventUsers(eventId, 1, 'invited'),
-          getEventUsers(eventId, 1, 'registered'),
-        ]);
+      // ⚡⚡⚡ FETCH ALL GUESTS ONCE ⚡⚡⚡
+      const res = await getEventUsers(eventId, 1, 'all');
 
-        const allGuests = [
-          ...(managerRes?.data || []),
-          ...(invitedRes?.data || []),
-          ...(registeredRes?.data || []),
-        ];
+      if (res?.data) {
+        let allGuests = res.data;
 
         // Remove duplicates based on id
-        const uniqueGuests = allGuests.filter((guest, index, self) =>
-          index === self.findIndex((g) => g.id === guest.id)
-        );
+        const uniqueGuests = allGuests.map(g => ({
+          ...g,
+          id: g.id || g.guest_id, // Map guest_id to id if id is missing
+        })).filter((guest, index, self) => {
+          const id = guest.id;
+          return id && index === self.findIndex((g) => g.id === id);
+        });
 
+        console.log("DEBUG: Unique Guests Count:", uniqueGuests.length);
         setGuests(uniqueGuests);
       } else {
-        // Fetch specific category
-        let type = activeFilter.toLowerCase();
-        const res = await getEventUsers(eventId, 1, type);
-        let fetchedGuests = res?.data || [];
-
-        // Strict filtering for Manager tab
-        if (activeFilter === 'Manager') {
-          fetchedGuests = fetchedGuests.filter((g: any) =>
-            g.type === 'manager' || g.is_manager || g.group === 'Manager' || g.role === 'manager'
-          );
-        }
-
-        setGuests(fetchedGuests);
+        setGuests([]);
       }
+
     } catch (error) {
       console.error('Error fetching guests:', error);
       setGuests([]);
@@ -153,16 +139,31 @@ const GuestScreenTemplate: React.FC<GuestScreenTemplateProps> = ({
       // ⚡⚡⚡ MERGE LOCAL SCANS FROM GLOBAL STORE ⚡⚡⚡
       return getMergedGuest(g);
     }).filter((guest) => {
+      // ⚡⚡⚡ CATEGORY FILTERING ⚡⚡⚡
+      if (activeFilter !== 'All') {
+        if (activeFilter === 'Manager') {
+          if (!(guest.type === 'manager' || guest.is_manager || guest.group === 'Manager' || guest.role === 'manager')) return false;
+        } else if (activeFilter === 'Invited') {
+          // Rule: generated_by_owner : 1 -> invited
+          const isInvited = guest.generated_by_owner == 1;
+          if (!isInvited) return false;
+        } else if (activeFilter === 'Registered') {
+          // Rule: generated_by_owner : 0 -> registered
+          const isRegistered = guest.generated_by_owner == 0;
+          if (!isRegistered) return false;
+        }
+      }
+
       const query = searchQuery.trim().toLowerCase();
       if (!query) return true;
 
       const name = (guest.name || guest.first_name + ' ' + guest.last_name || 'Guest').toLowerCase();
-      const phone = (guest.phone || guest.mobile || guest.phone_number || '').toString().toLowerCase();
+      const phone = (guest.mobile || guest.phone || guest.phone_number || '').toString().toLowerCase();
       const id = (guest.id || guest.ticket_id || '').toString().toLowerCase();
 
       return name.includes(query) || phone.includes(query) || id.includes(query);
     });
-  }, [guests, searchQuery, lastUpdate]);
+  }, [guests, searchQuery, lastUpdate, activeFilter]);
 
   const renderGuest = ({ item }: { item: any }) => {
     const name = item.name || item.first_name + ' ' + item.last_name || 'Guest';
@@ -318,7 +319,7 @@ const GuestScreenTemplate: React.FC<GuestScreenTemplateProps> = ({
         }}
         eventId={eventId}
         guestId={selectedGuestId || undefined}
-        guest={guests.find(g => g.id.toString() === selectedGuestId?.toString())}
+        guest={guests.find(g => (g.id || '').toString() === selectedGuestId?.toString())}
         onManualCheckIn={(guestId) => {
           console.log('Manual check-in for guest:', guestId);
           // TODO: Implement manual check-in API call
@@ -332,14 +333,14 @@ const GuestScreenTemplate: React.FC<GuestScreenTemplateProps> = ({
               setGuests(prevGuests => {
                 if (activeFilter === 'All') {
                   return prevGuests.map(g =>
-                    g.id.toString() === guestId.toString()
+                    (g.id || '').toString() === guestId.toString()
                       ? { ...g, type: 'manager', role: 'manager' }
                       : g
                   );
                 } else if (activeFilter === 'Manager') {
                   return prevGuests;
                 } else {
-                  return prevGuests.filter(g => g.id.toString() !== guestId.toString());
+                  return prevGuests.filter(g => (g.id || '').toString() !== guestId.toString());
                 }
               });
               setModalVisible(false);
@@ -354,7 +355,7 @@ const GuestScreenTemplate: React.FC<GuestScreenTemplateProps> = ({
         onMakeGuest={async (guestId) => {
           console.log('Make guest for guest:', guestId);
           try {
-            const guest = guests.find(g => g.id.toString() === guestId.toString());
+            const guest = guests.find(g => (g.id || '').toString() === guestId.toString());
             let targetType = 'registered';
             if (guest && guest.status && guest.status.toLowerCase() === 'invited') {
               targetType = 'invited';
@@ -365,12 +366,12 @@ const GuestScreenTemplate: React.FC<GuestScreenTemplateProps> = ({
               setGuests(prevGuests => {
                 if (activeFilter === 'All') {
                   return prevGuests.map(g =>
-                    g.id.toString() === guestId.toString()
+                    (g.id || '').toString() === guestId.toString()
                       ? { ...g, type: targetType, role: 'guest' }
                       : g
                   );
                 } else if (activeFilter === 'Manager') {
-                  return prevGuests.filter(g => g.id.toString() !== guestId.toString());
+                  return prevGuests.filter(g => (g.id || '').toString() !== guestId.toString());
                 } else {
                   return prevGuests;
                 }
