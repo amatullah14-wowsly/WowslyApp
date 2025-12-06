@@ -482,6 +482,22 @@ export const getEventUsers = async (eventId, page = 1, type = 'all') => {
     }
 };
 
+export const getEventUsersPage = async (eventId, page = 1, type = 'all', search = '') => {
+    try {
+        let url = `/events/${eventId}/eventuser/fetch?page=${page}&type=${type}&per_page=100`;
+        if (search) {
+            url += `&search=${encodeURIComponent(search)}`;
+        }
+
+        console.log(`Requesting Page: ${url}`);
+        const response = await client.get(url);
+        return response.data; // Should return { guests_list: [], meta: { current_page, last_page, total, ... } }
+    } catch (error) {
+        console.log("GET EVENT USERS PAGE ERROR:", error.response?.data || error.message);
+        return { status: false, guests_list: [], meta: null };
+    }
+};
+
 export const makeGuestManager = async (eventId, guestId) => {
     try {
         const response = await client.post(`/events/${eventId}/eventuser/${guestId}/make-manager`);

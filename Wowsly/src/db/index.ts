@@ -216,6 +216,48 @@ export async function getTicketsForEvent(eventId: number) {
 }
 
 // ======================================================
+// GET TICKETS PAGINATED (OFFLINE)
+// ======================================================
+export async function getTicketsForEventPage(eventId: number, page: number = 1, limit: number = 100, search: string = '') {
+  const db = await openDB();
+  const offset = (page - 1) * limit;
+
+  let query = `SELECT * FROM tickets WHERE event_id = ?`;
+  let countQuery = `SELECT COUNT(*) as total FROM tickets WHERE event_id = ?`;
+  const params: any[] = [eventId];
+
+  if (search && search.trim().length > 0) {
+    const s = `%${search.trim()}%`;
+    const searchClause = ` AND (guest_name LIKE ? OR phone LIKE ? OR qr_code LIKE ? OR ticket_id LIKE ?)`;
+    query += searchClause;
+    countQuery += searchClause;
+    params.push(s, s, s, s);
+  }
+
+  query += ` ORDER BY guest_name COLLATE NOCASE LIMIT ? OFFSET ?;`;
+
+  // Params for main query: eventId, [search params...], limit, offset
+  const queryParams = [...params, limit, offset];
+
+  // Execute Data Query
+  const [res] = await db.executeSql(query, queryParams);
+  const guests = [];
+  for (let i = 0; i < res.rows.length; i++) guests.push(res.rows.item(i));
+
+  // Execute Count Query
+  // Params for count query: eventId, [search params...]
+  const [countRes] = await db.executeSql(countQuery, params);
+  const total = countRes.rows.item(0).total;
+
+  return {
+    guests,
+    total,
+    page,
+    last_page: Math.ceil(total / limit)
+  };
+}
+
+// ======================================================
 // GET UNSYNCED CHECK-INS
 // ======================================================
 export async function getUnsyncedCheckins(eventId: number) {

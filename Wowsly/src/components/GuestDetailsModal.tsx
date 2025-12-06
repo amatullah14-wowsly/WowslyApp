@@ -127,8 +127,17 @@ const GuestDetailsModal: React.FC<GuestDetailsModalProps> = ({
 
                             <View style={styles.buttonContainer}>
                                 {onManualCheckIn && (
-                                    <TouchableOpacity style={styles.actionButton} onPress={() => onManualCheckIn(guestId!)}>
-                                        <Text style={styles.buttonText}>Manual CheckIn</Text>
+                                    <TouchableOpacity
+                                        style={[
+                                            styles.actionButton,
+                                            (guestData?.status === 'Checked In' || guestData?.status === 'checked_in' || guestData?.check_in_status === 1) && styles.disabledButton
+                                        ]}
+                                        disabled={guestData?.status === 'Checked In' || guestData?.status === 'checked_in' || guestData?.check_in_status === 1}
+                                        onPress={() => onManualCheckIn(guestId!)}
+                                    >
+                                        <Text style={styles.buttonText}>
+                                            {(guestData?.status === 'Checked In' || guestData?.status === 'checked_in' || guestData?.check_in_status === 1) ? 'Checked In' : 'Manual CheckIn'}
+                                        </Text>
                                     </TouchableOpacity>
                                 )}
 
@@ -255,6 +264,11 @@ const styles = StyleSheet.create({
     errorText: {
         fontSize: 16,
         color: '#BE2F2F',
+    },
+    disabledButton: {
+        backgroundColor: '#CCC',
+        shadowOpacity: 0,
+        elevation: 0,
     },
 });
 

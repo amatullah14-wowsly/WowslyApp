@@ -13,7 +13,7 @@ import {
 } from 'react-native';
 import { RouteProp, useNavigation, useRoute, useFocusEffect } from '@react-navigation/native';
 import { GestureHandlerRootView, Swipeable } from 'react-native-gesture-handler';
-import { getEventUsers, makeGuestManager, makeGuestUser, verifyQrCode } from '../../api/event';
+import { getEventUsers, makeGuestManager, makeGuestUser, verifyQrCode, getEventUsersPage } from '../../api/event';
 import Toast from 'react-native-toast-message';
 import GuestDetailsModal from '../../components/GuestDetailsModal';
 import BackButton from '../../components/BackButton';
@@ -57,55 +57,89 @@ const OnlineGuestList = () => {
     const [selectedGuestId, setSelectedGuestId] = useState<string | null>(null);
     const [lastUpdate, setLastUpdate] = useState(0);
 
+    // Pagination State
+    const [currentPage, setCurrentPage] = useState(1);
+    const [lastPage, setLastPage] = useState(1);
+    const [totalGuests, setTotalGuests] = useState(0);
+
     const eventTitle = route.params?.eventTitle ?? 'Selected Event';
     const eventId = route.params?.eventId;
-
-    /* ---------------------- Fetch on load & tab change ---------------------- */
-    useEffect(() => {
-        if (eventId) fetchGuests();
-    }, [eventId, activeTab]);
-
-    /* ---------------------- Refresh when screen focused ---------------------- */
-    useFocusEffect(
-        React.useCallback(() => {
-            if (eventId) fetchGuests();
-        }, [eventId, activeTab])
-    );
 
     /* ---------------------- Real-time update listener ---------------------- */
     useEffect(() => {
         const subscription = DeviceEventEmitter.addListener('BROADCAST_SCAN_TO_CLIENTS', () => {
-            setLastUpdate(Date.now());
+            // Refresh current page on scan
+            fetchGuests(currentPage);
         });
 
         return () => subscription.remove();
-    }, []);
+    }, [currentPage]); // Re-bind when page changes
+
+    /* ---------------------- Fetch on load & tab/search change ---------------------- */
+    useEffect(() => {
+        if (eventId) {
+            // Reset to page 1 when tab changes
+            fetchGuests(1);
+        }
+    }, [eventId, activeTab]);
+
+    // Debounced search effect
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            if (eventId) fetchGuests(1);
+        }, 500);
+        return () => clearTimeout(timer);
+    }, [searchQuery]);
+
 
     /* ---------------------- Fetch guest list ---------------------- */
-    const fetchGuests = async () => {
+    const fetchGuests = async (page = 1) => {
         setLoading(true);
 
         try {
-            const res = await getEventUsers(eventId, 1, 'all');
-            let allGuests = res?.data || [];
+            // Use getEventUsersPage for server-side pagination & search
+            // Import this function at the top
+            const type = (activeTab as string) === 'all' ? 'all' : activeTab; // Map 'registered'/'invited' correctly
 
-            // 🔥 Normalize ID (VERY IMPORTANT)
-            allGuests = allGuests.map(g => ({
+            // Note: API likely expects 'registered' or 'invited' directly.
+            // My API analysis showed 'type' param is supported.
+
+            const res = await getEventUsersPage(eventId, page, activeTab, searchQuery);
+
+            let fetchedGuests = res?.guests_list || res?.data || [];
+            const meta = res?.meta || res?.pagination;
+
+            if (res && res.guests_list) {
+                fetchedGuests = res.guests_list;
+            } else if (res && res.data && Array.isArray(res.data)) {
+                fetchedGuests = res.data;
+            } else if (Array.isArray(res)) {
+                fetchedGuests = res;
+            }
+
+            // Update Pagination Info
+            if (meta) {
+                setLastPage(meta.last_page || 1);
+                setTotalGuests(meta.total || 0);
+                setCurrentPage(meta.current_page || page);
+            } else {
+                // Fallback if no meta (shouldn't happen with new API)
+                setLastPage(1);
+                setCurrentPage(page);
+            }
+
+
+            // 🔥 Normalize ID
+            fetchedGuests = fetchedGuests.map((g: any) => ({
                 ...g,
                 id: g.id || g.guest_id || g.event_user_id,
             }));
 
-            // Filter by invited vs registered
-            let filtered = allGuests.filter((g: any) => {
-                const isOwnerGenerated = g.generated_by_owner === 1;
-                return activeTab === 'invited' ? isOwnerGenerated : !isOwnerGenerated;
-            });
-
-            // Merge local DB check-ins
+            // Merge local DB check-ins for status updates
             try {
                 const localCheckins = await getLocalCheckedInGuests(Number(eventId));
 
-                filtered = filtered.map((apiGuest: any) => {
+                fetchedGuests = fetchedGuests.map((apiGuest: any) => {
                     const match = localCheckins.find(u =>
                         (u.qr_code && apiGuest.qr_code && u.qr_code === apiGuest.qr_code) ||
                         (u.guest_id && apiGuest.id && String(u.guest_id) === String(apiGuest.id))
@@ -126,7 +160,7 @@ const OnlineGuestList = () => {
                 console.warn("Local check-ins failed:", err);
             }
 
-            setGuests(filtered);
+            setGuests(fetchedGuests);
         } catch (err) {
             console.error("Fetch error:", err);
             setGuests([]);
@@ -135,25 +169,31 @@ const OnlineGuestList = () => {
         setLoading(false);
     };
 
-    /* ---------------------- Merge + search ---------------------- */
-    const filteredGuests = useMemo(() => {
-        return guests
-            .map(g => getMergedGuest(g))
-            .filter(guest => {
-                const q = searchQuery.trim().toLowerCase();
-                if (!q) return true;
+    /* ---------------------- Data Processing ---------------------- */
+    const displayedGuests = useMemo(() => {
+        return guests.filter((guest) => {
+            // ⚡⚡⚡ STRICT CATEGORY FILTERING ⚡⚡⚡
+            if (activeTab === 'invited') {
+                // Rule: generated_by_owner : 1 -> invited
+                const isInvited = guest.generated_by_owner == 1;
+                if (!isInvited) return false;
+            } else if (activeTab === 'registered') {
+                // Rule: generated_by_owner : 0 -> registered
+                const isRegistered = guest.generated_by_owner == 0;
+                if (!isRegistered) return false;
+            }
 
-                const name = (guest.name || `${guest.first_name} ${guest.last_name}`).toLowerCase();
-                const phone = (guest.phone || '').toLowerCase();
-                const id = (guest.id || '').toString();
+            // Search filter (client-side backup)
+            const query = searchQuery.trim().toLowerCase();
+            if (!query) return true;
 
-                return (
-                    name.includes(q) ||
-                    phone.includes(q) ||
-                    id.includes(q)
-                );
-            });
-    }, [guests, searchQuery, lastUpdate]);
+            const name = (guest.name || guest.first_name + ' ' + guest.last_name || 'Guest').toLowerCase();
+            const phone = (guest.mobile || guest.phone || guest.phone_number || '').toString().toLowerCase();
+            const id = (guest.id || guest.guest_id || guest.ticket_id || '').toString().toLowerCase();
+
+            return name.includes(query) || phone.includes(query) || id.includes(query);
+        });
+    }, [guests, activeTab, searchQuery, lastUpdate]);
 
     /* ---------------------- Render each guest ---------------------- */
     const renderGuest = ({ item }: { item: any }) => {
@@ -272,7 +312,7 @@ const OnlineGuestList = () => {
                         </View>
                     ) : (
                         <FlatList
-                            data={filteredGuests}
+                            data={displayedGuests}
                             keyExtractor={(item, index) =>
                                 `${item.id || item.event_user_id}-${index}`
                             }
@@ -285,6 +325,29 @@ const OnlineGuestList = () => {
                                     <Text style={styles.emptyTitle}>No guests found</Text>
                                     <Text style={styles.emptySubtitle}>Try a different name</Text>
                                 </View>
+                            }
+                            ListFooterComponent={
+                                displayedGuests.length > 0 && lastPage > 1 ? (
+                                    <View style={styles.paginationContainer}>
+                                        <TouchableOpacity
+                                            style={[styles.pageButton, currentPage === 1 && styles.disabledPageButton]}
+                                            disabled={currentPage === 1 || loading}
+                                            onPress={() => fetchGuests(currentPage - 1)}
+                                        >
+                                            <Text style={[styles.pageButtonText, currentPage === 1 && styles.disabledPageText]}>{"<"}</Text>
+                                        </TouchableOpacity>
+
+                                        <Text style={styles.pageInfo}>{currentPage} / {lastPage || 1}</Text>
+
+                                        <TouchableOpacity
+                                            style={[styles.pageButton, currentPage >= lastPage && styles.disabledPageButton]}
+                                            disabled={currentPage >= lastPage || loading}
+                                            onPress={() => fetchGuests(currentPage + 1)}
+                                        >
+                                            <Text style={[styles.pageButtonText, currentPage >= lastPage && styles.disabledPageText]}>{">"}</Text>
+                                        </TouchableOpacity>
+                                    </View>
+                                ) : null
                             }
                         />
                     )}
@@ -316,7 +379,8 @@ const OnlineGuestList = () => {
                                         text2: `${guest.name || 'Guest'} checked in successfully`
                                     });
                                     fetchGuests(); // Refresh list
-                                    setModalVisible(false);
+                                    // Keep modal open to show updated status
+                                    // setModalVisible(false);
                                 } else {
                                     Toast.show({
                                         type: 'error',
@@ -566,5 +630,34 @@ const styles = StyleSheet.create({
         flex: 1,
         justifyContent: 'center',
         alignItems: 'center',
+    },
+    // Pagination Styles
+    paginationContainer: {
+        flexDirection: 'row',
+        justifyContent: 'center',
+        alignItems: 'center',
+        gap: 16,
+        paddingTop: 16,
+        backgroundColor: '#FFFFFF',
+    },
+    pageButton: {
+        backgroundColor: '#FF8A3C',
+        paddingHorizontal: 15,
+        paddingVertical: 8,
+        borderRadius: 12,
+    },
+    disabledPageButton: {
+        backgroundColor: '#FFD2B3',
+    },
+    pageButtonText: {
+        color: 'white',
+        fontWeight: '600',
+    },
+    disabledPageText: {
+        color: '#7A7A7A',
+    },
+    pageInfo: {
+        fontWeight: '600',
+        color: '#333',
     },
 });

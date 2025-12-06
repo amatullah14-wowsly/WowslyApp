@@ -15,7 +15,7 @@ import {
 import { GestureHandlerRootView, Swipeable } from 'react-native-gesture-handler';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { Guest, GuestGroup } from './guestData';
-import { getEventUsers, makeGuestManager, makeGuestUser } from '../../api/event';
+import { getEventUsers, makeGuestManager, makeGuestUser, getEventUsersPage } from '../../api/event';
 import { scanStore, getMergedGuest } from '../../context/ScanStore';
 import GuestDetailsModal from '../../components/GuestDetailsModal';
 import BackButton from '../../components/BackButton';
@@ -72,21 +72,34 @@ const GuestScreenTemplate: React.FC<GuestScreenTemplateProps> = ({
   const [selectedGuestId, setSelectedGuestId] = useState<string | null>(null);
   const [lastUpdate, setLastUpdate] = useState(0);
 
+  // Pagination State
+  const [currentPage, setCurrentPage] = useState(1);
+  const [lastPage, setLastPage] = useState(1);
+  const [totalGuests, setTotalGuests] = useState(0);
+
   useEffect(() => {
     if (eventId) {
-      fetchGuests();
+      fetchGuests(1); // Reset to page 1 on mount/filter change
     }
-  }, [eventId]);
+  }, [eventId, activeFilter]);
+
+  // Debounced search
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (eventId) fetchGuests(1);
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
 
   // Refresh guest list when screen comes into focus (after QR scanning)
   useFocusEffect(
     React.useCallback(() => {
       if (eventId) {
         console.log('GuestScreenTemplate focused - refreshing guest data');
-        fetchGuests();
+        fetchGuests(currentPage);
         setLastUpdate(Date.now());
       }
-    }, [eventId, activeFilter])
+    }, [eventId, activeFilter, currentPage])
   );
 
   // ⚡⚡⚡ REAL-TIME UPDATE LISTENER ⚡⚡⚡
@@ -94,37 +107,58 @@ const GuestScreenTemplate: React.FC<GuestScreenTemplateProps> = ({
     const subscription = (DeviceEventEmitter as any).addListener('BROADCAST_SCAN_TO_CLIENTS', (data: any) => {
       console.log("GuestScreenTemplate received broadcast:", data);
       setLastUpdate(Date.now());
+      // Optionally refresh current page here if needed
+      // fetchGuests(currentPage); 
     });
 
     return () => {
       subscription.remove();
     };
-  }, []);
+  }, [currentPage]);
 
-  const fetchGuests = async () => {
+  const fetchGuests = async (page = 1) => {
     setLoading(true);
 
     try {
-      // ⚡⚡⚡ FETCH ALL GUESTS ONCE ⚡⚡⚡
-      const res = await getEventUsers(eventId, 1, 'all');
+      // Map filter to API type
+      let type = 'all';
+      if (activeFilter === 'Manager') type = 'manager';
+      if (activeFilter === 'Invited') type = 'invited';
+      if (activeFilter === 'Registered') type = 'registered';
 
-      if (res?.data) {
-        let allGuests = res.data;
+      console.log(`Fetching guests: page=${page}, type=${type}, query=${searchQuery}`);
 
-        // Remove duplicates based on id
-        const uniqueGuests = allGuests.map(g => ({
-          ...g,
-          id: g.id || g.guest_id, // Map guest_id to id if id is missing
-        })).filter((guest, index, self) => {
-          const id = guest.id;
-          return id && index === self.findIndex((g) => g.id === id);
-        });
+      const res = await getEventUsersPage(eventId, page, type, searchQuery);
 
-        console.log("DEBUG: Unique Guests Count:", uniqueGuests.length);
-        setGuests(uniqueGuests);
-      } else {
-        setGuests([]);
+      let fetchedGuests = res?.guests_list || res?.data || [];
+      const meta = res?.meta || res?.pagination;
+
+      // Handle valid data structure
+      if (res && res.guests_list) {
+        fetchedGuests = res.guests_list;
+      } else if (res && res.data && Array.isArray(res.data)) {
+        fetchedGuests = res.data;
+      } else if (Array.isArray(res)) {
+        fetchedGuests = res;
       }
+
+      // Update Pagination Info
+      if (meta) {
+        setLastPage(meta.last_page || 1);
+        setTotalGuests(meta.total || 0);
+        setCurrentPage(meta.current_page || page);
+      } else {
+        setLastPage(1);
+        setCurrentPage(page);
+      }
+
+      // Normalize IDs
+      const normalizedGuests = fetchedGuests.map((g: any) => ({
+        ...g,
+        id: g.id || g.guest_id || g.event_user_id,
+      }));
+
+      setGuests(normalizedGuests);
 
     } catch (error) {
       console.error('Error fetching guests:', error);
@@ -134,12 +168,12 @@ const GuestScreenTemplate: React.FC<GuestScreenTemplateProps> = ({
     setLoading(false);
   };
 
-  const filteredGuests = useMemo(() => {
+  const displayedGuests = useMemo(() => {
     return guests.map(g => {
       // ⚡⚡⚡ MERGE LOCAL SCANS FROM GLOBAL STORE ⚡⚡⚡
       return getMergedGuest(g);
     }).filter((guest) => {
-      // ⚡⚡⚡ CATEGORY FILTERING ⚡⚡⚡
+      // ⚡⚡⚡ CATEGORY FILTERING (Restored Logic) ⚡⚡⚡
       if (activeFilter !== 'All') {
         if (activeFilter === 'Manager') {
           if (!(guest.type === 'manager' || guest.is_manager || guest.group === 'Manager' || guest.role === 'manager')) return false;
@@ -163,7 +197,7 @@ const GuestScreenTemplate: React.FC<GuestScreenTemplateProps> = ({
 
       return name.includes(query) || phone.includes(query) || id.includes(query);
     });
-  }, [guests, searchQuery, lastUpdate, activeFilter]);
+  }, [guests, lastUpdate, activeFilter, searchQuery]);
 
   const renderGuest = ({ item }: { item: any }) => {
     const name = item.name || item.first_name + ' ' + item.last_name || 'Guest';
@@ -293,7 +327,7 @@ const GuestScreenTemplate: React.FC<GuestScreenTemplateProps> = ({
           </View>
         ) : (
           <FlatList
-            data={filteredGuests}
+            data={displayedGuests}
             keyExtractor={(item, index) => `${item.id}-${index}`}
             contentContainerStyle={styles.listContent}
             ItemSeparatorComponent={() => <View style={styles.separator} />}
@@ -306,6 +340,29 @@ const GuestScreenTemplate: React.FC<GuestScreenTemplateProps> = ({
                   Try a different name or category.
                 </Text>
               </View>
+            }
+            ListFooterComponent={
+              displayedGuests.length > 0 && lastPage > 1 ? (
+                <View style={styles.paginationContainer}>
+                  <TouchableOpacity
+                    style={[styles.pageButton, currentPage === 1 && styles.disabledPageButton]}
+                    disabled={currentPage === 1 || loading}
+                    onPress={() => fetchGuests(currentPage - 1)}
+                  >
+                    <Text style={[styles.pageButtonText, currentPage === 1 && styles.disabledPageText]}>{"<"}</Text>
+                  </TouchableOpacity>
+
+                  <Text style={styles.pageInfo}>{currentPage} / {lastPage || 1}</Text>
+
+                  <TouchableOpacity
+                    style={[styles.pageButton, currentPage >= lastPage && styles.disabledPageButton]}
+                    disabled={currentPage >= lastPage || loading}
+                    onPress={() => fetchGuests(currentPage + 1)}
+                  >
+                    <Text style={[styles.pageButtonText, currentPage >= lastPage && styles.disabledPageText]}>{">"}</Text>
+                  </TouchableOpacity>
+                </View>
+              ) : null
             }
           />
         )}
@@ -570,5 +627,34 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  // Pagination Styles (Matched to EventListing)
+  paginationContainer: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 16,
+    paddingTop: 16,
+    backgroundColor: '#FFFFFF',
+  },
+  pageButton: {
+    backgroundColor: '#FF8A3C',
+    paddingHorizontal: 15,
+    paddingVertical: 8,
+    borderRadius: 12,
+  },
+  disabledPageButton: {
+    backgroundColor: '#FFD2B3',
+  },
+  pageButtonText: {
+    color: 'white',
+    fontWeight: '600',
+  },
+  disabledPageText: {
+    color: '#7A7A7A', // Actually EventListing just uses opacity/color change but keeps structure. Let's stick to the override.
+  },
+  pageInfo: {
+    fontWeight: '600',
+    color: '#333',
   },
 });

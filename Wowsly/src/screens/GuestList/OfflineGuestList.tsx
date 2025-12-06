@@ -13,7 +13,7 @@ import {
     DeviceEventEmitter,
 } from 'react-native';
 import { RouteProp, useNavigation, useRoute, useFocusEffect } from '@react-navigation/native';
-import { initDB, getTicketsForEvent, updateTicketStatusLocal } from '../../db';
+import { initDB, getTicketsForEvent, updateTicketStatusLocal, getTicketsForEventPage } from '../../db';
 import { verifyQrCode } from '../../api/event';
 import Toast from 'react-native-toast-message';
 import BackButton from '../../components/BackButton';
@@ -53,52 +53,57 @@ const OfflineGuestList = () => {
     const [modalVisible, setModalVisible] = useState(false);
     const [selectedGuest, setSelectedGuest] = useState<any>(null);
 
+    // Pagination
+    const [currentPage, setCurrentPage] = useState(1);
+    const [lastPage, setLastPage] = useState(1);
+
     useEffect(() => {
-        loadGuests();
+        loadGuests(1);
     }, [eventId]);
+
+    // Debounce search
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            loadGuests(1);
+        }, 500);
+        return () => clearTimeout(timer);
+    }, [searchQuery]);
 
     // Listen for scan updates to refresh list in real-time
     useEffect(() => {
         const subscription = DeviceEventEmitter.addListener('BROADCAST_SCAN_TO_CLIENTS', (data) => {
             console.log("OfflineGuestList received broadcast:", data);
-            loadGuests();
+            loadGuests(currentPage);
         });
 
         return () => {
             subscription.remove();
         };
-    }, []);
+    }, [currentPage]);
 
-    const loadGuests = async () => {
+    const loadGuests = async (page = 1) => {
         try {
             await initDB();
-            const tickets = await getTicketsForEvent(eventId);
-            if (tickets) {
-                setGuests(tickets);
+
+            // Use paginated fetch
+            const res = await getTicketsForEventPage(eventId, page, 100, searchQuery);
+
+            if (res) {
+                setGuests(res.guests || []);
+                setLastPage(res.last_page || 1);
+                setCurrentPage(page);
             }
         } catch (error) {
             console.error('Error loading offline guests:', error);
+            setGuests([]);
         }
     };
 
     const onRefresh = async () => {
         setRefreshing(true);
-        await loadGuests();
+        await loadGuests(1);
         setRefreshing(false);
     };
-
-    const filteredGuests = useMemo(() => {
-        if (!searchQuery) return guests;
-        const query = searchQuery.toLowerCase();
-        return guests.filter((g) => {
-            const name = (g.guest_name || g.name || '').toLowerCase();
-            const phone = (g.phone || '').toLowerCase();
-            const qr = (g.qr_code || '').toLowerCase();
-            const ticketId = (g.ticket_id || '').toString().toLowerCase();
-            const uuid = (g.guest_uuid || '').toLowerCase();
-            return name.includes(query) || phone.includes(query) || qr.includes(query) || ticketId.includes(query) || uuid.includes(query);
-        });
-    }, [guests, searchQuery]);
 
     const handleManualCheckIn = async (guestId: string) => {
         if (!selectedGuest) return;
@@ -139,7 +144,14 @@ const OfflineGuestList = () => {
 
                 // Refresh list
                 loadGuests();
-                setModalVisible(false);
+                // Update selectedGuest locally so Modal reflects changes immediately
+                setSelectedGuest((prev: any) => ({
+                    ...prev,
+                    status: 'checked_in',
+                    used_entries: (prev.used_entries || 0) + 1
+                }));
+                // Do not close modal so user sees "Checked In" status
+                // setModalVisible(false);
             }
         } catch (error) {
             console.error("Manual check-in failed:", error);
@@ -218,7 +230,7 @@ const OfflineGuestList = () => {
 
                 {/* List */}
                 <FlatList
-                    data={filteredGuests}
+                    data={guests}
                     keyExtractor={(item, index) => (item.qr_code || index).toString()}
                     renderItem={renderGuest}
                     contentContainerStyle={styles.listContent}
@@ -230,6 +242,29 @@ const OfflineGuestList = () => {
                             <Image source={NOGUESTS_ICON} style={styles.emptyIcon} />
                             <Text style={styles.emptyText}>No guests found</Text>
                         </View>
+                    }
+                    ListFooterComponent={
+                        guests.length > 0 && lastPage > 1 ? (
+                            <View style={styles.paginationContainer}>
+                                <TouchableOpacity
+                                    style={[styles.pageButton, currentPage === 1 && styles.disabledPageButton]}
+                                    disabled={currentPage === 1 || refreshing}
+                                    onPress={() => loadGuests(currentPage - 1)} // loadGuests takes page num
+                                >
+                                    <Text style={[styles.pageButtonText, currentPage === 1 && styles.disabledPageText]}>{"<"}</Text>
+                                </TouchableOpacity>
+
+                                <Text style={styles.pageInfo}>{currentPage} / {lastPage || 1}</Text>
+
+                                <TouchableOpacity
+                                    style={[styles.pageButton, currentPage >= lastPage && styles.disabledPageButton]}
+                                    disabled={currentPage >= lastPage || refreshing}
+                                    onPress={() => loadGuests(currentPage + 1)}
+                                >
+                                    <Text style={[styles.pageButtonText, currentPage >= lastPage && styles.disabledPageText]}>{">"}</Text>
+                                </TouchableOpacity>
+                            </View>
+                        ) : null
                     }
                 />
 
@@ -388,5 +423,34 @@ const styles = StyleSheet.create({
         flex: 1,
         justifyContent: 'center',
         alignItems: 'center',
+    },
+    // Pagination Styles
+    paginationContainer: {
+        flexDirection: 'row',
+        justifyContent: 'center',
+        alignItems: 'center',
+        gap: 16,
+        paddingTop: 16,
+        backgroundColor: '#FFFFFF',
+    },
+    pageButton: {
+        backgroundColor: '#FF8A3C',
+        paddingHorizontal: 15,
+        paddingVertical: 8,
+        borderRadius: 12,
+    },
+    disabledPageButton: {
+        backgroundColor: '#FFD2B3',
+    },
+    pageButtonText: {
+        color: 'white',
+        fontWeight: '600',
+    },
+    disabledPageText: {
+        color: '#7A7A7A',
+    },
+    pageInfo: {
+        fontWeight: '600',
+        color: '#333',
     },
 });
