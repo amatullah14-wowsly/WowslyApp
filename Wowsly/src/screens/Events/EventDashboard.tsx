@@ -229,7 +229,7 @@ const EventDashboard = ({ route }: EventDashboardProps) => {
                         <Grid
                             icon={require('../../assets/img/eventdashboard/checkin.png')}
                             title="Check-In"
-                            value={guestCounts.checkedIn || displayData.checked_in_count || displayData.used_entries || "0"}
+                            value={displayData.totalCheckIns || guestCounts.checkedIn || displayData.checked_in_count || displayData.used_entries || "0"}
                         />
                     </View>
 
@@ -244,7 +244,7 @@ const EventDashboard = ({ route }: EventDashboardProps) => {
                         <Grid
                             icon={require('../../assets/img/eventdashboard/revenue.png')}
                             title="Revenue"
-                            value={displayData.revenue ? `₹${displayData.revenue}` : "₹0"}
+                            value={displayData.ticketRevenue || (displayData.revenue ? `₹${displayData.revenue}` : "₹0")}
                         //   onPress={() => navigation.navigate("RevenueScreen")}
                         />
                     </View>

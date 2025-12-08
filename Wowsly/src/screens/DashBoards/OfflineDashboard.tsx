@@ -36,7 +36,9 @@ const OfflineDashboard = () => {
   const [ticketList, setTicketList] = useState<any[]>([]);
 
   const totals = useMemo(() => {
-    const total = summary.reduce((acc, item) => acc + (item.total_pax || 0), 0);
+    // User wants "Total Guests" to match the Card view (which uses totals.unique)
+    // So we switch to using 'count' (unique guests) as the primary total
+    const total = summary.reduce((acc, item) => acc + (item.count || 0), 0);
     const checkedIn = summary.reduce((acc, item) => acc + (item.checked_in || 0), 0);
     const unique = summary.reduce((acc, item) => acc + (item.count || 0), 0);
 
@@ -52,7 +54,7 @@ const OfflineDashboard = () => {
     return summary.map(item => ({
       id: item.ticket_title,
       title: item.ticket_title,
-      total: item.total_pax,
+      total: item.count, // Use unique guest count
       checkedIn: item.checked_in
     }));
   }, [summary]);
