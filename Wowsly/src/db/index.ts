@@ -324,11 +324,13 @@ export async function deleteStaleGuests(eventId: number, activeQrCodes: string[]
   // We do NOT delete synced=0 (pending offline scans)
   const placeholders = activeQrCodes.map(() => '?').join(',');
 
-  await db.executeSql(
+  const results = await db.executeSql(
     `DELETE FROM tickets WHERE event_id = ? AND synced = 1 AND qr_code NOT IN (${placeholders});`,
     [eventId, ...activeQrCodes.map(q => q.trim())]
   );
-  console.log(`Deleted stale guests for event ${eventId}`);
+  const deletedCount = results[0]?.rowsAffected || 0;
+  console.log(`Deleted ${deletedCount} stale guests for event ${eventId}`);
+  return deletedCount;
 }
 
 // ======================================================

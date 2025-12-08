@@ -136,7 +136,7 @@ const OfflineDashboard = () => {
         console.log("DEBUG: Active QR codes count:", activeQrCodes.length);
 
         // Delete guests that are no longer in the list (but keep unsynced ones)
-        await deleteStaleGuests(eventId, activeQrCodes);
+        const deletedCount = await deleteStaleGuests(eventId, activeQrCodes);
 
         // ⚡⚡⚡ CALCULATE ADDED GUESTS ⚡⚡⚡
         const initialCount = offlineData ? offlineData.length : 0;
@@ -149,18 +149,38 @@ const OfflineDashboard = () => {
         setOfflineData(tickets);
 
         const finalCount = tickets ? tickets.length : 0;
-        const addedCount = Math.max(0, finalCount - initialCount);
+
+        // Accurate calculation for added guests might be tricky if deletions happened.
+        // A better approximation for "Added" might be rowsAffected from insert, but insertOrReplaceGuests handles that.
+        // For now, let's look at the delta and the deleted count.
+        // If final > initial, then at least (final - initial) were added + deletedCount replaced? 
+        // Let's stick to the user's requirement: "no guest is added or deleted".
+
+        // Simple heuristic: 
+        // If deletedCount == 0 AND finalCount == initialCount -> assume no changes.
+        // Actually, if final == initial and deleted == 0, it means we replaced existing ones or did nothing.
+        // Let's trust "addedCount" logic from before but refine it? 
+        // No, let's just use the counts we have.
+
+        const addedCount = Math.max(0, finalCount - (initialCount - (deletedCount || 0)));
+        // Logic: active set size change. 
 
         // Also refresh ticket list
         fetchTicketList(eventId);
 
-        Toast.show({
-          type: 'success',
-          text1: 'Download Complete',
-          text2: addedCount > 0
-            ? `Added ${addedCount} new guests`
-            : 'Data updated successfully'
-        });
+        if ((addedCount === 0 || addedCount === undefined) && (deletedCount === 0 || deletedCount === undefined)) {
+          Toast.show({
+            type: 'info', // or 'success'
+            text1: 'Download Complete',
+            text2: 'Already guests downloaded' // User specific wording
+          });
+        } else {
+          Toast.show({
+            type: 'success',
+            text1: 'Download Complete',
+            text2: `Added ${addedCount} new, deleted ${deletedCount || 0} stale`
+          });
+        }
       } else {
         Toast.show({
           type: 'error',
