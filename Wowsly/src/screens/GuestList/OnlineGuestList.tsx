@@ -201,7 +201,10 @@ const OnlineGuestList = () => {
         const avatar = item.avatar || item.profile_photo;
 
         const rawStatus = item.status || activeTab;
-        let status = rawStatus === 'active' ? 'Pending' : rawStatus;
+        let status = rawStatus;
+        if (['active', 'registered', 'invited'].includes(rawStatus?.toLowerCase())) {
+            status = 'Pending';
+        }
 
         const ticketData = item.ticket_data || {};
         const totalEntries = item.total_entries || ticketData.tickets_bought || 1;

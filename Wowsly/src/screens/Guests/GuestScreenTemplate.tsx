@@ -204,8 +204,8 @@ const GuestScreenTemplate: React.FC<GuestScreenTemplateProps> = ({
     const avatar = item.avatar || item.profile_photo;
     let status = item.status || 'Registered';
 
-    // ⚡⚡⚡ FIX: Map "Active" to "Pending" for display ⚡⚡⚡
-    if (status.toLowerCase() === 'active') {
+    // ⚡⚡⚡ FIX: Map "Active/Registered/Invited" to "Pending" for display ⚡⚡⚡
+    if (['active', 'registered', 'invited'].includes(status.toLowerCase())) {
       status = 'Pending';
     }
 

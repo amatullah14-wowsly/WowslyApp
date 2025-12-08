@@ -8,7 +8,7 @@ import BackButton from '../../components/BackButton';
 import Svg, { G, Path, Circle, Text as SvgText } from 'react-native-svg';
 import * as d3 from 'd3-shape';
 
-const COLORS = ['#FF8A3C', '#FFA06D', '#FFB58A', '#FFCAAB', '#FFE0CC'];
+const COLORS = ['#FFF5C4', '#FFD180', '#FFAB40', '#FF6D00', '#D50000', '#8E0000', '#5D0000'];
 
 type EventData = {
     id: string
