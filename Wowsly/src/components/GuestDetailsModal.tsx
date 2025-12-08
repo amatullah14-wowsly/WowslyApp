@@ -43,7 +43,11 @@ const GuestDetailsModal: React.FC<GuestDetailsModalProps> = ({
     /* ---------------------- Fetch API details ---------------------- */
     useEffect(() => {
         if (visible && eventId && guestId && !offline) {
-            fetchGuestDetails();
+            // Delay fetch to allow modal animation to complete (prevents UI freeze)
+            const timer = setTimeout(() => {
+                fetchGuestDetails();
+            }, 200);
+            return () => clearTimeout(timer);
         }
     }, [visible, eventId, guestId, offline]);
 
@@ -63,28 +67,33 @@ const GuestDetailsModal: React.FC<GuestDetailsModalProps> = ({
             const data = res.data;
             const apiUsed = Number(data.used_entries || data.checked_in_count || data.ticket_data?.used_entries || data.ticket_data?.checked_in_count || 0);
 
-            setGuestData((prev: any) => {
-                const currentUsed = Number(prev?.used_entries || 0);
-                const finalUsed = Math.max(currentUsed, apiUsed);
+            // Use requestAnimationFrame to avoid blocking the UI thread during updates
+            requestAnimationFrame(() => {
+                setGuestData((prev: any) => {
+                    const currentUsed = Number(prev?.used_entries || 0);
+                    const finalUsed = Math.max(currentUsed, apiUsed);
 
-                console.log('Fetched Guest Details (Merged):', {
-                    id: data.id,
-                    apiUsed,
-                    currentUsed,
-                    finalUsed,
-                    bought: data.ticket_data?.tickets_bought
+                    console.log('Fetched Guest Details (Merged):', {
+                        id: data.id,
+                        apiUsed,
+                        currentUsed,
+                        finalUsed,
+                        bought: data.ticket_data?.tickets_bought
+                    });
+
+                    return {
+                        ...prev,
+                        ...data,
+                        used_entries: finalUsed, // Keep the highest value to prevent overwrite by stale data
+                        checked_in_count: finalUsed
+                    };
                 });
-
-                return {
-                    ...prev,
-                    ...data,
-                    used_entries: finalUsed, // Keep the highest value to prevent overwrite by stale data
-                    checked_in_count: finalUsed
-                };
             });
         }
 
-        setLoading(false);
+        requestAnimationFrame(() => {
+            setLoading(false);
+        });
     };
 
     const isManager =
@@ -298,8 +307,22 @@ const GuestDetailsModal: React.FC<GuestDetailsModalProps> = ({
                                                         // ⚡⚡⚡ PERSIST TO DB ⚡⚡⚡
                                                         try {
                                                             const uuid = guestData.guest_uuid || guestData.uuid || guestData.qr_code;
+                                                            // Ensure we have a valid guest object to save
                                                             if (uuid) {
-                                                                await updateTicketStatusLocal(uuid, 'checked_in', checkInQuantity, true);
+                                                                const newUsed = (Number(guestData.used_entries) || 0) + Number(checkInQuantity);
+                                                                const guestToSync = {
+                                                                    ...guestData,
+                                                                    qr_code: uuid,
+                                                                    status: 'checked_in', // Explicitly set status
+                                                                    used_entries: newUsed,
+                                                                    check_in_count: checkInQuantity,
+                                                                    synced: 1 // Online check-in is already synced
+                                                                };
+
+                                                                // Import insertOrReplaceGuests if not already imported (it is exported from ../db)
+                                                                const { insertOrReplaceGuests } = require('../db');
+                                                                await insertOrReplaceGuests(Number(eventId), [guestToSync]);
+                                                                console.log("Persisted manual check-in to local DB");
                                                             }
                                                         } catch (err) {
                                                             console.warn("DB Persist Failed:", err);

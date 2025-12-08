@@ -358,3 +358,15 @@ export async function getEventSummary(eventId: number) {
   }
   return arr;
 }
+
+// ======================================================
+// GET GUEST COUNT (SIMPLE)
+// ======================================================
+export async function getGuestCount(eventId: number) {
+  const db = await openDB();
+  const [res] = await db.executeSql(
+    `SELECT COUNT(*) as total FROM tickets WHERE event_id = ?;`,
+    [eventId]
+  );
+  return res.rows.item(0).total || 0;
+}

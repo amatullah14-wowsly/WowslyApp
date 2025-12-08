@@ -14,6 +14,8 @@ import {
 } from 'react-native';
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
 import BackButton from '../../components/BackButton';
+import { getGuestCount } from '../../db';
+import Toast from 'react-native-toast-message';
 
 type ModeInfo = {
   id: string;
@@ -65,8 +67,13 @@ const StaggeredItem = ({ children, index, duration = 600 }: any) => {
   const translateY = useRef(new Animated.Value(-20)).current;
 
   useEffect(() => {
+    // Reset values immediately on mount to ensure clean state
+    fadeAnim.setValue(0);
+    translateY.setValue(-20);
+
     const delay = index * 100; // 100ms delay per item
-    Animated.sequence([
+
+    const animation = Animated.sequence([
       Animated.delay(delay),
       Animated.parallel([
         Animated.timing(fadeAnim, {
@@ -80,7 +87,13 @@ const StaggeredItem = ({ children, index, duration = 600 }: any) => {
           useNativeDriver: true,
         }),
       ]),
-    ]).start();
+    ]);
+
+    animation.start();
+
+    return () => {
+      animation.stop();
+    };
   }, [duration, fadeAnim, index, translateY]);
 
   return (
@@ -112,19 +125,27 @@ const ModeSelection = () => {
   const eventTitle = route.params?.eventTitle ?? 'Selected Event';
   const eventId = route.params?.eventId;
 
-  const handleModePress = (modeId: string) => {
-    LayoutAnimation.configureNext({
-      duration: 600,
-      update: {
-        type: LayoutAnimation.Types.easeInEaseOut,
-      },
-      delete: {
-        type: LayoutAnimation.Types.easeInEaseOut,
-        property: LayoutAnimation.Properties.opacity,
-      },
-    });
+
+
+  const handleModePress = async (modeId: string) => {
+    // Use a standard preset or a simpler configuration to avoid conflicts
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+
     if (modeId === 'offline') {
       // Offline mode navigates immediately
+      try {
+        const count = await getGuestCount(Number(eventId));
+        Toast.show({
+          type: 'info',
+          text1: `${count} Guests Downloaded`,
+          text2: 'For latest updates, download again inside.',
+          position: 'top',
+          visibilityTime: 3000,
+        });
+      } catch (err) {
+        console.warn('Failed to fetch guest count:', err);
+      }
+
       navigation.navigate('OfflineDashboard', { eventTitle, eventId });
       setExpandedMode(null);
     } else {

@@ -804,6 +804,11 @@ const QrCode = () => {
             scanStatus.type === 'error' && styles.statusBannerError,
             scanStatus.type === 'warning' && styles.statusBannerWarning,
           ]}>
+            <View style={styles.statusIconWrapper}>
+              <Text style={styles.statusIconText}>
+                {scanStatus.type === 'success' ? '✓' : scanStatus.type === 'error' ? '✕' : '!'}
+              </Text>
+            </View>
             <Text style={styles.statusBannerText}>{scanStatus.text}</Text>
           </View>
         )}
@@ -1102,8 +1107,8 @@ const styles = StyleSheet.create({
   statusPill: {
     backgroundColor: '#1FC566',
     borderRadius: 26,
-    paddingHorizontal: 16,
-    paddingVertical: 6,
+    paddingHorizontal: 20,
+    paddingVertical: 22,
   },
   statusPillInvalid: {
     backgroundColor: '#E74C3C',
@@ -1223,36 +1228,53 @@ const styles = StyleSheet.create({
   },
   statusBanner: {
     position: 'absolute',
-    top: 110,
-    left: 20,
-    right: 20,
-    paddingVertical: 16,
-    paddingHorizontal: 24,
-    borderRadius: 12,
+    top: 120,
+    alignSelf: 'center',
+    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    borderRadius: 30,
     zIndex: 999,
-    elevation: 5,
+    elevation: 6,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 6,
+    maxWidth: '90%',
   },
   statusBannerSuccess: {
-    backgroundColor: '#4CAF50', // Green
+    backgroundColor: '#4CAF50',
   },
   statusBannerError: {
-    backgroundColor: '#F44336', // Red
+    backgroundColor: '#F44336',
   },
   statusBannerWarning: {
-    backgroundColor: '#FFC107', // Yellow
+    backgroundColor: '#FFC107',
   },
   statusBannerText: {
     color: '#FFFFFF',
-    fontSize: 18,
-    fontWeight: 'bold',
-    textAlign: 'center',
-    textTransform: 'uppercase',
-    letterSpacing: 1,
+    fontSize: 16,
+    fontWeight: '700',
+    textAlign: 'left',
+    flex: 1, // Force text to take available space and wrap
+    flexWrap: 'wrap',
+    textShadowColor: 'rgba(0, 0, 0, 0.25)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 2,
+  },
+  statusIconWrapper: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  statusIconText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '900',
   },
 })

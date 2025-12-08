@@ -3,10 +3,12 @@ import { View, Image, ImageBackground, StyleSheet, Animated } from 'react-native
 import { useNavigation } from '@react-navigation/native';
 import { initDB } from '../../db';
 
+import AsyncStorage from '@react-native-async-storage/async-storage';
+
 const Splash = () => {
 
   const fadeAnim = useRef(new Animated.Value(0)).current;
-  const navigation = useNavigation();
+  const navigation = useNavigation<any>();
 
   useEffect(() => {
     const startApp = async () => {
@@ -19,9 +21,15 @@ const Splash = () => {
       });
 
       const dbPromise = initDB().catch(err => console.error('DB Init Failed:', err));
+      const tokenPromise = AsyncStorage.getItem("auth_token");
 
-      await Promise.all([animPromise, dbPromise]);
-      navigation.replace('Number');
+      const [_, __, token] = await Promise.all([animPromise, dbPromise, tokenPromise]);
+
+      if (token) {
+        navigation.replace('BottomNav');
+      } else {
+        navigation.replace('Number');
+      }
     };
 
     startApp();
