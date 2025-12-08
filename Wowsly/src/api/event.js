@@ -519,3 +519,28 @@ export const verifyQrCode = async (eventId, payload) => {
         return { status: false, message: "Verification failed" };
     }
 };
+
+export const checkInEventUser = async (eventId, payload) => {
+    try {
+        console.log(`CheckCheck-in Event User for event ${eventId} with payload:`, payload);
+        const response = await client.post(`/events/${eventId}/eventuser/checkin`, payload);
+        console.log("CHECK-IN EVENT USER RESPONSE:", response.data);
+        return response.data;
+    } catch (error) {
+        console.log("CHECK-IN EVENT USER ERROR:", error.response?.data || error.message);
+        return { status: false, message: "Check-in failed" };
+    }
+};
+
+export const manualCheckInGuest = async (eventId, payload) => {
+    try {
+        console.log(`Manual Check-in for event ${eventId} with payload:`, payload);
+        // Payload expected: { guest_id: string, quantity: number }
+        const response = await client.post(`/events/${eventId}/eventticket`, payload);
+        console.log("MANUAL CHECK-IN RESPONSE:", response.data);
+        return response.data;
+    } catch (error) {
+        console.log("MANUAL CHECK-IN ERROR:", error.response?.data || error.message);
+        return { status: false, message: "Manual check-in failed" };
+    }
+};

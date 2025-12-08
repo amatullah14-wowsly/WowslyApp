@@ -76,8 +76,14 @@ const OfflineGuestList = () => {
             loadGuests(currentPage);
         });
 
+        const refreshSub = DeviceEventEmitter.addListener('REFRESH_GUEST_LIST', () => {
+            console.log("OfflineGuestList received refresh request");
+            loadGuests(currentPage);
+        });
+
         return () => {
             subscription.remove();
+            refreshSub.remove();
         };
     }, [currentPage]);
 

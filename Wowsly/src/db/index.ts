@@ -168,7 +168,7 @@ export async function findTicketByQr(qrValue: string) {
 // ======================================================
 // UPDATE LOCAL TICKET ON SCAN (OFFLINE)
 // ======================================================
-export async function updateTicketStatusLocal(qrValue: string, newStatus = 'checked_in', count = 1) {
+export async function updateTicketStatusLocal(qrValue: string, newStatus = 'checked_in', count = 1, synced = false) {
   const db = await openDB();
   const iso = new Date().toISOString();
   const sqlTime = formatToSQLDatetime(iso);
@@ -184,7 +184,7 @@ export async function updateTicketStatusLocal(qrValue: string, newStatus = 'chec
     `UPDATE tickets 
         SET status = ?, 
             scanned_at = ?, 
-            synced = 0, 
+            synced = ?, 
             used_entries = ?, 
             check_in_count = ?, 
             given_check_in_time = ?
@@ -192,8 +192,10 @@ export async function updateTicketStatusLocal(qrValue: string, newStatus = 'chec
     [
       newStatus,
       iso,
+      synced ? 1 : 0, // Use passed value
       previouslyUsed + count,
-      count,
+      count, // Note: this overwrites check_in_count with latest batch size, might be intended or accumulate? 
+      // Logic in OnlineGuestList suggests additive used_entries is key.
       sqlTime,
       qrValue.trim()
     ]

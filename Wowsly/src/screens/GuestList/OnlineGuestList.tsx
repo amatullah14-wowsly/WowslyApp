@@ -66,14 +66,40 @@ const OnlineGuestList = () => {
     const eventId = route.params?.eventId;
 
     /* ---------------------- Real-time update listener ---------------------- */
+    /* ---------------------- Real-time update listener ---------------------- */
     useEffect(() => {
         const subscription = DeviceEventEmitter.addListener('BROADCAST_SCAN_TO_CLIENTS', () => {
             // Refresh current page on scan
             fetchGuests(currentPage);
         });
 
-        return () => subscription.remove();
-    }, [currentPage]); // Re-bind when page changes
+        const refreshSub = DeviceEventEmitter.addListener('REFRESH_GUEST_LIST', () => {
+            fetchGuests(currentPage);
+        });
+
+        const manualCheckInSub = DeviceEventEmitter.addListener('GUEST_CHECKED_IN_MANUALLY', ({ guestId, count }: { guestId: number, count: number }) => {
+            // Optimistic update
+            setGuests(prevGuests => prevGuests.map(g => {
+                if (g.id === guestId || g.guest_id === guestId) {
+                    const newUsed = (g.used_entries || 0) + (count || 1);
+                    return {
+                        ...g,
+                        check_in_status: 1,
+                        status: 'Checked In',
+                        used_entries: newUsed
+                    };
+                }
+                return g;
+            }));
+            // Still trigger fetch to ensure consistency
+            fetchGuests(currentPage);
+        });
+
+        return () => {
+            refreshSub.remove();
+            manualCheckInSub.remove();
+        };
+    }, [currentPage]);
 
     /* ---------------------- Fetch on load & tab/search change ---------------------- */
     useEffect(() => {
@@ -366,47 +392,7 @@ const OnlineGuestList = () => {
                     eventId={eventId}
                     guestId={selectedGuestId || undefined}
                     guest={guests.find(g => String(g.id) === String(selectedGuestId))}
-                    onManualCheckIn={async () => {
-                        const guest = guests.find(g => String(g.id) === String(selectedGuestId));
-                        if (!guest) return;
 
-                        const guestUuid = guest.uuid || guest.guest_uuid || guest.unique_id || guest.qr_code;
-
-                        if (guestUuid) {
-                            try {
-                                const res = await verifyQrCode(eventId, { qrGuestUuid: guestUuid });
-                                if (res && (res.message === "QR code verified" || res.success)) {
-                                    Toast.show({
-                                        type: 'success',
-                                        text1: 'Check-in Successful',
-                                        text2: `${guest.name || 'Guest'} checked in successfully`
-                                    });
-                                    fetchGuests(); // Refresh list
-                                    // Keep modal open to show updated status
-                                    // setModalVisible(false);
-                                } else {
-                                    Toast.show({
-                                        type: 'error',
-                                        text1: 'Check-in Failed',
-                                        text2: res?.message || 'Verification failed'
-                                    });
-                                }
-                            } catch (error) {
-                                console.error("Manual check-in error:", error);
-                                Toast.show({
-                                    type: 'error',
-                                    text1: 'Check-in Failed',
-                                    text2: 'An error occurred'
-                                });
-                            }
-                        } else {
-                            Toast.show({
-                                type: 'error',
-                                text1: 'Check-in Failed',
-                                text2: 'Guest UUID not found'
-                            });
-                        }
-                    }}
                     onMakeManager={async (guestId) => {
                         await makeGuestManager(eventId, guestId);
                         fetchGuests();
