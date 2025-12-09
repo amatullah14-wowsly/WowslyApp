@@ -114,7 +114,12 @@ export async function insertOrReplaceGuests(eventId: number, guestsArray: any[])
       g.quantity ||
       1;
 
-    const usedEntries = g.used_entries || g.checked_in_count || 0;
+    let usedEntries = g.used_entries || g.checked_in_count || 0;
+
+    // ⚡⚡⚡ SYNC FIX: If status is checked_in, ensure we mark as used ⚡⚡⚡
+    if (status === 'checked_in' && usedEntries === 0) {
+      usedEntries = 1;
+    }
 
     const facilities = g.facilities ? JSON.stringify(g.facilities) : null;
 

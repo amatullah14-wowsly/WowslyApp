@@ -10,25 +10,28 @@ export type EventCardProps = {
   onPress?: () => void
 }
 
+import FastImage from 'react-native-fast-image'
+
 const EventCard = ({ title, date, location, image, selected, onPress }: EventCardProps) => {
 
   return (
     <TouchableOpacity activeOpacity={0.9} onPress={onPress}>
       <View style={[styles.card, selected && styles.cardSelected]}>
-        <ImageBackground
+        {/* FastImage acting as Background */}
+        <FastImage
           source={image}
-          style={styles.imageBackground}
-          resizeMode="cover"
-          imageStyle={{ borderRadius: 24 }}
-        >
-          <View style={styles.overlay}>
-            <View style={styles.cardContent}>
-              <Text style={styles.cardTitle}>{title}</Text>
-              <Text style={styles.cardMeta}>{date}</Text>
-              <Text style={styles.cardLocation}>{location}</Text>
-            </View>
+          style={StyleSheet.absoluteFill}
+          resizeMode={FastImage.resizeMode.cover}
+        />
+
+        {/* Overlay Content */}
+        <View style={styles.overlay}>
+          <View style={styles.cardContent}>
+            <Text style={styles.cardTitle}>{title}</Text>
+            <Text style={styles.cardMeta}>{date}</Text>
+            <Text style={styles.cardLocation}>{location}</Text>
           </View>
-        </ImageBackground>
+        </View>
       </View>
     </TouchableOpacity>
   )
@@ -43,15 +46,12 @@ const styles = StyleSheet.create({
     borderColor: '#FFE0CC',
     height: 200, // Fixed height for the card
     overflow: 'hidden',
+    position: 'relative' // Ensure relative positioning for absolute children
   },
   cardSelected: {
     borderColor: '#FF8A3C',
   },
-  imageBackground: {
-    width: '100%',
-    height: '100%',
-    justifyContent: 'flex-end',
-  },
+  // imageBackground removed as FastImage uses absoluteFill
   overlay: {
     ...StyleSheet.absoluteFillObject,
     backgroundColor: 'rgba(0,0,0,0.3)',
@@ -78,4 +78,4 @@ const styles = StyleSheet.create({
   },
 })
 
-export default EventCard
+export default React.memo(EventCard)

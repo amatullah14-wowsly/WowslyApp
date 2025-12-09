@@ -11,6 +11,7 @@ import {
     ActivityIndicator,
     DeviceEventEmitter,
 } from 'react-native';
+import FastImage from 'react-native-fast-image';
 import { RouteProp, useNavigation, useRoute, useFocusEffect } from '@react-navigation/native';
 import { GestureHandlerRootView, Swipeable } from 'react-native-gesture-handler';
 import { getEventUsers, makeGuestManager, makeGuestUser, verifyQrCode, getEventUsersPage } from '../../api/event';
@@ -224,83 +225,20 @@ const OnlineGuestList = () => {
     }, [guests, activeTab, searchQuery, lastUpdate]);
 
     /* ---------------------- Render each guest ---------------------- */
-    const renderGuest = ({ item }: { item: any }) => {
-        const name = item.name || `${item.first_name} ${item.last_name}`;
-        const avatar = item.avatar || item.profile_photo;
-
-        const rawStatus = item.status || activeTab;
-        let status = rawStatus;
-        if (['active', 'registered', 'invited'].includes(rawStatus?.toLowerCase())) {
-            status = 'Pending';
-        }
-
-        const ticketData = item.ticket_data || {};
-        const totalEntries = item.total_entries || ticketData.tickets_bought || 1;
-        const usedEntries = item.used_entries || ticketData.used_entries || 0;
-
-        let statusStyle = statusChipStyles[status] || statusChipStyles['registered'];
-
-        // Fix: Check explicit check_in_status or used count for single entry too
-        const isCheckedIn = item.check_in_status === 1 || item.status === 'Checked In' || item.status === 'checked_in';
-
-        if (totalEntries > 1) {
-            if (usedEntries >= totalEntries) {
-                status = 'Checked In';
-                statusStyle = statusChipStyles['Checked In'];
-            } else {
-                status = `${usedEntries}/${totalEntries}`;
-                statusStyle = statusChipStyles['Pending'];
-            }
-        } else {
-            if (isCheckedIn || usedEntries > 0) {
-                status = 'Checked In';
-                statusStyle = statusChipStyles['Checked In'];
-            }
-        }
-
+    // Extracted to Memoized Component (defined below)
+    const renderGuestItem = React.useCallback(({ item }: { item: any }) => {
         return (
-            <Swipeable
-                overshootRight={false}
-                renderRightActions={() => (
-                    <View style={styles.rowActions}>
-                        <TouchableOpacity style={[styles.actionButton, styles.editButton]}>
-                            <Text style={styles.actionText}>Edit</Text>
-                        </TouchableOpacity>
-                    </View>
-                )}
-            >
-                <TouchableOpacity
-                    activeOpacity={0.7}
-                    onPress={() => {
-                        const id = (item.id || item.guest_id || item.event_user_id)?.toString();
-                        console.log("Selected Guest ID:", id);
-                        setSelectedGuestId(id);
-                        setModalVisible(true);
-                    }}
-                >
-                    <View style={styles.guestRow}>
-                        {avatar ? (
-                            <Image source={{ uri: avatar }} style={styles.avatar} />
-                        ) : (
-                            <View style={[styles.avatar, styles.avatarPlaceholder]}>
-                                <Text style={styles.avatarPlaceholderText}>{name.charAt(0)}</Text>
-                            </View>
-                        )}
-
-                        <View style={styles.guestInfo}>
-                            <Text style={styles.guestName}>{name}</Text>
-                        </View>
-
-                        <View style={[styles.statusChip, statusStyle]}>
-                            <Text style={[styles.statusChipText, { color: statusStyle.color }]}>
-                                {status}
-                            </Text>
-                        </View>
-                    </View>
-                </TouchableOpacity>
-            </Swipeable>
+            <MemoizedGuestRow
+                item={item}
+                onPress={() => {
+                    const id = (item.id || item.guest_id || item.event_user_id)?.toString();
+                    console.log("Selected Guest ID:", id);
+                    setSelectedGuestId(id);
+                    setModalVisible(true);
+                }}
+            />
         );
-    };
+    }, []);
 
     /* ---------------------- UI ---------------------- */
     return (
@@ -360,7 +298,11 @@ const OnlineGuestList = () => {
                             }
                             contentContainerStyle={styles.listContent}
                             ItemSeparatorComponent={() => <View style={styles.separator} />}
-                            renderItem={renderGuest}
+                            renderItem={renderGuestItem}
+                            initialNumToRender={10}
+                            maxToRenderPerBatch={10}
+                            windowSize={5}
+                            removeClippedSubviews={true}
                             ListEmptyComponent={
                                 <View style={styles.emptyState}>
                                     <Image source={NOGUESTS_ICON} style={styles.emptyIcon} />
@@ -432,6 +374,53 @@ export default OnlineGuestList;
 
 /* styles unchanged... */
 
+
+
+// ⚡⚡⚡ MEMOIZED GUEST ROW COMPONENT ⚡⚡⚡
+const MemoizedGuestRow = React.memo(({ item, onPress }: { item: any, onPress: () => void }) => {
+    const name = item.name || `${item.first_name} ${item.last_name}`;
+    const avatar = item.avatar || item.profile_photo;
+
+    // NOTE: Hiding status logic for visual but keeping variable extraction if needed for future
+    // In this "hidden status" version, we only render name and avatar.
+
+    return (
+        <Swipeable
+            overshootRight={false}
+            renderRightActions={() => (
+                <View style={styles.rowActions}>
+                    <TouchableOpacity style={[styles.actionButton, styles.editButton]}>
+                        <Text style={styles.actionText}>Edit</Text>
+                    </TouchableOpacity>
+                </View>
+            )}
+        >
+            <TouchableOpacity
+                activeOpacity={0.7}
+                onPress={onPress}
+            >
+                <View style={styles.guestRow}>
+                    {avatar ? (
+                        <FastImage
+                            source={{ uri: avatar, priority: FastImage.priority.normal }}
+                            style={styles.avatar}
+                            resizeMode={FastImage.resizeMode.cover}
+                        />
+                    ) : (
+                        <View style={[styles.avatar, styles.avatarPlaceholder]}>
+                            <Text style={styles.avatarPlaceholderText}>{name.charAt(0)}</Text>
+                        </View>
+                    )}
+
+                    <View style={styles.guestInfo}>
+                        <Text style={styles.guestName}>{name}</Text>
+                    </View>
+                    {/* Status Chip Hidden */}
+                </View>
+            </TouchableOpacity>
+        </Swipeable>
+    );
+});
 
 const styles = StyleSheet.create({
     safeArea: {

@@ -68,11 +68,11 @@ const NEXT_ICON = require('../../assets/img/common/next.png');
 const GuestRow = React.memo(({ item, onPress }: { item: any; onPress: (guest: any) => void }) => {
   const name = item.name || item.first_name + ' ' + item.last_name || 'Guest';
   const avatar = item.avatar || item.profile_photo;
-  let status = item.status || 'Registered';
+  let displayStatus = item.status || 'Registered';
 
   // Fix: Map "Active/Registered/Invited" to "Pending" for display
-  if (['active', 'registered', 'invited'].includes(status.toLowerCase())) {
-    status = 'Pending';
+  if (['active', 'registered', 'invited'].includes(displayStatus.toLowerCase())) {
+    displayStatus = 'Pending';
   }
 
   // Fix: Check explicit check_in_status or used count
@@ -83,28 +83,28 @@ const GuestRow = React.memo(({ item, onPress }: { item: any; onPress: (guest: an
   const totalEntries = Number(item.total_entries || item.tickets_bought || ticketData.tickets_bought || item.quantity || ticketData.quantity || 1);
   const usedEntries = Number(item.used_entries || item.checked_in_count || ticketData.used_entries || ticketData.checked_in_count || 0);
 
-  let statusStyle = statusChipStyles[status] || statusChipStyles[status.toLowerCase()] || statusChipStyles['registered'];
+  let statusStyle = statusChipStyles[displayStatus] || statusChipStyles[displayStatus.toLowerCase()] || statusChipStyles['registered'];
 
   if (totalEntries > 1) {
     if (usedEntries >= totalEntries) {
-      status = 'Checked In';
+      displayStatus = 'Checked In';
       statusStyle = statusChipStyles['Checked In'];
     } else {
-      status = `${usedEntries}/${totalEntries}`;
+      displayStatus = `${usedEntries}/${totalEntries}`;
       statusStyle = statusChipStyles['Pending'];
     }
   } else {
     // Single entry logic (or missing ticket data)
     if (isCheckedIn || usedEntries > 0) {
-      status = 'Checked In';
+      displayStatus = 'Checked In';
       statusStyle = statusChipStyles['Checked In'];
     }
   }
 
   // Final override: if we determined it's Pending based on text but logic says otherwise, the above blocks fix it.
   // But if status is still 'Registered'/'Active' and not caught above, map to Pending.
-  if (['active', 'registered', 'invited'].includes(status.toLowerCase())) {
-    status = 'Pending';
+  if (['active', 'registered', 'invited'].includes(displayStatus.toLowerCase())) {
+    displayStatus = 'Pending';
   }
 
   const renderRightActions = () => (
@@ -151,11 +151,7 @@ const GuestRow = React.memo(({ item, onPress }: { item: any; onPress: (guest: an
           <View style={localStyles.guestInfo}>
             <Text style={localStyles.guestName}>{name}</Text>
           </View>
-          <View style={[localStyles.statusChip, statusStyle]}>
-            <Text style={statusTextStyle}>
-              {status}
-            </Text>
-          </View>
+          {/* Status Chip Hidden as per request */}
         </View>
       </TouchableOpacity>
     </Swipeable>

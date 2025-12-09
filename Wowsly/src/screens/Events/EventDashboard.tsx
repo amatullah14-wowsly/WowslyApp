@@ -7,6 +7,9 @@ import { getUnsyncedCheckins, getLocalCheckedInGuests } from '../../db';
 import BackButton from '../../components/BackButton';
 import Svg, { G, Path, Circle, Text as SvgText } from 'react-native-svg';
 import * as d3 from 'd3-shape';
+import { getEventTicketCheckins } from '../../api/event';
+import TicketCheckInModal from '../../components/TicketCheckInModal';
+import TicketsSoldModal from '../../components/TicketsSoldModal';
 
 const COLORS = ['#FFF5C4', '#FFD180', '#FFAB40', '#FF6D00', '#D50000', '#8E0000', '#5D0000'];
 
@@ -33,6 +36,14 @@ const EventDashboard = ({ route }: EventDashboardProps) => {
     const [guestCounts, setGuestCounts] = useState({ total: 0, checkedIn: 0 });
     const [ticketList, setTicketList] = useState<any[]>([]);
     const [checkinData, setCheckinData] = useState<any[]>([]);
+
+    // Check-in Modal State
+    const [checkInModalVisible, setCheckInModalVisible] = useState(false);
+    const [checkInStats, setCheckInStats] = useState<any[]>([]);
+    const [statsLoading, setStatsLoading] = useState(false);
+
+    // Tickets Sold Modal State
+    const [ticketsSoldModalVisible, setTicketsSoldModalVisible] = useState(false);
 
     // Refresh data when screen comes into focus
     useFocusEffect(
@@ -122,6 +133,22 @@ const EventDashboard = ({ route }: EventDashboardProps) => {
             }
         } catch (e) {
             console.error("Error fetching checkin data:", e);
+        }
+    };
+
+    const handleOpenCheckInModal = async () => {
+        if (!eventData?.id) return;
+        setCheckInModalVisible(true);
+        setStatsLoading(true);
+        try {
+            const res = await getEventTicketCheckins(eventData.id);
+            const data = res?.data || (Array.isArray(res) ? res : []);
+            // Expecting data to match TicketStat type
+            setCheckInStats(data);
+        } catch (error) {
+            console.error("Failed to load check-in stats", error);
+        } finally {
+            setStatsLoading(false);
         }
     };
 
@@ -230,6 +257,8 @@ const EventDashboard = ({ route }: EventDashboardProps) => {
                             icon={require('../../assets/img/eventdashboard/checkin.png')}
                             title="Check-In"
                             value={displayData.totalCheckIns || guestCounts.checkedIn || displayData.checked_in_count || displayData.used_entries || "0"}
+                            onPress={handleOpenCheckInModal}
+                            showArrow={true}
                         />
                     </View>
 
@@ -238,7 +267,8 @@ const EventDashboard = ({ route }: EventDashboardProps) => {
                             icon={require('../../assets/img/eventdashboard/ticket.png')}
                             title="Tickets"
                             value={ticketList.length > 0 ? ticketList.reduce((acc, t) => acc + (t.sold_out || 0), 0).toString() : (displayData.tickets_sold || "0")}
-                        //   onPress={() => navigation.navigate("TicketsScreen")}
+                            onPress={() => setTicketsSoldModalVisible(true)}
+                            showArrow={true}
                         />
 
                         <Grid
@@ -410,6 +440,21 @@ const EventDashboard = ({ route }: EventDashboardProps) => {
                     </View>
                 </View>
             </ScrollView >
+
+            <TicketCheckInModal
+                visible={checkInModalVisible}
+                onClose={() => setCheckInModalVisible(false)}
+                loading={statsLoading}
+                checkInStats={checkInStats}
+            />
+
+            <TicketsSoldModal
+                visible={ticketsSoldModalVisible}
+                onClose={() => setTicketsSoldModalVisible(false)}
+                eventId={displayData.id}
+                tickets={ticketList}
+            />
+
             <View />
         </View>
     )
@@ -443,6 +488,7 @@ const styles = StyleSheet.create({
         flex: 1,
         textAlign: 'center',
         paddingHorizontal: 12,
+        color: 'black',
     },
     menuIcon: {
         width: 20,
@@ -586,7 +632,7 @@ const styles = StyleSheet.create({
         borderRadius: 10,
         flexDirection: 'row',
         gap: 10,
-      bottom: 15,
+        bottom: 15,
     },
     scanicon: {
         height: 25,

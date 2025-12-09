@@ -204,13 +204,23 @@ const GuestDetailsModal: React.FC<GuestDetailsModalProps> = ({
                                                         console.log("VerifyQR Result:", res);
 
                                                         if (res && (res.message === 'QR code verified' || res.success)) {
-                                                            // Enrich guestData with verification result if available
-                                                            // This is CRITICAL if getGuestDetails was incomplete
-                                                            if (res.data || res.guest_data || res.user) {
-                                                                const newData = res.data || res.guest_data || res.user;
-                                                                console.log("Enriching guestData from VerifyQR:", newData);
+                                                            // verified! now fetch fresh details to get accurate used_entries/tickets_bought
+                                                            console.log("QR Verified. Fetching fresh details...");
+                                                            const detailsRes = await getGuestDetails(eventId, guestId);
+
+                                                            if (detailsRes?.data) {
+                                                                const newData = detailsRes.data;
+                                                                console.log("Fresh details fetched:", newData);
                                                                 setGuestData((prev: any) => ({ ...prev, ...newData }));
+                                                            } else {
+                                                                // Fallback: use whatever verify returned if details fetch fails
+                                                                console.warn("Fresh details fetch failed, using verify result");
+                                                                if (res.data || res.guest_data || res.user) {
+                                                                    const newData = res.data || res.guest_data || res.user;
+                                                                    setGuestData((prev: any) => ({ ...prev, ...newData }));
+                                                                }
                                                             }
+
                                                             setLoading(false);
                                                             setCheckInStep('quantity');
                                                         } else {

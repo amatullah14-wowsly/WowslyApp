@@ -16,6 +16,7 @@ import {
     TouchableWithoutFeedback,
     Platform,
 } from 'react-native';
+import FastImage from 'react-native-fast-image';
 import { RouteProp, useNavigation, useRoute, useFocusEffect } from '@react-navigation/native';
 import { initDB, getTicketsForEvent, updateTicketStatusLocal, getTicketsForEventPage } from '../../db';
 import { verifyQrCode } from '../../api/event';
@@ -221,45 +222,18 @@ const OfflineGuestList = () => {
         }
     };
 
-    const renderGuest = ({ item }: { item: any }) => {
-        const name = item.guest_name || item.name || item.first_name + ' ' + item.last_name || 'Guest';
-        const avatar = item.avatar || item.profile_photo;
-        // Show status from database
-        const status = item.status === 'checked_in' ? 'Checked In' : 'Pending';
-        const style = statusChipStyles[status] || statusChipStyles['Pending'];
-
+    // Extracted logic to Memoized Component (defined below)
+    const renderGuestItem = React.useCallback(({ item }: { item: any }) => {
         return (
-            <TouchableOpacity
-                style={styles.guestRow}
+            <MemoizedGuestRow
+                item={item}
                 onPress={() => {
                     setSelectedGuest(item);
                     setModalVisible(true);
                 }}
-            >
-                {avatar ? (
-                    <Image source={{ uri: avatar }} style={styles.avatar} />
-                ) : (
-                    <View style={[styles.avatar, styles.avatarPlaceholder]}>
-                        <Text style={styles.avatarPlaceholderText}>
-                            {name.charAt(0).toUpperCase()}
-                        </Text>
-                    </View>
-                )}
-                <View style={styles.guestInfo}>
-                    <Text style={styles.guestName}>{name}</Text>
-                    <Text style={styles.guestDetails}>Ticket ID: {item.qr_code || item.ticket_id || item.guest_uuid || 'N/A'}</Text>
-                </View>
-                <View style={[styles.statusChip, { backgroundColor: style.backgroundColor }]}>
-                    <Text style={[styles.statusChipText, { color: style.color }]}>{status}</Text>
-                    {(item.total_entries > 1 || item.used_entries > 0) && (
-                        <Text style={[styles.entryCountText, { color: style.color }]}>
-                            {item.used_entries || 0}/{item.total_entries || 1}
-                        </Text>
-                    )}
-                </View>
-            </TouchableOpacity>
+            />
         );
-    };
+    }, []);
 
     return (
         <SafeAreaView style={styles.safeArea}>
@@ -305,7 +279,7 @@ const OfflineGuestList = () => {
                 )}
 
                 {/* Search & Filter Row */}
-                <View style={{ flexDirection: 'row', alignItems: 'center',marginTop:10 }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 10 }}>
                     {/* Search Bar */}
                     <View style={[styles.searchContainer, { flex: 1, marginBottom: 0 }]}>
                         <Image source={SEARCH_ICON} style={styles.searchIcon} />
@@ -373,7 +347,7 @@ const OfflineGuestList = () => {
                 <FlatList
                     data={guests}
                     keyExtractor={(item, index) => (item.qr_code || index).toString()}
-                    renderItem={renderGuest}
+                    renderItem={renderGuestItem}
                     contentContainerStyle={styles.listContent}
                     refreshControl={
                         <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#FF8A3C" />
@@ -384,6 +358,10 @@ const OfflineGuestList = () => {
                             <Text style={styles.emptyText}>No guests found</Text>
                         </View>
                     }
+                    initialNumToRender={10}
+                    maxToRenderPerBatch={10}
+                    windowSize={5}
+                    removeClippedSubviews={true}
                     ListFooterComponent={
                         guests.length > 0 && lastPage > 1 ? (
                             <View style={styles.paginationContainer}>
@@ -429,12 +407,45 @@ const OfflineGuestList = () => {
                         }
                     }}
 
-                    onManualCheckIn={() => handleManualCheckIn(selectedGuest?.guest_id)}
+                    offline={true}
                 />
             </View>
         </SafeAreaView>
     );
 };
+
+// ⚡⚡⚡ MEMOIZED GUEST ROW COMPONENT ⚡⚡⚡
+const MemoizedGuestRow = React.memo(({ item, onPress }: { item: any, onPress: () => void }) => {
+    const name = item.guest_name || item.name || item.first_name + ' ' + item.last_name || 'Guest';
+    const avatar = item.avatar || item.profile_photo;
+
+    return (
+        <TouchableOpacity
+            style={styles.guestRow}
+            onPress={onPress}
+            activeOpacity={0.7}
+        >
+            {avatar ? (
+                <FastImage
+                    source={{ uri: avatar, priority: FastImage.priority.normal }}
+                    style={styles.avatar}
+                    resizeMode={FastImage.resizeMode.cover}
+                />
+            ) : (
+                <View style={[styles.avatar, styles.avatarPlaceholder]}>
+                    <Text style={styles.avatarPlaceholderText}>
+                        {name.charAt(0).toUpperCase()}
+                    </Text>
+                </View>
+            )}
+            <View style={styles.guestInfo}>
+                <Text style={styles.guestName}>{name}</Text>
+                <Text style={styles.guestDetails}>Ticket ID: {item.qr_code || item.ticket_id || item.guest_uuid || 'N/A'}</Text>
+            </View>
+            {/* Status UI Hidden */}
+        </TouchableOpacity>
+    );
+});
 
 export default OfflineGuestList;
 

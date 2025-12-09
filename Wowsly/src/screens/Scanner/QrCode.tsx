@@ -319,6 +319,8 @@ const QrCode = () => {
           console.log("DEBUG: Offline Ticket Found:", JSON.stringify(ticket));
           console.log(`DEBUG: total_entries: ${ticket.total_entries}, used_entries: ${ticket.used_entries}`);
 
+          console.log(`DEBUG: total_entries: ${ticket.total_entries}, used_entries: ${ticket.used_entries}`);
+
           if (usedEntries >= totalEntries) {
             showStatus('Already Scanned', 'warning');
             setGuestData({
@@ -769,7 +771,7 @@ const QrCode = () => {
         )}
 
         <View style={styles.topRow}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 30 }}>
             <BackButton onPress={() => navigation.goBack()} />
             <View style={styles.modeRow}>
               <Image

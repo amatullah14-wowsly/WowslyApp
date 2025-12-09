@@ -10,8 +10,9 @@ import {
   Modal,
   RefreshControl,
 } from "react-native";
+import FastImage from 'react-native-fast-image';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState, useCallback } from "react";
 import EventCard from "../../components/EventCard";
 import { useNavigation } from "@react-navigation/native";
 import { getEvents } from "../../api/event";
@@ -91,15 +92,16 @@ const EventListing = () => {
     return events.slice(startIndex, startIndex + EVENTS_PER_PAGE);
   }, [events, page]);
 
-  const renderCard = ({ item }: { item: any }) => {
+  const renderCard = useCallback(({ item }: { item: any }) => {
     const isSelected = item.id === selectedEventId;
 
     // Fallback image if API doesn't provide one
+    // Note: FastImage helps with caching
     const imageSource =
       item.event_main_photo &&
         item.event_main_photo !== "" &&
         item.event_main_photo !== "null"
-        ? { uri: item.event_main_photo }
+        ? { uri: item.event_main_photo, priority: FastImage.priority.normal }
         : require('../../assets/img/common/noimage.png');
 
     return (
@@ -114,7 +116,7 @@ const EventListing = () => {
         }}
       />
     );
-  };
+  }, [selectedEventId, navigation]);
 
   // 🔄 Loading UI
   if (loading) {
@@ -235,6 +237,11 @@ const EventListing = () => {
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#FF8A3C']} />
         }
+        // Optimization Props
+        initialNumToRender={10}
+        maxToRenderPerBatch={10}
+        windowSize={5}
+        removeClippedSubviews={true}
       />
 
       {/* Pagination */}

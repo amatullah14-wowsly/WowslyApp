@@ -384,9 +384,17 @@ export const syncPendingCheckins = async (eventId) => {
     }
 };
 
+// ⚡⚡⚡ CORRECTED ENDPOINT PER USER INPUT ⚡⚡⚡
 export const makeGuestUser = async (eventId, guestId, type = 'registered') => {
     try {
-        const response = await client.post(`/events/${eventId}/eventuser/${guestId}/make-guest`, { type });
+        console.log(`Making guest ${guestId} a guest via generic update endpoint...`);
+        // Payload: {_method: "PUT", role: "guest"}
+        // Endpoint: /events/:eventId/eventuser/:eventUserId
+        // Note: 'type' param might not be needed if 'role' handles it, but keeping signature compatible
+        const response = await client.post(`/events/${eventId}/eventuser/${guestId}`, {
+            _method: 'PUT',
+            role: 'guest'
+        });
         return response.data;
     } catch (error) {
         console.log("MAKE GUEST ERROR:", error.response?.data || error.message);
@@ -501,9 +509,16 @@ export const getEventUsersPage = async (eventId, page = 1, type = 'all', search 
     }
 };
 
+// ⚡⚡⚡ CORRECTED ENDPOINT PER USER INPUT ⚡⚡⚡
 export const makeGuestManager = async (eventId, guestId) => {
     try {
-        const response = await client.post(`/events/${eventId}/eventuser/${guestId}/make-manager`);
+        console.log(`Making guest ${guestId} a manager via generic update endpoint...`);
+        // Payload: {_method: "PUT", role: "manager"}
+        // Endpoint: /events/:eventId/eventuser/:eventUserId
+        const response = await client.post(`/events/${eventId}/eventuser/${guestId}`, {
+            _method: 'PUT',
+            role: 'manager'
+        });
         return response.data;
     } catch (error) {
         console.log("MAKE MANAGER ERROR:", error.response?.data || error.message);
@@ -545,5 +560,17 @@ export const manualCheckInGuest = async (eventId, payload) => {
     } catch (error) {
         console.log("MANUAL CHECK-IN ERROR:", error.response?.data || error.message);
         return { status: false, message: "Manual check-in failed" };
+    }
+};
+
+export const getEventTicketCheckins = async (eventId) => {
+    try {
+        console.log(`Fetching Ticket Check-in Stats for event: ${eventId}`);
+        const response = await client.get(`/events/${eventId}/checkin/tickets`);
+        console.log("TICKET CHECK-IN STATS RESPONSE:", response.data);
+        return response.data;
+    } catch (error) {
+        console.log("GET TICKET CHECK-IN STATS ERROR:", error.response?.data || error.message);
+        return { status: false, data: [] };
     }
 };
