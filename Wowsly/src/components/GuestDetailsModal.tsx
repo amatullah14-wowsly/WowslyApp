@@ -167,7 +167,7 @@ const GuestDetailsModal: React.FC<GuestDetailsModalProps> = ({
                                             <View style={styles.detailRow}>
                                                 <Text style={styles.label}>Entries Used:</Text>
                                                 <Text style={styles.value}>
-                                                    {guestData.used_entries || 0} / {guestData.ticket_data.tickets_bought}
+                                                    {Math.min(Number(guestData.used_entries || 0), Number(guestData.ticket_data.tickets_bought))} / {guestData.ticket_data.tickets_bought}
                                                 </Text>
                                             </View>
                                         )}
@@ -195,8 +195,7 @@ const GuestDetailsModal: React.FC<GuestDetailsModalProps> = ({
 
                                                         // Fallback if no UUID found - manual bypass (or error if strict)
                                                         if (!uuid) {
-                                                            console.log("No UUID found, proceeding to quantity (fallback)");
-                                                            setCheckInStep('quantity');
+                                                            Toast.show({ type: 'error', text1: 'Invalid QR Verification', text2: 'Guest does not have a valid ticket.' });
                                                             return;
                                                         }
 
@@ -367,7 +366,7 @@ const GuestDetailsModal: React.FC<GuestDetailsModalProps> = ({
                     )}
                 </TouchableOpacity>
             </TouchableOpacity>
-        </Modal>
+        </Modal >
     );
 };
 

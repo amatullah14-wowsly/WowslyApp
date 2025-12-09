@@ -61,6 +61,8 @@ const SEARCH_ICON = {
 };
 
 const NOGUESTS_ICON = require('../../assets/img/common/noguests.png');
+const PREV_ICON = require('../../assets/img/common/previous.png');
+const NEXT_ICON = require('../../assets/img/common/next.png');
 
 // --- Optimization: Memoized Row Component ---
 const GuestRow = React.memo(({ item, onPress }: { item: any; onPress: (guest: any) => void }) => {
@@ -73,10 +75,13 @@ const GuestRow = React.memo(({ item, onPress }: { item: any; onPress: (guest: an
     status = 'Pending';
   }
 
+  // Fix: Check explicit check_in_status or used count
+  const isCheckedIn = item.check_in_status === 1 || item.status === 'Checked In' || item.status === 'checked_in';
+
   // Multi-entry Logic
   const ticketData = item.ticket_data || {};
-  const totalEntries = item.total_entries || item.tickets_bought || ticketData.tickets_bought || item.quantity || ticketData.quantity || 1;
-  const usedEntries = item.used_entries || item.checked_in_count || ticketData.used_entries || ticketData.checked_in_count || 0;
+  const totalEntries = Number(item.total_entries || item.tickets_bought || ticketData.tickets_bought || item.quantity || ticketData.quantity || 1);
+  const usedEntries = Number(item.used_entries || item.checked_in_count || ticketData.used_entries || ticketData.checked_in_count || 0);
 
   let statusStyle = statusChipStyles[status] || statusChipStyles[status.toLowerCase()] || statusChipStyles['registered'];
 
@@ -88,6 +93,18 @@ const GuestRow = React.memo(({ item, onPress }: { item: any; onPress: (guest: an
       status = `${usedEntries}/${totalEntries}`;
       statusStyle = statusChipStyles['Pending'];
     }
+  } else {
+    // Single entry logic (or missing ticket data)
+    if (isCheckedIn || usedEntries > 0) {
+      status = 'Checked In';
+      statusStyle = statusChipStyles['Checked In'];
+    }
+  }
+
+  // Final override: if we determined it's Pending based on text but logic says otherwise, the above blocks fix it.
+  // But if status is still 'Registered'/'Active' and not caught above, map to Pending.
+  if (['active', 'registered', 'invited'].includes(status.toLowerCase())) {
+    status = 'Pending';
   }
 
   const renderRightActions = () => (
@@ -466,21 +483,27 @@ const GuestScreenTemplate: React.FC<GuestScreenTemplateProps> = ({
               filteredGuests.length > 0 && lastPage > 1 ? (
                 <View style={localStyles.paginationContainer}>
                   <TouchableOpacity
-                    style={[localStyles.pageButton, currentPage === 1 && localStyles.disabledPageButton]}
                     disabled={currentPage === 1 || loading}
                     onPress={() => fetchGuests(currentPage - 1)}
                   >
-                    <Text style={[localStyles.pageButtonText, currentPage === 1 && localStyles.disabledPageText]}>{"<"}</Text>
+                    <Image
+                      source={PREV_ICON}
+                      style={[localStyles.pageIcon, currentPage === 1 && localStyles.disabledIcon]}
+                      resizeMode="contain"
+                    />
                   </TouchableOpacity>
 
                   <Text style={localStyles.pageInfo}>{currentPage} / {lastPage || 1}</Text>
 
                   <TouchableOpacity
-                    style={[localStyles.pageButton, currentPage >= lastPage && localStyles.disabledPageButton]}
                     disabled={currentPage >= lastPage || loading}
                     onPress={() => fetchGuests(currentPage + 1)}
                   >
-                    <Text style={[localStyles.pageButtonText, currentPage >= lastPage && localStyles.disabledPageText]}>{">"}</Text>
+                    <Image
+                      source={NEXT_ICON}
+                      style={[localStyles.pageIcon, currentPage >= lastPage && localStyles.disabledIcon]}
+                      resizeMode="contain"
+                    />
                   </TouchableOpacity>
                 </View>
               ) : null
@@ -680,12 +703,12 @@ const localStyles = StyleSheet.create({
     color: '#111111',
   },
   statusChip: {
-    paddingHorizontal: 14,
+    paddingHorizontal: 12,
     paddingVertical: 6,
-    borderRadius: 16,
+    borderRadius: 8,
   },
   statusChipText: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '600',
   },
   rowActions: {
@@ -738,21 +761,13 @@ const localStyles = StyleSheet.create({
     paddingTop: 16,
     backgroundColor: '#FFFFFF',
   },
-  pageButton: {
-    backgroundColor: '#FF8A3C',
-    paddingHorizontal: 15,
-    paddingVertical: 8,
-    borderRadius: 12,
+  pageIcon: {
+    width: 28,
+    height: 28,
+    tintColor: '#FF8A3C',
   },
-  disabledPageButton: {
-    backgroundColor: '#FFD2B3',
-  },
-  pageButtonText: {
-    color: 'white',
-    fontWeight: '600',
-  },
-  disabledPageText: {
-    color: '#7A7A7A',
+  disabledIcon: {
+    tintColor: '#E0E0E0',
   },
   pageInfo: {
     fontWeight: '600',

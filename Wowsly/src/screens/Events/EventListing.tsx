@@ -240,18 +240,14 @@ const EventListing = () => {
       {/* Pagination */}
       <View style={styles.pagination}>
         <TouchableOpacity
-          style={[styles.pageButton, page === 1 && styles.pageButtonDisabled]}
           onPress={() => setPage((prev) => Math.max(prev - 1, 1))}
           disabled={page === 1}
         >
-          <Text
-            style={[
-              styles.pageButtonText,
-              page === 1 && styles.pageButtonTextDisabled,
-            ]}
-          >
-            {"<"}
-          </Text>
+          <Image
+            source={require('../../assets/img/common/previous.png')}
+            style={[styles.pageIcon, page === 1 && styles.disabledIcon]}
+            resizeMode="contain"
+          />
         </TouchableOpacity>
 
         <Text style={styles.pageIndicator}>
@@ -259,21 +255,14 @@ const EventListing = () => {
         </Text>
 
         <TouchableOpacity
-          style={[
-            styles.pageButton,
-            page === totalPages && styles.pageButtonDisabled,
-          ]}
           onPress={() => setPage((prev) => Math.min(prev + 1, totalPages))}
           disabled={page === totalPages}
         >
-          <Text
-            style={[
-              styles.pageButtonText,
-              page === totalPages && styles.pageButtonTextDisabled,
-            ]}
-          >
-            {">"}
-          </Text>
+          <Image
+            source={require('../../assets/img/common/next.png')}
+            style={[styles.pageIcon, page === totalPages && styles.disabledIcon]}
+            resizeMode="contain"
+          />
         </TouchableOpacity>
       </View>
     </View>
@@ -357,21 +346,13 @@ const styles = StyleSheet.create({
     paddingBottom: 4,
     backgroundColor: 'white',
   },
-  pageButton: {
-    backgroundColor: '#FF8A3C',
-    paddingHorizontal: 15,
-    paddingVertical: 8,
-    borderRadius: 12,
+  pageIcon: {
+    width: 28,
+    height: 28,
+    tintColor: '#FF8A3C',
   },
-  pageButtonDisabled: {
-    backgroundColor: '#FFD2B3',
-  },
-  pageButtonText: {
-    color: 'white',
-    fontWeight: '600',
-  },
-  pageButtonTextDisabled: {
-    color: '#7A7A7A',
+  disabledIcon: {
+    tintColor: '#E0E0E0',
   },
   pageIndicator: {
     fontWeight: '600',

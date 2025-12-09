@@ -11,6 +11,10 @@ import {
     ActivityIndicator,
     RefreshControl,
     DeviceEventEmitter,
+    Animated,
+    ImageSourcePropType,
+    TouchableWithoutFeedback,
+    Platform,
 } from 'react-native';
 import { RouteProp, useNavigation, useRoute, useFocusEffect } from '@react-navigation/native';
 import { initDB, getTicketsForEvent, updateTicketStatusLocal, getTicketsForEventPage } from '../../db';
@@ -34,6 +38,9 @@ const SEARCH_ICON = {
     uri: 'https://img.icons8.com/ios-glyphs/30/969696/search--v1.png',
 };
 const NOGUESTS_ICON = require('../../assets/img/common/noguests.png');
+const DOTS_ICON = require('../../assets/img/common/dots.png');
+const PREV_ICON = require('../../assets/img/common/previous.png');
+const NEXT_ICON = require('../../assets/img/common/next.png');
 
 const statusChipStyles: Record<string, { backgroundColor: string; color: string }> = {
     'Checked In': { backgroundColor: '#E3F2FD', color: '#1565C0' },
@@ -57,9 +64,39 @@ const OfflineGuestList = () => {
     const [currentPage, setCurrentPage] = useState(1);
     const [lastPage, setLastPage] = useState(1);
 
+    const [dropdownVisible, setDropdownVisible] = useState(false);
+    const dropdownAnim = React.useRef(new Animated.Value(0)).current;
+
     useEffect(() => {
         loadGuests(1);
     }, [eventId]);
+
+    const toggleDropdown = () => {
+        if (dropdownVisible) {
+            Animated.timing(dropdownAnim, {
+                toValue: 0,
+                duration: 200,
+                useNativeDriver: true,
+            }).start(() => setDropdownVisible(false));
+        } else {
+            setDropdownVisible(true);
+            Animated.spring(dropdownAnim, {
+                toValue: 1,
+                friction: 5,
+                useNativeDriver: true,
+            }).start();
+        }
+    };
+
+    const handleExport = () => {
+        toggleDropdown();
+        Toast.show({
+            type: 'info',
+            text1: 'Exporting...',
+            text2: 'Export feature is coming soon.',
+        });
+        // Logic to export guest list to CSV can be added here using react-native-fs
+    };
 
     // Debounce search
     useEffect(() => {
@@ -117,6 +154,16 @@ const OfflineGuestList = () => {
         // Offline Manual Check-in
         try {
             const qrCode = selectedGuest.qr_code;
+
+            if (!qrCode) {
+                Toast.show({
+                    type: 'error',
+                    text1: 'Invalid QR Verification',
+                    text2: 'Guest does not have a valid ticket.'
+                });
+                return;
+            }
+
             if (qrCode) {
                 // 1. Update local DB
                 await updateTicketStatusLocal(qrCode, 'checked_in', 1);
@@ -219,8 +266,38 @@ const OfflineGuestList = () => {
                         Offline Guest List
                     </Text>
 
-                    <View style={{ width: 40 }} />
+                    {/* Right Side Menu */}
+                    <View style={styles.headerRight}>
+                        <TouchableOpacity onPress={toggleDropdown} style={styles.menuButton}>
+                            <Image source={DOTS_ICON} style={styles.menuIconImage} />
+                        </TouchableOpacity>
+                    </View>
                 </View>
+
+                {/* Dropdown Menu */}
+                {dropdownVisible && (
+                    <>
+                        <TouchableWithoutFeedback onPress={toggleDropdown}>
+                            <View style={styles.menuOverlay} />
+                        </TouchableWithoutFeedback>
+                        <Animated.View
+                            style={[
+                                styles.dropdownMenu,
+                                {
+                                    opacity: dropdownAnim,
+                                    transform: [
+                                        { scale: dropdownAnim },
+                                        { translateY: dropdownAnim.interpolate({ inputRange: [0, 1], outputRange: [-20, 0] }) }
+                                    ]
+                                }
+                            ]}
+                        >
+                            <TouchableOpacity style={styles.menuItem} onPress={handleExport}>
+                                <Text style={styles.menuItemText}>Export List</Text>
+                            </TouchableOpacity>
+                        </Animated.View>
+                    </>
+                )}
 
                 {/* Search Bar */}
                 <View style={styles.searchContainer}>
@@ -253,21 +330,27 @@ const OfflineGuestList = () => {
                         guests.length > 0 && lastPage > 1 ? (
                             <View style={styles.paginationContainer}>
                                 <TouchableOpacity
-                                    style={[styles.pageButton, currentPage === 1 && styles.disabledPageButton]}
                                     disabled={currentPage === 1 || refreshing}
                                     onPress={() => loadGuests(currentPage - 1)} // loadGuests takes page num
                                 >
-                                    <Text style={[styles.pageButtonText, currentPage === 1 && styles.disabledPageText]}>{"<"}</Text>
+                                    <Image
+                                        source={PREV_ICON}
+                                        style={[styles.pageIcon, currentPage === 1 && styles.disabledIcon]}
+                                        resizeMode="contain"
+                                    />
                                 </TouchableOpacity>
 
                                 <Text style={styles.pageInfo}>{currentPage} / {lastPage || 1}</Text>
 
                                 <TouchableOpacity
-                                    style={[styles.pageButton, currentPage >= lastPage && styles.disabledPageButton]}
                                     disabled={currentPage >= lastPage || refreshing}
                                     onPress={() => loadGuests(currentPage + 1)}
                                 >
-                                    <Text style={[styles.pageButtonText, currentPage >= lastPage && styles.disabledPageText]}>{">"}</Text>
+                                    <Image
+                                        source={NEXT_ICON}
+                                        style={[styles.pageIcon, currentPage >= lastPage && styles.disabledIcon]}
+                                        resizeMode="contain"
+                                    />
                                 </TouchableOpacity>
                             </View>
                         ) : null
@@ -448,15 +531,65 @@ const styles = StyleSheet.create({
     disabledPageButton: {
         backgroundColor: '#FFD2B3',
     },
-    pageButtonText: {
-        color: 'white',
-        fontWeight: '600',
+    pageIcon: {
+        width: 28,
+        height: 28,
+        tintColor: '#FF8A3C',
     },
-    disabledPageText: {
-        color: '#7A7A7A',
+    disabledIcon: {
+        tintColor: '#E0E0E0',
     },
     pageInfo: {
         fontWeight: '600',
+        color: '#333',
+    },
+    headerRight: {
+        width: 40,
+        alignItems: 'flex-end',
+    },
+    menuButton: {
+        padding: 8,
+    },
+    menuIconImage: {
+        width: 24,
+        height: 24,
+        tintColor: '#1F1F1F',
+        resizeMode: 'contain',
+    },
+    menuOverlay: {
+        position: 'absolute',
+        top: 0,
+        bottom: 0,
+        left: 0,
+        right: 0,
+        zIndex: 99,
+        // backgroundColor: 'rgba(0,0,0,0.1)', // Optional dimming
+    },
+    dropdownMenu: {
+        position: 'absolute',
+        top: 70, // Adjust based on header height
+        right: 20,
+        backgroundColor: 'white',
+        borderRadius: 12,
+        paddingVertical: 8,
+        paddingHorizontal: 12,
+        minWidth: 150,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.15,
+        shadowRadius: 12,
+        elevation: 10,
+        zIndex: 100,
+        borderWidth: 1,
+        borderColor: '#F0F0F0',
+    },
+    menuItem: {
+        paddingVertical: 12,
+        paddingHorizontal: 8,
+    },
+    menuItemText: {
+        fontSize: 15,
+        fontWeight: '500',
         color: '#333',
     },
 });

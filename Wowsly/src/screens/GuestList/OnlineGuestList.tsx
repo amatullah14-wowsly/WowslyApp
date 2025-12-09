@@ -34,6 +34,8 @@ const SEARCH_ICON = {
     uri: 'https://img.icons8.com/ios-glyphs/30/969696/search--v1.png',
 };
 const NOGUESTS_ICON = require('../../assets/img/common/noguests.png');
+const PREV_ICON = require('../../assets/img/common/previous.png');
+const NEXT_ICON = require('../../assets/img/common/next.png');
 
 type TabType = 'registered' | 'invited';
 
@@ -238,11 +240,22 @@ const OnlineGuestList = () => {
 
         let statusStyle = statusChipStyles[status] || statusChipStyles['registered'];
 
+        // Fix: Check explicit check_in_status or used count for single entry too
+        const isCheckedIn = item.check_in_status === 1 || item.status === 'Checked In' || item.status === 'checked_in';
+
         if (totalEntries > 1) {
-            status = `${usedEntries}/${totalEntries}`;
-            statusStyle = usedEntries >= totalEntries
-                ? statusChipStyles['Checked In']
-                : statusChipStyles['Pending'];
+            if (usedEntries >= totalEntries) {
+                status = 'Checked In';
+                statusStyle = statusChipStyles['Checked In'];
+            } else {
+                status = `${usedEntries}/${totalEntries}`;
+                statusStyle = statusChipStyles['Pending'];
+            }
+        } else {
+            if (isCheckedIn || usedEntries > 0) {
+                status = 'Checked In';
+                statusStyle = statusChipStyles['Checked In'];
+            }
         }
 
         return (
@@ -359,21 +372,27 @@ const OnlineGuestList = () => {
                                 displayedGuests.length > 0 && lastPage > 1 ? (
                                     <View style={styles.paginationContainer}>
                                         <TouchableOpacity
-                                            style={[styles.pageButton, currentPage === 1 && styles.disabledPageButton]}
                                             disabled={currentPage === 1 || loading}
                                             onPress={() => fetchGuests(currentPage - 1)}
                                         >
-                                            <Text style={[styles.pageButtonText, currentPage === 1 && styles.disabledPageText]}>{"<"}</Text>
+                                            <Image
+                                                source={PREV_ICON}
+                                                style={[styles.pageIcon, currentPage === 1 && styles.disabledIcon]}
+                                                resizeMode="contain"
+                                            />
                                         </TouchableOpacity>
 
                                         <Text style={styles.pageInfo}>{currentPage} / {lastPage || 1}</Text>
 
                                         <TouchableOpacity
-                                            style={[styles.pageButton, currentPage >= lastPage && styles.disabledPageButton]}
                                             disabled={currentPage >= lastPage || loading}
                                             onPress={() => fetchGuests(currentPage + 1)}
                                         >
-                                            <Text style={[styles.pageButtonText, currentPage >= lastPage && styles.disabledPageText]}>{">"}</Text>
+                                            <Image
+                                                source={NEXT_ICON}
+                                                style={[styles.pageIcon, currentPage >= lastPage && styles.disabledIcon]}
+                                                resizeMode="contain"
+                                            />
                                         </TouchableOpacity>
                                     </View>
                                 ) : null
@@ -435,7 +454,7 @@ const styles = StyleSheet.create({
     title: {
         flex: 1,
         marginHorizontal: 16,
-        fontSize: 22,
+        fontSize: 20,
         fontWeight: '700',
         color: '#1F1F1F',
         textAlign: 'center',
@@ -455,7 +474,7 @@ const styles = StyleSheet.create({
         color: '#3B3B3B',
     },
     pageTitle: {
-        fontSize: 28,
+        fontSize: 22,
         fontWeight: '700',
         color: '#1F1F1F',
         marginBottom: 20,
@@ -570,12 +589,12 @@ const styles = StyleSheet.create({
         color: '#111111',
     },
     statusChip: {
-        paddingHorizontal: 14,
+        paddingHorizontal: 12,
         paddingVertical: 6,
-        borderRadius: 16,
+        borderRadius: 8,
     },
     statusChipText: {
-        fontSize: 13,
+        fontSize: 12,
         fontWeight: '600',
     },
     rowActions: {
@@ -638,12 +657,13 @@ const styles = StyleSheet.create({
     disabledPageButton: {
         backgroundColor: '#FFD2B3',
     },
-    pageButtonText: {
-        color: 'white',
-        fontWeight: '600',
+    pageIcon: {
+        width: 28,
+        height: 28,
+        tintColor: '#FF8A3C',
     },
-    disabledPageText: {
-        color: '#7A7A7A',
+    disabledIcon: {
+        tintColor: '#E0E0E0',
     },
     pageInfo: {
         fontWeight: '600',

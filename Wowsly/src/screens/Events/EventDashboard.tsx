@@ -586,6 +586,7 @@ const styles = StyleSheet.create({
         borderRadius: 10,
         flexDirection: 'row',
         gap: 10,
+      bottom: 15,
     },
     scanicon: {
         height: 25,

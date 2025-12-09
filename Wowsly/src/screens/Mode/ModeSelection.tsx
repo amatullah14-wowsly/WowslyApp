@@ -200,7 +200,7 @@ const ModeSelection = () => {
               </View>
               <View style={styles.subOptionText}>
                 <Text style={styles.subOptionTitle}>Get Guest List</Text>
-                <Text style={styles.subOptionSubtitle}>View invited guests</Text>
+                <Text style={styles.subOptionSubtitle}>View all guests</Text>
               </View>
               <Text style={styles.subOptionArrow}>→</Text>
             </TouchableOpacity>

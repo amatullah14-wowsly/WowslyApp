@@ -345,14 +345,17 @@ export const syncPendingCheckins = async (eventId) => {
         const bulkPayload = unsynced.map(guest => {
             return {
                 qrGuestUuid: guest.qrGuestUuid || guest.qr_code, // Use stored UUID or fallback to QR
-                check_in_count: guest.check_in_count || 1,
-                qrTicketId: guest.qrTicketId || guest.ticket_id || 0,
-                checkInTime: guest.checkInTime || new Date().toISOString(), // Use stored time or now
+                check_in_count: parseInt(guest.check_in_count || 1),
+                qrTicketId: parseInt(guest.qrTicketId || guest.ticket_id || 0),
+                checkInTime: guest.given_check_in_time || guest.checkInTime || new Date().toISOString(), // Use stored time or now
                 facility_checkIn_count: [] // Empty array as requested
             };
         });
 
         console.log(`DEBUG: Sending bulk sync for ${bulkPayload.length} guests`);
+        if (bulkPayload.length > 0) {
+            console.log("DEBUG: Bulk Payload Sample:", JSON.stringify(bulkPayload[0]));
+        }
 
         const res = await syncOfflineCheckinsAPI(eventId, bulkPayload);
         console.log("Bulk sync response:", JSON.stringify(res));

@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useEffect } from 'react';
+import React, { useMemo, useState, useEffect, useCallback } from 'react';
 import {
   Image,
   SafeAreaView,
@@ -10,7 +10,7 @@ import {
   ActivityIndicator,
   DeviceEventEmitter,
 } from 'react-native';
-import { useNavigation, useRoute } from '@react-navigation/native';
+import { useNavigation, useRoute, useFocusEffect } from '@react-navigation/native';
 import OfflineCard from '../../components/OfflineCard';
 import { downloadOfflineData, getTicketList, syncPendingCheckins } from '../../api/event';
 import Toast from 'react-native-toast-message';
@@ -36,11 +36,11 @@ const OfflineDashboard = () => {
   const [ticketList, setTicketList] = useState<any[]>([]);
 
   const totals = useMemo(() => {
-    // User wants "Total Guests" to match the Card view (which uses totals.unique)
-    // So we switch to using 'count' (unique guests) as the primary total
+    // ⚡⚡⚡ REAL-TIME: Using actual guests_checked_in from DB query ⚡⚡⚡
     const total = summary.reduce((acc, item) => acc + (item.count || 0), 0);
-    const checkedIn = summary.reduce((acc, item) => acc + (item.checked_in || 0), 0);
-    const unique = summary.reduce((acc, item) => acc + (item.count || 0), 0);
+    // Use the new guests_checked_in field if available, fallback to checked_in (entries) only if needed, but we prefer 1-to-1 guest mapping
+    const checkedIn = summary.reduce((acc, item) => acc + (item.guests_checked_in || 0), 0);
+    const unique = total;
 
     return {
       total,
@@ -55,47 +55,52 @@ const OfflineDashboard = () => {
       id: item.ticket_title,
       title: item.ticket_title,
       total: item.count, // Use unique guest count
-      checkedIn: item.checked_in
+      checkedIn: item.guests_checked_in || 0 // Use guests count
     }));
   }, [summary]);
 
-  // Initialize database and load saved offline data
-  // Initialize database and load saved offline data
-  useEffect(() => {
-    const loadOfflineData = async () => {
-      if (eventId) {
-        try {
-          await initDB();
+  const loadOfflineData = useCallback(async () => {
+    if (eventId) {
+      try {
+        // Initialize DB securely
+        await initDB();
 
-          // Load Summary (Dynamic)
-          const stats = await getEventSummary(eventId);
-          setSummary(stats);
+        // Load Real-Time Summary
+        const stats = await getEventSummary(eventId);
+        console.log('Summary Loaded:', stats);
+        setSummary(stats);
 
-          // Load full list (optional, mostly for "Download" count comparison)
-          const tickets = await getTicketsForEvent(eventId);
-          if (tickets) setOfflineData(tickets);
+        // Load full list
+        const tickets = await getTicketsForEvent(eventId);
+        if (tickets) setOfflineData(tickets);
 
-          // Check for pending uploads
-          const pending = await getUnsyncedCheckins(eventId);
-          setPendingCount(pending.length);
+        // Check for pending uploads
+        const pending = await getUnsyncedCheckins(eventId);
+        setPendingCount(pending.length);
 
-          // Fetch Ticket List (Online)
-          fetchTicketList(eventId);
-        } catch (error) {
-          console.error('Error loading offline data:', error);
-        }
+        // Fetch Ticket List (Online)
+        fetchTicketList(eventId);
+      } catch (error) {
+        console.error('Error loading offline data:', error);
       }
-    };
-    loadOfflineData();
+    }
+  }, [eventId]);
 
-    // Listen for real-time scans
+  // Reload data every time screen comes into focus
+  useFocusEffect(
+    useCallback(() => {
+      loadOfflineData();
+    }, [loadOfflineData])
+  );
+
+  // Still listen for broadcast in case we are already focused and valid
+  useEffect(() => {
     const sub = DeviceEventEmitter.addListener('BROADCAST_SCAN_TO_CLIENTS', () => {
       console.log("OfflineDashboard: Refreshing summary due to scan");
       loadOfflineData();
     });
-
     return () => sub.remove();
-  }, [eventId]);
+  }, [loadOfflineData]);
 
   const fetchTicketList = async (id: string) => {
     try {

@@ -345,7 +345,8 @@ export async function getEventSummary(eventId: number) {
        ticket_title, 
        COUNT(*) as count, 
        SUM(total_entries) as total_pax, 
-       SUM(used_entries) as checked_in 
+       SUM(used_entries) as checked_in,
+       SUM(CASE WHEN used_entries > 0 OR status = 'checked_in' THEN 1 ELSE 0 END) as guests_checked_in
      FROM tickets 
      WHERE event_id = ? 
      GROUP BY ticket_title;`,
