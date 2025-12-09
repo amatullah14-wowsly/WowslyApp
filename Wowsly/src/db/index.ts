@@ -220,7 +220,10 @@ export async function getTicketsForEvent(eventId: number) {
 // ======================================================
 // GET TICKETS PAGINATED (OFFLINE)
 // ======================================================
-export async function getTicketsForEventPage(eventId: number, page: number = 1, limit: number = 100, search: string = '') {
+// ======================================================
+// GET TICKETS PAGINATED (OFFLINE)
+// ======================================================
+export async function getTicketsForEventPage(eventId: number, page: number = 1, limit: number = 100, search: string = '', filterStatus: string = 'All') {
   const db = await openDB();
   const offset = (page - 1) * limit;
 
@@ -228,12 +231,24 @@ export async function getTicketsForEventPage(eventId: number, page: number = 1, 
   let countQuery = `SELECT COUNT(*) as total FROM tickets WHERE event_id = ?`;
   const params: any[] = [eventId];
 
+  // ⚡⚡⚡ STATUS FILTER ⚡⚡⚡
+  if (filterStatus === 'Checked In') {
+    const statusClause = ` AND (status = 'checked_in' OR used_entries > 0)`;
+    query += statusClause;
+    countQuery += statusClause;
+  } else if (filterStatus === 'Pending') {
+    const statusClause = ` AND (status != 'checked_in' AND used_entries = 0)`;
+    query += statusClause;
+    countQuery += statusClause;
+  }
+
+  // SEARCH FILTER
   if (search && search.trim().length > 0) {
     const s = `%${search.trim()}%`;
     const searchClause = ` AND (guest_name LIKE ? OR phone LIKE ? OR qr_code LIKE ? OR ticket_id LIKE ?)`;
     query += searchClause;
     countQuery += searchClause;
-    params.push(s, s, s, s);
+    params.push(s, s, s, s); // Params are reused for both
   }
 
   query += ` ORDER BY guest_name COLLATE NOCASE LIMIT ? OFFSET ?;`;
