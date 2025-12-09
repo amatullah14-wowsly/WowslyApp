@@ -346,8 +346,8 @@ export const syncPendingCheckins = async (eventId) => {
             return {
                 qrGuestUuid: guest.qrGuestUuid || guest.qr_code, // Use stored UUID or fallback to QR
                 check_in_count: parseInt(guest.check_in_count || 1),
-                qrTicketId: parseInt(guest.qrTicketId || guest.ticket_id || 0),
-                checkInTime: guest.given_check_in_time || guest.checkInTime || new Date().toISOString(), // Use stored time or now
+                ticket_id: parseInt(guest.qrTicketId || guest.ticket_id || 0), // Changed key to ticket_id
+                check_in_time: guest.given_check_in_time || guest.checkInTime || new Date().toISOString(), // Changed key to snake_case
                 facility_checkIn_count: [] // Empty array as requested
             };
         });

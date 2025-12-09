@@ -23,6 +23,10 @@ const DOWNLOAD_ICON = require('../../assets/img/Mode/offlinemode.png');
 const UPLOAD_ICON = require('../../assets/img/eventdashboard/upload.png');
 const GUEST_ICON = require('../../assets/img/eventdashboard/guests.png');
 
+// ⚡⚡⚡ MODULE-LEVEL CACHE FOR PERSISTENCE ⚡⚡⚡
+let cachedSummary: any[] = [];
+let cachedOfflineData: any = null;
+
 const OfflineDashboard = () => {
   const navigation = useNavigation<any>();
   const route = useRoute<any>();
@@ -30,8 +34,11 @@ const OfflineDashboard = () => {
 
   const [downloading, setDownloading] = useState(false);
   const [uploading, setUploading] = useState(false);
-  const [offlineData, setOfflineData] = useState<any>(null);
-  const [summary, setSummary] = useState<any[]>([]);
+
+  // Initialize with cached data to prevent flickering/clearing on back nav
+  const [offlineData, setOfflineData] = useState<any>(cachedOfflineData);
+  const [summary, setSummary] = useState<any[]>(cachedSummary);
+
   const [pendingCount, setPendingCount] = useState(0);
   const [ticketList, setTicketList] = useState<any[]>([]);
 
@@ -68,11 +75,17 @@ const OfflineDashboard = () => {
         // Load Real-Time Summary
         const stats = await getEventSummary(eventId);
         console.log('Summary Loaded:', stats);
+
+        // Update cache and state
+        cachedSummary = stats;
         setSummary(stats);
 
         // Load full list
         const tickets = await getTicketsForEvent(eventId);
-        if (tickets) setOfflineData(tickets);
+        if (tickets) {
+          cachedOfflineData = tickets;
+          setOfflineData(tickets);
+        }
 
         // Check for pending uploads
         const pending = await getUnsyncedCheckins(eventId);
@@ -219,11 +232,15 @@ const OfflineDashboard = () => {
         Toast.show({
           type: 'success',
           text1: 'Synced',
-          text2: res.message || 'Uploaded check-ins'
+          text2: res.message || 'Check-ins uploaded'
         });
 
-        // Auto-download to get latest state from server
-        handleDownloadData();
+        // ⚡⚡⚡ DO NOT AUTO-DOWNLOAD ⚡⚡⚡
+        // Preserve local state as source of truth.
+        // handleDownloadData(); 
+
+        // Just reload local DB to refresh counts/statuses if needed
+        loadOfflineData();
 
       } else {
         throw new Error(res?.message || "Sync failed");
@@ -301,7 +318,7 @@ const OfflineDashboard = () => {
             <OfflineCard
               icon={UPLOAD_ICON}
               title="Upload Data"
-              subtitle="Sync new check-ins"
+              subtitle="Upload new check-ins"
               meta={`${pendingCount} check-ins pending`}
               onPress={handleUploadData}
             />
