@@ -18,7 +18,9 @@ export async function saveTickets(tickets) {
         t.ticket_id,
         t.name,
         t.email,
-        t.phone,
+        t.email,
+        t.phone || t.mobile || t.phone_number || null,
+        t.qr_code,
         t.qr_code,
         t.status,
       ]);

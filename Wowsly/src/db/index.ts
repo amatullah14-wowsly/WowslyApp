@@ -140,7 +140,7 @@ export async function insertOrReplaceGuests(eventId: number, guestsArray: any[])
         qr,
         guestName,
         g.email || null,
-        g.phone || null,
+        g.phone || g.mobile || g.phone_number || null,
         status,
         totalEntries,
         usedEntries,

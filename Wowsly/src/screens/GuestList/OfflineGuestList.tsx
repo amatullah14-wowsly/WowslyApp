@@ -23,6 +23,8 @@ import { verifyQrCode } from '../../api/event';
 import Toast from 'react-native-toast-message';
 import BackButton from '../../components/BackButton';
 import GuestDetailsModal from '../../components/GuestDetailsModal';
+import RNFS from 'react-native-fs';
+import { getLocalCheckedInGuests } from '../../db';
 
 type OfflineGuestListRoute = RouteProp<
     {
@@ -96,14 +98,68 @@ const OfflineGuestList = () => {
         }
     };
 
-    const handleExport = () => {
+    const handleExport = async () => {
         toggleDropdown();
-        Toast.show({
-            type: 'info',
-            text1: 'Exporting...',
-            text2: 'Export feature is coming soon.',
-        });
-        // Logic to export guest list to CSV can be added here using react-native-fs
+
+        try {
+            Toast.show({
+                type: 'info',
+                text1: 'Exporting...',
+                text2: 'Generating CSV file...',
+            });
+
+            const checkedInGuests = await getLocalCheckedInGuests(eventId);
+
+            if (!checkedInGuests || checkedInGuests.length === 0) {
+                Toast.show({
+                    type: 'error',
+                    text1: 'Export Failed',
+                    text2: 'No checked-in guests found to export.',
+                });
+                return;
+            }
+
+            // CSV Header
+            let csvString = 'UUID,Guest Name,Phone Number,Ticket ID,Status,Tickets Bought,Check In Count,Last Scanned Time\n';
+
+            // CSV Rows
+            checkedInGuests.forEach(guest => {
+                const uuid = guest.qrGuestUuid || guest.guest_uuid || guest.uuid || guest.qr_code || '';
+                const name = (guest.guest_name || guest.name || '').replace(/,/g, ' '); // Escape commas
+                const phone = (guest.phone || '').replace(/,/g, ' ');
+                const ticketId = guest.ticket_id || guest.qrTicketId || guest.qr_code || '';
+                const status = guest.status || 'checked_in';
+                const ticketsBought = guest.total_entries || 1;
+                const count = guest.check_in_count || (guest.used_entries > 0 ? 1 : 0);
+                const time = guest.scanned_at || guest.given_check_in_time || '';
+
+                csvString += `${uuid},${name},${phone},${ticketId},${status},${ticketsBought},${count},${time}\n`;
+            });
+
+            // File Path
+            const filename = `wowsly_export_${eventId}_${new Date().getTime()}.csv`;
+            const path = Platform.OS === 'android'
+                ? `${RNFS.DownloadDirectoryPath}/${filename}`
+                : `${RNFS.DocumentDirectoryPath}/${filename}`;
+
+            // Write File
+            await RNFS.writeFile(path, csvString, 'utf8');
+
+            Toast.show({
+                type: 'success',
+                text1: 'Export Successful',
+                text2: `Saved to ${filename}`,
+                visibilityTime: 4000
+            });
+
+        } catch (error) {
+            console.error("Export failed:", error);
+            Toast.show({
+                type: 'error',
+                text1: 'Export Failed',
+                text2: 'Could not save CSV file.',
+            });
+        }
     };
 
     // Debounce search
