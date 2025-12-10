@@ -43,17 +43,16 @@ const OfflineDashboard = () => {
   const [ticketList, setTicketList] = useState<any[]>([]);
 
   const totals = useMemo(() => {
-    // ⚡⚡⚡ REAL-TIME: Using actual guests_checked_in from DB query ⚡⚡⚡
-    const total = summary.reduce((acc, item) => acc + (item.count || 0), 0);
-    // Use the new guests_checked_in field if available, fallback to checked_in (entries) only if needed, but we prefer 1-to-1 guest mapping
-    const checkedIn = summary.reduce((acc, item) => acc + (item.guests_checked_in || 0), 0);
-    const unique = total;
+    // ⚡⚡⚡ REAL-TIME: Using actual total_pax and checked_in (entries) from DB query for multi-entry support ⚡⚡⚡
+    const unique = summary.reduce((acc, item) => acc + (item.count || 0), 0);
+    const total = summary.reduce((acc, item) => acc + (item.total_pax || 0), 0);
+    const checkedIn = summary.reduce((acc, item) => acc + (item.checked_in || 0), 0);
 
     return {
-      total,
-      checkedIn,
+      total, // Total Tickets/Entries
+      checkedIn, // Total Used Entries
       remaining: total - checkedIn,
-      unique
+      unique // Unique Guest Rows
     };
   }, [summary]);
 
@@ -61,8 +60,8 @@ const OfflineDashboard = () => {
     return summary.map(item => ({
       id: item.ticket_title,
       title: item.ticket_title,
-      total: item.count, // Use unique guest count
-      checkedIn: item.guests_checked_in || 0 // Use guests count
+      total: item.total_pax || 0, // Use total entries (tickets bought)
+      checkedIn: item.checked_in || 0 // Use total used entries
     }));
   }, [summary]);
 
@@ -335,7 +334,7 @@ const OfflineDashboard = () => {
               icon={GUEST_ICON}
               title="Guest List"
               subtitle="View downloaded guests"
-              meta={`Total: ${totals.unique} | Checked: ${totals.checkedIn}`}
+              meta={`Total: ${totals.total} | Checked: ${totals.checkedIn}`}
               onPress={() => {
                 navigation.navigate('OfflineGuestList', {
                   eventId,
