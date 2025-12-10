@@ -61,6 +61,9 @@ const OfflineGuestList = () => {
     const [modalVisible, setModalVisible] = useState(false);
     const [selectedGuest, setSelectedGuest] = useState<any>(null);
 
+    // Performance Lock
+    const isFetching = React.useRef(false);
+
     // Pagination
     const [currentPage, setCurrentPage] = useState(1);
     const [lastPage, setLastPage] = useState(1);
@@ -130,6 +133,9 @@ const OfflineGuestList = () => {
     }, [currentPage]);
 
     const loadGuests = async (page = 1) => {
+        if (isFetching.current) return;
+        isFetching.current = true;
+
         try {
             await initDB();
 
@@ -145,6 +151,8 @@ const OfflineGuestList = () => {
         } catch (error) {
             console.error('Error loading offline guests:', error);
             setGuests([]);
+        } finally {
+            isFetching.current = false;
         }
     };
 
@@ -349,6 +357,11 @@ const OfflineGuestList = () => {
                     keyExtractor={(item, index) => (item.qr_code || index).toString()}
                     renderItem={renderGuestItem}
                     contentContainerStyle={styles.listContent}
+                    getItemLayout={(data, index) => ({
+                        length: 80, // Approx height + marginBottom(12)
+                        offset: 80 * index,
+                        index,
+                    })}
                     refreshControl={
                         <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#FF8A3C" />
                     }

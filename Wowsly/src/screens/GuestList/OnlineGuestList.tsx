@@ -20,6 +20,7 @@ import GuestDetailsModal from '../../components/GuestDetailsModal';
 import BackButton from '../../components/BackButton';
 import { getLocalCheckedInGuests } from '../../db';
 import { scanStore, getMergedGuest } from '../../context/ScanStore';
+import { useRef } from 'react'; // Added useRef
 
 type GuestListRoute = RouteProp<
     {
@@ -60,6 +61,11 @@ const OnlineGuestList = () => {
     const [selectedGuestId, setSelectedGuestId] = useState<string | null>(null);
     const [lastUpdate, setLastUpdate] = useState(0);
 
+    // Performance & Locking refs
+    const isFetching = useRef(false);
+    const localCheckinsCache = useRef<any[] | null>(null);
+    const refreshTimeout = useRef<NodeJS.Timeout | null>(null);
+
     // Pagination State
     const [currentPage, setCurrentPage] = useState(1);
     const [lastPage, setLastPage] = useState(1);
@@ -72,8 +78,11 @@ const OnlineGuestList = () => {
     /* ---------------------- Real-time update listener ---------------------- */
     useEffect(() => {
         const subscription = DeviceEventEmitter.addListener('BROADCAST_SCAN_TO_CLIENTS', () => {
-            // Refresh current page on scan
-            fetchGuests(currentPage);
+            // Throttled refresh
+            if (refreshTimeout.current) clearTimeout(refreshTimeout.current);
+            refreshTimeout.current = setTimeout(() => {
+                fetchGuests(currentPage);
+            }, 300);
         });
 
         const refreshSub = DeviceEventEmitter.addListener('REFRESH_GUEST_LIST', () => {
@@ -107,6 +116,7 @@ const OnlineGuestList = () => {
     /* ---------------------- Fetch on load & tab/search change ---------------------- */
     useEffect(() => {
         if (eventId) {
+            localCheckinsCache.current = null; // Invalidate cache on event switch
             // Reset to page 1 when tab changes
             fetchGuests(1);
         }
@@ -123,16 +133,15 @@ const OnlineGuestList = () => {
 
     /* ---------------------- Fetch guest list ---------------------- */
     const fetchGuests = async (page = 1) => {
+        // prevent duplicate calls if already loading same page? 
+        // For pagination usually we allow, but user requested lock "if (isLoading) return".
+        // However, we must be careful not to lock forever if error.
+        if (isFetching.current) return;
+        isFetching.current = true;
         setLoading(true);
 
         try {
             // Use getEventUsersPage for server-side pagination & search
-            // Import this function at the top
-            const type = (activeTab as string) === 'all' ? 'all' : activeTab; // Map 'registered'/'invited' correctly
-
-            // Note: API likely expects 'registered' or 'invited' directly.
-            // My API analysis showed 'type' param is supported.
-
             const res = await getEventUsersPage(eventId, page, activeTab, searchQuery);
 
             let fetchedGuests = res?.guests_list || res?.data || [];
@@ -166,7 +175,11 @@ const OnlineGuestList = () => {
 
             // Merge local DB check-ins for status updates
             try {
-                const localCheckins = await getLocalCheckedInGuests(Number(eventId));
+                // Cache local check-ins logic
+                if (!localCheckinsCache.current) {
+                    localCheckinsCache.current = await getLocalCheckedInGuests(Number(eventId));
+                }
+                const localCheckins = localCheckinsCache.current || [];
 
                 fetchedGuests = fetchedGuests.map((apiGuest: any) => {
                     const match = localCheckins.find(u =>
@@ -193,43 +206,29 @@ const OnlineGuestList = () => {
         } catch (err) {
             console.error("Fetch error:", err);
             setGuests([]);
+        } finally {
+            setLoading(false);
+            isFetching.current = false;
         }
-
-        setLoading(false);
     };
 
     /* ---------------------- Data Processing ---------------------- */
-    const displayedGuests = useMemo(() => {
-        return guests.filter((guest) => {
-            // ⚡⚡⚡ STRICT CATEGORY FILTERING ⚡⚡⚡
-            if (activeTab === 'invited') {
-                // Rule: generated_by_owner : 1 -> invited
-                const isInvited = guest.generated_by_owner == 1;
-                if (!isInvited) return false;
-            } else if (activeTab === 'registered') {
-                // Rule: generated_by_owner : 0 -> registered
-                const isRegistered = guest.generated_by_owner == 0;
-                if (!isRegistered) return false;
-            }
-
-            // Search filter (client-side backup)
-            const query = searchQuery.trim().toLowerCase();
-            if (!query) return true;
-
-            const name = (guest.name || guest.first_name + ' ' + guest.last_name || 'Guest').toLowerCase();
-            const phone = (guest.mobile || guest.phone || guest.phone_number || '').toString().toLowerCase();
-            const id = (guest.id || guest.guest_id || guest.ticket_id || '').toString().toLowerCase();
-
-            return name.includes(query) || phone.includes(query) || id.includes(query);
-        });
-    }, [guests, activeTab, searchQuery, lastUpdate]);
+    // User requested to REMOVE client-side filtering and use guests directly.
+    const displayedGuests = guests;
 
     /* ---------------------- Render each guest ---------------------- */
     // Extracted to Memoized Component (defined below)
-    const renderGuestItem = React.useCallback(({ item }: { item: any }) => {
+    /* ---------------------- Render each guest ---------------------- */
+    // Extracted to Memoized Component (defined below)
+    const renderGuestItem = React.useCallback(({ item, index }: { item: any, index: number }) => {
+        // Optimization: Disable swipeable for items far down the list if performance is key
+        // User suggestion: "Disable Swipeable OR lazy-render it"
+        const isSwipeEnabled = index < 50;
+
         return (
             <MemoizedGuestRow
                 item={item}
+                swipeEnabled={isSwipeEnabled}
                 onPress={() => {
                     const id = (item.id || item.guest_id || item.event_user_id)?.toString();
                     console.log("Selected Guest ID:", id);
@@ -299,6 +298,11 @@ const OnlineGuestList = () => {
                             contentContainerStyle={styles.listContent}
                             ItemSeparatorComponent={() => <View style={styles.separator} />}
                             renderItem={renderGuestItem}
+                            getItemLayout={(data, index) => ({
+                                length: 80, // Approx height + separator
+                                offset: 80 * index,
+                                index,
+                            })}
                             initialNumToRender={10}
                             maxToRenderPerBatch={10}
                             windowSize={5}
@@ -377,12 +381,40 @@ export default OnlineGuestList;
 
 
 // ⚡⚡⚡ MEMOIZED GUEST ROW COMPONENT ⚡⚡⚡
-const MemoizedGuestRow = React.memo(({ item, onPress }: { item: any, onPress: () => void }) => {
+const MemoizedGuestRow = React.memo(({ item, onPress, swipeEnabled }: { item: any, onPress: () => void, swipeEnabled?: boolean }) => {
     const name = item.name || `${item.first_name} ${item.last_name}`;
     const avatar = item.avatar || item.profile_photo;
 
-    // NOTE: Hiding status logic for visual but keeping variable extraction if needed for future
-    // In this "hidden status" version, we only render name and avatar.
+    // Content of the row
+    const RowContent = (
+        <TouchableOpacity
+            activeOpacity={0.7}
+            onPress={onPress}
+        >
+            <View style={styles.guestRow}>
+                {avatar ? (
+                    <FastImage
+                        source={{ uri: avatar, priority: FastImage.priority.normal }}
+                        style={styles.avatar}
+                        resizeMode={FastImage.resizeMode.cover}
+                    />
+                ) : (
+                    <View style={[styles.avatar, styles.avatarPlaceholder]}>
+                        <Text style={styles.avatarPlaceholderText}>{name.charAt(0)}</Text>
+                    </View>
+                )}
+
+                <View style={styles.guestInfo}>
+                    <Text style={styles.guestName}>{name}</Text>
+                </View>
+                {/* Status Chip Hidden */}
+            </View>
+        </TouchableOpacity>
+    );
+
+    if (swipeEnabled === false) {
+        return RowContent;
+    }
 
     return (
         <Swipeable
@@ -395,29 +427,7 @@ const MemoizedGuestRow = React.memo(({ item, onPress }: { item: any, onPress: ()
                 </View>
             )}
         >
-            <TouchableOpacity
-                activeOpacity={0.7}
-                onPress={onPress}
-            >
-                <View style={styles.guestRow}>
-                    {avatar ? (
-                        <FastImage
-                            source={{ uri: avatar, priority: FastImage.priority.normal }}
-                            style={styles.avatar}
-                            resizeMode={FastImage.resizeMode.cover}
-                        />
-                    ) : (
-                        <View style={[styles.avatar, styles.avatarPlaceholder]}>
-                            <Text style={styles.avatarPlaceholderText}>{name.charAt(0)}</Text>
-                        </View>
-                    )}
-
-                    <View style={styles.guestInfo}>
-                        <Text style={styles.guestName}>{name}</Text>
-                    </View>
-                    {/* Status Chip Hidden */}
-                </View>
-            </TouchableOpacity>
+            {RowContent}
         </Swipeable>
     );
 });
