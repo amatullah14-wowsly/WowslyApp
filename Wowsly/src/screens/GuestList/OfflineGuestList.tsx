@@ -509,7 +509,7 @@ const MemoizedGuestRow = React.memo(({ item, onPress }: { item: any, onPress: ()
             )}
             <View style={styles.guestInfo}>
                 <Text style={styles.guestName}>{name}</Text>
-                <Text style={styles.guestDetails}>Ticket ID: {item.qr_code || item.ticket_id || item.guest_uuid || 'N/A'}</Text>
+                <Text style={styles.guestDetails}>Ticket ID: {item.ticket_id || item.qr_code || item.guest_uuid || 'N/A'}</Text>
             </View>
             {/* Status UI Hidden */}
         </TouchableOpacity>
