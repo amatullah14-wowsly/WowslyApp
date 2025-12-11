@@ -9,7 +9,7 @@ import {
     DeviceEventEmitter,
     ScrollView
 } from 'react-native';
-import { getGuestDetails, verifyQrCode, checkInEventUser, getEventTickets, manualCheckInGuest } from '../api/event';
+import { getGuestDetails, verifyQrCode, checkInEventUser, getEventTickets } from '../api/event';
 import { updateTicketStatusLocal } from '../db';
 import Toast from 'react-native-toast-message';
 
@@ -43,17 +43,7 @@ const GuestDetailsModal: React.FC<GuestDetailsModalProps> = ({
 
     // Facilities State
     const [facilities, setFacilities] = useState<any[]>([]);
-    const [facilityAvailability, setFacilityAvailability] = useState<any[]>([]);
     const [selectedScanningOption, setSelectedScanningOption] = useState<string | number>('check_in');
-
-    /* ---------------------- Reset State on Open ---------------------- */
-    useEffect(() => {
-        if (visible) {
-            setCheckInStep('initial');
-            setSelectedScanningOption('check_in');
-            setCheckInQuantity(1);
-        }
-    }, [visible]);
 
     /* ---------------------- Fetch API details ---------------------- */
     useEffect(() => {
@@ -221,57 +211,43 @@ const GuestDetailsModal: React.FC<GuestDetailsModalProps> = ({
                                                         }
 
                                                         setLoading(true);
-                                                        console.log("Starting Manual Check-in Verification...");
                                                         const res = await verifyQrCode(eventId, { qrGuestUuid: uuid });
+                                                        console.log("VerifyQR Result:", res);
 
                                                         if (res && (res.message === 'QR code verified' || res.success)) {
-                                                            console.log("QR Verified. Fetching Tickets...");
+                                                            console.log("QR Verified. Fetching fresh details...");
 
-                                                            // Handle guest_data array
-                                                            const verifiedGuest = Array.isArray(res.guest_data) ? res.guest_data[0] : (res.guest_data || res.data);
-
-                                                            if (verifiedGuest) {
-                                                                // Calculate used entries from check_in_data availability
-                                                                let calculatedUsed = 0;
-                                                                if (Array.isArray(res.check_in_data)) {
-                                                                    calculatedUsed = res.check_in_data.reduce((acc: number, curr: any) => acc + (Number(curr.check_in_count) || 0), 0);
+                                                            // Handle guest_data as Array or Object
+                                                            let mergedData = {};
+                                                            if (res.guest_data) {
+                                                                if (Array.isArray(res.guest_data) && res.guest_data.length > 0) {
+                                                                    mergedData = res.guest_data[0];
+                                                                } else if (!Array.isArray(res.guest_data)) {
+                                                                    mergedData = res.guest_data;
                                                                 }
-
-                                                                setGuestData((prev: any) => ({
-                                                                    ...prev,
-                                                                    ...verifiedGuest,
-                                                                    used_entries: calculatedUsed > 0 ? calculatedUsed : (prev?.used_entries || 0),
-                                                                    checked_in_count: calculatedUsed
-                                                                }));
-
-                                                                // Set facilities from response if available (optimistic)
-                                                                // We will overwrite this with getEventTickets shortly, but good for immediate feedback
-                                                                if (verifiedGuest.facilities) {
-                                                                    setFacilities([{ id: verifiedGuest.ticket_id, facilities: verifiedGuest.facilities }]);
-                                                                }
+                                                            } else if (res.data) {
+                                                                mergedData = res.data;
                                                             }
 
-                                                            // Set facility availability status
-                                                            if (res.facility_availability_status) {
-                                                                setFacilityAvailability(res.facility_availability_status);
-                                                            }
+                                                            // Update state immediately with verify response
+                                                            setGuestData((prev: any) => ({ ...prev, ...mergedData }));
 
-                                                            // --- NEW STEP: Call Event Tickets API ---
-                                                            // As per requirement: if verify is valid, call eventticket
-                                                            const ticketsRes = await getEventTickets(eventId);
-                                                            if (ticketsRes && ticketsRes.data) {
-                                                                console.log("Tickets Fetched Successfully");
-                                                                setFacilities(ticketsRes.data);
-                                                            }
-
-                                                            // Also refresh guest details to be sure
                                                             const detailsRes = await getGuestDetails(eventId, guestId);
+
+                                                            // Also ensure facilities are fetched
+                                                            await fetchFacilities();
+
                                                             if (detailsRes?.data) {
-                                                                setGuestData((prev: any) => ({ ...prev, ...detailsRes.data }));
+                                                                const newData = detailsRes.data;
+                                                                setGuestData((prev: any) => ({ ...prev, ...newData }));
                                                             }
 
                                                             setLoading(false);
                                                             setCheckInStep('quantity');
+                                                            // Default selection: If fully checked in, maybe select first facility?
+                                                            // Or stick to 'check_in' and let user see it's disabled.
+                                                            // If usedCount >= totalEntries, 'check_in' radio will be disabled in render but we should auto select something else?
+                                                            // For now defaults to 'check_in'
 
                                                         } else {
                                                             Toast.show({ type: 'error', text1: 'Verification Failed', text2: res?.message || 'Invalid QR' });
@@ -322,28 +298,20 @@ const GuestDetailsModal: React.FC<GuestDetailsModalProps> = ({
 
                                             {/* FACILITIES RADIOS */}
                                             {availableFacilities.map((fac: any) => {
-                                                // Check availability from verifyQR response
-                                                const availability = facilityAvailability.find((f: any) => f.id === fac.id);
-                                                // Disable if guest NOT checked in yet OR if scans exhausted
-                                                const isExhausted = availability && availability.available_scans <= 0;
-                                                const facilityDisabled = !isGuestCheckedIn || isExhausted;
-
+                                                // Assuming facility structure: { id, name, ... }
+                                                // Disable if guest NOT checked in yet
+                                                const facilityDisabled = !isGuestCheckedIn;
                                                 return (
                                                     <TouchableOpacity
                                                         key={fac.id}
                                                         style={styles.radioItem}
-                                                        onPress={() => {
-                                                            if (facilityDisabled) return;
-                                                            setSelectedScanningOption(fac.id);
-                                                        }}
+                                                        onPress={() => !facilityDisabled && setSelectedScanningOption(fac.id)}
                                                         activeOpacity={facilityDisabled ? 1 : 0.7}
                                                     >
                                                         <View style={[styles.radioOuter, { borderColor: facilityDisabled ? '#CCC' : '#FF8A3C' }]}>
                                                             {selectedScanningOption === fac.id && <View style={[styles.radioInner, { backgroundColor: facilityDisabled ? '#CCC' : '#FF8A3C' }]} />}
                                                         </View>
-                                                        <Text style={[styles.radioLabel, facilityDisabled && styles.disabledText]}>
-                                                            {fac.name} {availability ? `(${availability.available_scans})` : ''}
-                                                        </Text>
+                                                        <Text style={[styles.radioLabel, facilityDisabled && styles.disabledText]}>{fac.name}</Text>
                                                     </TouchableOpacity>
                                                 );
                                             })}
@@ -401,91 +369,61 @@ const GuestDetailsModal: React.FC<GuestDetailsModalProps> = ({
                                                 if (!eventId || !guestId) return;
                                                 setLoading(true);
                                                 try {
-                                                    // Unified Payload Logic
+                                                    // Standard Payload base
                                                     let payload: any = {
                                                         event_id: Number(eventId),
                                                         guest_id: guestData?.id || guestData?.guest_id,
                                                         category_check_in_count: "",
-                                                        other_category_check_in_count: 0
+                                                        other_category_check_in_count: 0,
+                                                        ticket_id: guestData?.ticket_data?.ticket_id || guestData?.ticket_id, // ALWAYS Main Ticket ID
+                                                        check_in_count: checkInQuantity
                                                     };
 
-                                                    if (selectedScanningOption === 'check_in') {
-                                                        // Main Ticket Check-in
-                                                        payload.ticket_id = guestData?.ticket_data?.ticket_id || guestData?.ticket_id;
-                                                        payload.check_in_count = checkInQuantity;
-                                                    } else {
-                                                        // Facility Check-in: Treat facility as a distinct ticket ID
-                                                        // Sending facility ID as ticket_id for /eventuser/checkin endpoint
-                                                        payload.ticket_id = selectedScanningOption;
-                                                        payload.check_in_count = checkInQuantity;
+                                                    if (selectedScanningOption !== 'check_in') {
+                                                        // Facility Check-in: Add guest_facility_id
+                                                        payload.guest_facility_id = String(selectedScanningOption);
                                                     }
 
-                                                    console.log('Sending Check-in Payload:', payload);
                                                     const res = await checkInEventUser(eventId, payload);
 
-                                                    if (res && (res.success || res.id || res.message === 'Ticket checked in successfully')) {
+                                                    if (res && (res.success || res.id)) {
                                                         Toast.show({ type: 'success', text1: 'Success', text2: 'Checked in successfully' });
 
-                                                        // ---------------- SERVER-SIDE SYNC ----------------
-                                                        // 1. Fetch fresh data from server (Guest + Facilities)
-                                                        const freshGuestRes = await getGuestDetails(eventId, guestData?.id || guestData?.guest_id);
-
-                                                        if (freshGuestRes?.data) {
-                                                            const freshGuest = freshGuestRes.data;
-
-                                                            // 2. Update Local State with optimistic/confirmed check-in data
-                                                            setGuestData((prev: any) => {
-                                                                const isMainCheckIn = selectedScanningOption === 'check_in';
-                                                                const additionalUsed = isMainCheckIn ? checkInQuantity : 0;
-
-                                                                // Calculate correct used_entries
-                                                                const prevUsed = Number(prev?.used_entries || 0);
-                                                                const freshUsed = Number(freshGuest?.used_entries || freshGuest?.checked_in_count || 0);
-                                                                const newUsed = Math.max(prevUsed + additionalUsed, freshUsed);
-
-                                                                return {
-                                                                    ...prev,
-                                                                    ...freshGuest,
-                                                                    used_entries: newUsed,
-                                                                    checked_in_count: newUsed,
-                                                                    status: newUsed > 0 ? 'checked_in' : (freshGuest.status || prev.status)
-                                                                };
-                                                            });
-
-                                                            // Update Facility Availability Optimistically
-                                                            if (selectedScanningOption !== 'check_in') {
-                                                                setFacilityAvailability((prevStats: any[]) => {
-                                                                    return prevStats.map((fac: any) => {
-                                                                        if (fac.id === selectedScanningOption) {
-                                                                            return {
-                                                                                ...fac,
-                                                                                available_scans: Math.max(0, fac.available_scans - checkInQuantity)
-                                                                            };
-                                                                        }
-                                                                        return fac;
-                                                                    });
-                                                                });
-                                                            }
-
-                                                            // 3. Save to Local DB (SQLite) to keep offline mode accurate
+                                                        // Refresh data locally
+                                                        const uuid = guestData.guest_uuid || guestData.uuid || guestData.qr_code;
+                                                        if (selectedScanningOption === 'check_in' && uuid) {
                                                             try {
+                                                                // Sync main check-in to DB
+                                                                const newUsed = (Number(guestData.used_entries) || 0) + Number(checkInQuantity);
                                                                 const { insertOrReplaceGuests } = require('../db');
-                                                                // insertOrReplaceGuests expects an array of guests
-                                                                // It handles 'facilities' field if present in the object
                                                                 await insertOrReplaceGuests(Number(eventId), [{
-                                                                    ...freshGuest,
-                                                                    // Ensure we pass the QR code if not in fresh response, preventing it from being null
-                                                                    qr_code: guestData.qr_code || guestData.guest_uuid || freshGuest.uuid,
-                                                                    synced: 1 // Mark as synced since it came from server
+                                                                    ...guestData,
+                                                                    qr_code: uuid,
+                                                                    status: 'checked_in',
+                                                                    used_entries: newUsed,
+                                                                    check_in_count: checkInQuantity,
+                                                                    synced: 1
                                                                 }]);
-                                                                console.log("Local DB synced with fresh server data.");
-                                                            } catch (err) {
-                                                                console.error("Failed to sync local DB:", err);
-                                                            }
+                                                            } catch (e) { }
                                                         }
 
+                                                        // Optimistic Update
+                                                        const updatedGuestData = {
+                                                            ...guestData,
+                                                            status: 'Checked In',
+                                                            // Only increment used_entries if main check-in
+                                                            used_entries: selectedScanningOption === 'check_in'
+                                                                ? (Number(guestData?.used_entries) || 0) + checkInQuantity
+                                                                : (Number(guestData?.used_entries) || 0)
+                                                        };
+                                                        setGuestData(updatedGuestData);
+
+                                                        await fetchFacilities(); // Refresh facilities to check subsequent availability
+
                                                         DeviceEventEmitter.emit('REFRESH_GUEST_LIST');
-                                                        onClose();
+
+                                                        setCheckInStep('initial');
+                                                        // onClose(); // Keep modal open as per requirement
                                                     } else {
                                                         Toast.show({ type: 'error', text1: 'Check-in Failed', text2: res?.message || 'Unknown error' });
                                                     }

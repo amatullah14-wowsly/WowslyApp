@@ -586,3 +586,28 @@ export const getEventTicketCheckins = async (eventId) => {
         return { status: false, data: [] };
     }
 };
+
+export const verifyQrAndCheckin = async (eventId, payload) => {
+    try {
+        const checkins = Array.isArray(payload) ? payload : [payload];
+        const fixedPayload = checkins.map(item => ({
+            event_user_id: item.event_user_id, // Added event_user_id
+            qrGuestUuid: item.qrGuestUuid,
+            ticket_id: item.qrTicketId || item.ticket_id,
+            check_in_count: item.check_in_count,
+            check_in_time: new Date(item.checkInTime || item.check_in_time || Date.now()).toISOString(),
+            facility_checkin: item.facility_checkIn_count?.map(f => ({
+                facility_id: f.id,
+                check_in_count: f.checkIn_count
+            }))
+        }));
+
+        console.log(`Verifying QR and Checking in for event ${eventId} with mapped payload:`, JSON.stringify(fixedPayload));
+        const response = await client.post(`/events/${eventId}/eventuser/verifyqrandcheckin`, fixedPayload);
+        console.log("VERIFY QR AND CHECKIN RESPONSE:", response.data);
+        return response.data;
+    } catch (error) {
+        console.log("VERIFY QR AND CHECKIN ERROR:", error.response?.data || error.message);
+        return { status: false, message: "Verify and Check-in failed" };
+    }
+};

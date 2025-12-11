@@ -7,6 +7,7 @@ import Toast from 'react-native-toast-message';
 import { toastConfig } from './src/components/ToastConfig';
 import { initDB } from './src/db';
 import { initScanStore } from './src/context/ScanStore';
+import AsyncStorage from "@react-native-async-storage/async-storage";   // <-- ADD THIS
 
 const App = () => {
   useEffect(() => {
@@ -17,6 +18,12 @@ const App = () => {
     initDB()
       .then(() => console.log('Database initialized successfully'))
       .catch((error) => console.error('Database initialization error:', error));
+
+    // ⭐ PRINT AUTH TOKEN FOR DEBUGGING ⭐
+    AsyncStorage.getItem("auth_token").then(token => {
+      console.log("🔥🔥 AUTH TOKEN:", token);
+    });
+
   }, []);
 
   return (

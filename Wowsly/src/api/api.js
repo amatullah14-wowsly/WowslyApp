@@ -96,9 +96,23 @@ export const getGuestDetails = async (eventId, eventUserId) => {
 
 export const syncOfflineCheckinsAPI = async (eventId, checkins) => {
   try {
+    const fixedPayload = checkins.map(item => ({
+      event_user_id: item.event_user_id, // Added event_user_id
+      qrGuestUuid: item.qrGuestUuid,
+      ticket_id: item.qrTicketId || item.ticket_id, // Fallback if already mapped
+      check_in_count: item.check_in_count,
+      check_in_time: new Date(item.checkInTime || item.check_in_time || Date.now()).toISOString(),
+      facility_checkin: item.facility_checkIn_count?.map(f => ({
+        facility_id: f.id,
+        check_in_count: f.checkIn_count
+      }))
+    }));
+
+    console.log("FINAL PAYLOAD SENT TO BACKEND (SYNC):", JSON.stringify(fixedPayload, null, 2));
+
     const response = await client.post(
       `/events/${eventId}/eventuser/verifyqrandcheckin`,
-      checkins
+      fixedPayload
     );
 
     return response.data;
