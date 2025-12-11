@@ -306,7 +306,7 @@ const GuestDetailsModal: React.FC<GuestDetailsModalProps> = ({
 
                                         <Text style={styles.scanningForTitle}>Scanning for</Text>
 
-                                        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.radioGroup}>
+                                        <View style={styles.radioGroup}>
                                             {/* CHECK-IN RADIO */}
                                             <TouchableOpacity
                                                 style={styles.radioItem}
@@ -348,7 +348,7 @@ const GuestDetailsModal: React.FC<GuestDetailsModalProps> = ({
                                                     </TouchableOpacity>
                                                 );
                                             })}
-                                        </ScrollView>
+                                        </View>
 
                                         <View style={styles.quantityRow}>
                                             <Text style={styles.quantityLabel}>Number of guests:</Text>
@@ -627,6 +627,7 @@ const styles = StyleSheet.create({
     },
     radioGroup: {
         flexDirection: 'row',
+        flexWrap: 'wrap',
         alignItems: 'center',
         marginBottom: 20,
         gap: 16
@@ -634,7 +635,8 @@ const styles = StyleSheet.create({
     radioItem: {
         flexDirection: 'row',
         alignItems: 'center',
-        marginRight: 16
+        marginRight: 16,
+        marginBottom: 10 // Added for multiline spacing
     },
     radioOuter: {
         width: 20,
