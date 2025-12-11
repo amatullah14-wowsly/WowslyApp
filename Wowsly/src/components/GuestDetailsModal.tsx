@@ -44,6 +44,7 @@ const GuestDetailsModal: React.FC<GuestDetailsModalProps> = ({
     // Facilities State
     const [facilities, setFacilities] = useState<any[]>([]);
     const [selectedScanningOption, setSelectedScanningOption] = useState<string | number>('check_in');
+    const [facilityStatus, setFacilityStatus] = useState<any[]>([]); // New state for tracking availability
 
     /* ---------------------- Fetch API details ---------------------- */
     useEffect(() => {
@@ -191,9 +192,18 @@ const GuestDetailsModal: React.FC<GuestDetailsModalProps> = ({
                                             <TouchableOpacity
                                                 style={[
                                                     styles.actionButton,
-                                                    (isFullyCheckedIn && !hasFacilities) && styles.disabledButton
+                                                    ((isFullyCheckedIn && !hasFacilities) || (isFullyCheckedIn && hasFacilities && facilityStatus.length > 0 && availableFacilities.every(fac => {
+                                                        const stat = facilityStatus.find(s => s.id == fac.id);
+                                                        return stat ? stat.available_scans <= 0 : false;
+                                                    }))) && styles.disabledButton
                                                 ]}
-                                                disabled={isFullyCheckedIn && !hasFacilities}
+                                                disabled={
+                                                    (isFullyCheckedIn && !hasFacilities) ||
+                                                    (isFullyCheckedIn && hasFacilities && facilityStatus.length > 0 && availableFacilities.every(fac => {
+                                                        const stat = facilityStatus.find(s => s.id == fac.id);
+                                                        return stat ? stat.available_scans <= 0 : false;
+                                                    }))
+                                                }
                                                 onPress={async () => {
                                                     if (onManualCheckIn && guestId) {
                                                         onManualCheckIn(guestId);
@@ -203,6 +213,11 @@ const GuestDetailsModal: React.FC<GuestDetailsModalProps> = ({
 
                                                     try {
                                                         const uuid = guestData.guest_uuid || guestData.uuid || guestData.qr_code;
+
+                                                        // Check if fully used (Main + Facilities) before allowing verify? 
+                                                        // User logic: "if all the facilities got scanned or checked in then manual check in button should get disabled"
+                                                        // We can calculate this using current data if we have it, OR rely on verify call to return status and THEN disable.
+                                                        // But the button ITSELF is what triggers verify. So we need to disable it in render.
 
                                                         // Fallback if no UUID found - manual bypass (or error if strict)
                                                         if (!uuid) {
@@ -231,6 +246,14 @@ const GuestDetailsModal: React.FC<GuestDetailsModalProps> = ({
 
                                                             // Update state immediately with verify response
                                                             setGuestData((prev: any) => ({ ...prev, ...mergedData }));
+
+                                                            // Store facility availability status from verify response
+                                                            if (res.facility_availability_status) {
+                                                                setFacilityStatus(res.facility_availability_status);
+                                                            } else {
+                                                                // If missing, maybe reset or keep empty?
+                                                                // setFacilityStatus([]); 
+                                                            }
 
                                                             const detailsRes = await getGuestDetails(eventId, guestId);
 
@@ -300,7 +323,17 @@ const GuestDetailsModal: React.FC<GuestDetailsModalProps> = ({
                                             {availableFacilities.map((fac: any) => {
                                                 // Assuming facility structure: { id, name, ... }
                                                 // Disable if guest NOT checked in yet
-                                                const facilityDisabled = !isGuestCheckedIn;
+                                                let facilityDisabled = !isGuestCheckedIn;
+
+                                                // Check availability from verify stats
+                                                if (!facilityDisabled && facilityStatus.length > 0) {
+                                                    const status = facilityStatus.find((s: any) => s.id == fac.id);
+                                                    // If status exists and available_scans is 0 or less, disable
+                                                    if (status && status.available_scans <= 0) {
+                                                        facilityDisabled = true;
+                                                    }
+                                                }
+
                                                 return (
                                                     <TouchableOpacity
                                                         key={fac.id}
@@ -417,6 +450,16 @@ const GuestDetailsModal: React.FC<GuestDetailsModalProps> = ({
                                                                 : (Number(guestData?.used_entries) || 0)
                                                         };
                                                         setGuestData(updatedGuestData);
+
+                                                        // Optimistic Facility Status Update
+                                                        if (selectedScanningOption !== 'check_in') {
+                                                            setFacilityStatus(prev => prev.map(f => {
+                                                                if (String(f.id) === String(selectedScanningOption)) {
+                                                                    return { ...f, available_scans: Math.max(0, f.available_scans - checkInQuantity) };
+                                                                }
+                                                                return f;
+                                                            }));
+                                                        }
 
                                                         await fetchFacilities(); // Refresh facilities to check subsequent availability
 
