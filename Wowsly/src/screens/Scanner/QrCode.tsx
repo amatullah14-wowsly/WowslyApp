@@ -13,6 +13,7 @@ import {
   PanResponder,
   Dimensions,
   DeviceEventEmitter,
+  ScrollView,
 } from 'react-native'
 
 import { initDB, findTicketByQr, updateTicketStatusLocal, getTicketsForEvent, insertOrReplaceGuests } from '../../db'
@@ -54,6 +55,10 @@ const QrCode = () => {
   const [isVerifying, setIsVerifying] = useState(false)
   const [selectedQuantity, setSelectedQuantity] = useState(1);
   const [scanStatus, setScanStatus] = useState<{ text: string, type: 'success' | 'error' | 'warning' } | null>(null);
+
+  // ⚡⚡⚡ FACILITY LOGIC EXTENSION ⚡⚡⚡
+  const [selectedScanningOption, setSelectedScanningOption] = useState<string | number>('check_in');
+  const [facilityStatus, setFacilityStatus] = useState<any[]>([]);
 
   useEffect(() => {
     if (scanStatus) {
@@ -109,7 +114,11 @@ const QrCode = () => {
             toValue: 0,
             useNativeDriver: false,
             bounciness: 4
-          }).start();
+          }).start(() => {
+            // ⚡⚡⚡ RESET SCANNED VALUE ON CLOSE ⚡⚡⚡
+            setScannedValue(null);
+            setGuestData(null); // Optional: clear data to be clean
+          });
         }
       }
     })
@@ -134,7 +143,11 @@ const QrCode = () => {
       toValue: 0,
       useNativeDriver: false,
       bounciness: 4
-    }).start();
+    }).start(() => {
+      // ⚡⚡⚡ RESET SCANNED VALUE ON CLOSE ⚡⚡⚡
+      setScannedValue(null);
+      setGuestData(null);
+    });
   };
 
   const modeTitle = route.params?.modeTitle ?? 'Offline Mode'
@@ -220,6 +233,8 @@ const QrCode = () => {
   const handleVerifyQR = async (qrGuestUuid: string) => {
     setIsVerifying(true)
     setSelectedQuantity(1); // Reset quantity selector
+    setSelectedScanningOption('check_in'); // Default to main check-in
+    setFacilityStatus([]); // Reset facility status
 
     // 🟡 HOST SCAN MODE
     if (isScanningHost) {
@@ -322,72 +337,78 @@ const QrCode = () => {
           console.log(`DEBUG: total_entries: ${ticket.total_entries}, used_entries: ${ticket.used_entries}`);
 
           if (usedEntries >= totalEntries) {
-            showStatus('Already Scanned', 'warning');
+            const hasFacilities = facilities && facilities.length > 0;
+            if (!hasFacilities) {
+              showStatus('Already Scanned', 'warning');
+              setGuestData({
+                name: ticket.guest_name || "Guest",
+                ticketId: ticket.qr_code || "N/A",
+                status: "ALREADY SCANNED",
+                isValid: false,
+                totalEntries,
+                usedEntries,
+                facilities
+              });
+              // Reset scan after delay
+              setTimeout(() => setScannedValue(null), 2000);
+              return; // Stop execution
+            }
+            // If has facilities, fall through to allow facility check-in
+            console.log("Offline: Main ticket used but facilities exist. Allowing scan.");
+          }
+
+          // ⚡⚡⚡ MULTI-ENTRY OR ALREADY USED LOGIC ⚡⚡⚡
+          // If already full (but facilities exist), we MUST open sheet, NOT auto check-in main ticket.
+          if (totalEntries > 1 || usedEntries >= totalEntries) {
+            // DO NOT auto-increment yet. Let the user select quantity.
             setGuestData({
               name: ticket.guest_name || "Guest",
               ticketId: ticket.qr_code || "N/A",
-              status: "ALREADY SCANNED",
-              isValid: false,
+              status: "VALID ENTRY (OFFLINE)",
+              isValid: true,
               totalEntries,
-              usedEntries,
-              facilities
+              usedEntries, // Show current used count
+              facilities,
+              guestId: ticket.guest_id || ticket.id,
+              qrCode: ticket.qr_code || qrGuestUuid
             });
-            // Reset scan after delay
-            setTimeout(() => setScannedValue(null), 2000);
+            openSheet();
           } else {
+            // Single entry AND Not Full: Auto check-in
+            await updateTicketStatusLocal(qrGuestUuid, 'checked_in');
 
-            // ⚡⚡⚡ MULTI-ENTRY LOGIC ⚡⚡⚡
-            if (totalEntries > 1) {
-              // DO NOT auto-increment yet. Let the user select quantity.
-              setGuestData({
-                name: ticket.guest_name || "Guest",
-                ticketId: ticket.qr_code || "N/A",
-                status: "VALID ENTRY (OFFLINE)",
-                isValid: true,
-                totalEntries,
-                usedEntries, // Show current used count
-                facilities,
-                guestId: ticket.guest_id || ticket.id,
-                qrCode: ticket.qr_code || qrGuestUuid
-              });
-              openSheet();
-            } else {
-              // Single entry: Auto check-in
-              await updateTicketStatusLocal(qrGuestUuid, 'checked_in');
+            // Broadcast
+            const broadcastData = {
+              guest_name: ticket.guest_name || "Guest",
+              qr_code: ticket.qr_code || qrGuestUuid,
+              total_entries: totalEntries,
+              used_entries: usedEntries + 1,
+              facilities: facilities,
+              guest_id: ticket.guest_id || ticket.id
+            };
+            DeviceEventEmitter.emit('BROADCAST_SCAN_TO_CLIENTS', broadcastData);
 
-              // Broadcast
-              const broadcastData = {
-                guest_name: ticket.guest_name || "Guest",
-                qr_code: ticket.qr_code || qrGuestUuid,
-                total_entries: totalEntries,
-                used_entries: usedEntries + 1,
-                facilities: facilities,
-                guest_id: ticket.guest_id || ticket.id
-              };
-              DeviceEventEmitter.emit('BROADCAST_SCAN_TO_CLIENTS', broadcastData);
+            setGuestData({
+              name: ticket.guest_name || "Guest",
+              ticketId: ticket.qr_code || "N/A",
+              status: "VALID ENTRY (OFFLINE)",
+              isValid: true,
+              totalEntries,
+              usedEntries: usedEntries + 1,
+              facilities,
+              guestId: ticket.guest_id || ticket.id,
+              qrCode: ticket.qr_code || qrGuestUuid
+            });
 
-              setGuestData({
-                name: ticket.guest_name || "Guest",
-                ticketId: ticket.qr_code || "N/A",
-                status: "VALID ENTRY (OFFLINE)",
-                isValid: true,
-                totalEntries,
-                usedEntries: usedEntries + 1,
-                facilities,
-                guestId: ticket.guest_id || ticket.id,
-                qrCode: ticket.qr_code || qrGuestUuid
-              });
+            // openSheet(); // 👈 REMOVED
 
-              // openSheet(); // 👈 REMOVED
+            showStatus(`Checked in ${ticket.guest_name || "Guest"}`, 'success');
 
-              showStatus(`Checked in ${ticket.guest_name || "Guest"}`, 'success');
-
-              setTimeout(() => {
-                setScannedValue(null);
-                setGuestData(null);
-                // closeSheet(); // 👈 REMOVED
-              }, 1500);
-            }
+            setTimeout(() => {
+              setScannedValue(null);
+              setGuestData(null);
+              // closeSheet(); // 👈 REMOVED
+            }, 1500);
           }
 
         } else {
@@ -415,6 +436,11 @@ const QrCode = () => {
       if (response?.message === "QR code verified") {
         const guest = response?.guest_data?.[0] || {}
         const guestId = guest.id || guest.guest_id;
+
+        // ⚡⚡⚡ CAPTURE FACILITY STATUS ⚡⚡⚡
+        if (response.facility_availability_status) {
+          setFacilityStatus(response.facility_availability_status);
+        }
 
         // 1. Fetch detailed guest info FIRST to check current status
         try {
@@ -453,14 +479,20 @@ const QrCode = () => {
 
             // 2. VALIDATE LIMIT
             if (currentUsed >= totalEntries) {
-              // 🛑 BLOCKED: Already full
-              console.log("DEBUG: Ticket is full. Blocking check-in.");
-              showStatus('Already Scanned', 'warning');
+              const facilitiesSource = d.facilities || guest.facilities;
+              const hasFacilities = facilitiesSource && facilitiesSource.length > 0;
 
-              // Do NOT open sheet. Just reset scanner.
-              setTimeout(() => setScannedValue(null), 2000);
-              setIsVerifying(false);
-              return;
+              if (!hasFacilities) {
+                // 🛑 BLOCKED: Already full and no facilities
+                console.log("DEBUG: Ticket is full. Blocking check-in.");
+                showStatus('Already Scanned', 'warning');
+
+                // Do NOT open sheet. Just reset scanner.
+                setTimeout(() => setScannedValue(null), 2000);
+                setIsVerifying(false);
+                return;
+              }
+              console.log("DEBUG: Ticket is full but has facilities. Proceeding.");
             }
 
             // ✅ VALID: Proceed to check-in
@@ -473,14 +505,15 @@ const QrCode = () => {
               isValid: true,
               totalEntries: totalEntries,
               usedEntries: currentUsed,
-              facilities: d.facilities || [],
+              facilities: d.facilities || guest.facilities || [],
               guestId: guestId,
               qrCode: qrGuestUuid
             };
             setGuestData(newGuestData);
 
             // ⚡⚡⚡ AUTO CHECK-IN FOR SINGLE TICKET ⚡⚡⚡
-            if (totalEntries === 1) {
+            // Only auto check-in if NOT full. If full (and we are here due to facilities), open sheet.
+            if (totalEntries === 1 && currentUsed < totalEntries) {
               // Trigger bulk check-in immediately with quantity 1
               // We need to use a timeout or effect to ensure state is set, 
               // OR just call a modified check-in function directly.
@@ -541,10 +574,18 @@ const QrCode = () => {
         DeviceEventEmitter.emit('BROADCAST_SCAN_TO_CLIENTS', broadcastData);
 
         showStatus(`Checked in ${data.name}`, 'success');
-        setTimeout(() => {
-          setScannedValue(null);
-          setGuestData(null);
-        }, 1500);
+
+        // ⚡⚡⚡ FACILITY-AWARE CLOSING LOGIC ⚡⚡⚡
+        // If guest has facilities, DO NOT close sheet. Open it instead.
+        if (data.facilities && data.facilities.length > 0) {
+          setGuestData({ ...data, usedEntries: newUsed }); // Update local state
+          openSheet();
+        } else {
+          setTimeout(() => {
+            setScannedValue(null);
+            setGuestData(null);
+          }, 1500);
+        }
 
         return; // Exit after offline handling
       }
@@ -557,7 +598,8 @@ const QrCode = () => {
         check_in_count: checkInCount,
         category_check_in_count: "",
         other_category_check_in_count: 0,
-        guest_facility_id: ""
+        // Direct check-in is typically MAIN ticket only
+        // guest_facility_id: "" 
       };
 
       const res = await checkInGuest(eventId, payload);
@@ -599,10 +641,18 @@ const QrCode = () => {
       }
 
       showStatus(`Checked in ${data.name}`, 'success');
-      setTimeout(() => {
-        setScannedValue(null);
-        setGuestData(null);
-      }, 1500);
+
+      // ⚡⚡⚡ FACILITY-AWARE CLOSING LOGIC (ONLINE) ⚡⚡⚡
+      if (data.facilities && data.facilities.length > 0) {
+        // Keep open, update state
+        setGuestData({ ...data, usedEntries: newUsed, status: 'Checked In' });
+        openSheet();
+      } else {
+        setTimeout(() => {
+          setScannedValue(null);
+          setGuestData(null);
+        }, 1500);
+      }
 
     } catch (error) {
       console.error("Direct check-in error:", error);
@@ -614,9 +664,9 @@ const QrCode = () => {
   };
 
   const handleBulkCheckIn = async () => {
-    const checkInCount = selectedQuantity; // ⚡⚡⚡ FIX: Use full quantity, not -1 ⚡⚡⚡
+    const checkInCount = selectedQuantity;
     const guestId = guestData?.guestId;
-    const qrCode = guestData?.qrCode || scannedValue; // Use stored QR or fallback
+    const qrCode = guestData?.qrCode || scannedValue;
 
     if (!guestId || !qrCode) {
       setScannedValue(null);
@@ -624,7 +674,47 @@ const QrCode = () => {
       return;
     }
 
-    // ⚡⚡⚡ SAFETY CHECK ⚡⚡⚡
+    // ⚡⚡⚡ FACILITY CHECK LOGIC ⚡⚡⚡
+    if (selectedScanningOption !== 'check_in') {
+      // Facility Flow
+      setIsVerifying(true);
+      try {
+        const payload = {
+          event_id: parseInt(eventId),
+          guest_id: guestId,
+          ticket_id: guestData.actualTicketId || 0, // ALWAYS Main Ticket ID
+          check_in_count: checkInCount,
+          category_check_in_count: "",
+          other_category_check_in_count: 0,
+          guest_facility_id: String(selectedScanningOption) // Added facility ID
+        };
+
+        const res = await checkInGuest(eventId, payload);
+        if (!res?.id && !res?.check_in_time && !res?.success && !res?.status) {
+          throw new Error(res?.message || "Facility check-in failed");
+        }
+
+        // Optimistic Update for Facility Status
+        setFacilityStatus(prev => prev.map(f => {
+          if (String(f.id) === String(selectedScanningOption)) {
+            return { ...f, available_scans: Math.max(0, f.available_scans - checkInCount) };
+          }
+          return f;
+        }));
+
+        showStatus(`Facility Checked In`, 'success');
+        // KEEP SHEET OPEN
+      } catch (error) {
+        console.error(error);
+        showStatus(error?.message || 'Facility check-in failed', 'error');
+      } finally {
+        setIsVerifying(false);
+      }
+      return;
+    }
+    // ⚡⚡⚡ END FACILITY CHECK LOGIC ⚡⚡⚡
+
+    // ⚡⚡⚡ SAFETY CHECK (MAIN TICKET) ⚡⚡⚡
     const currentUsed = guestData.usedEntries || 0;
     const totalEntries = guestData.totalEntries || 1;
 
@@ -716,6 +806,9 @@ const QrCode = () => {
         } catch (syncErr) {
           console.warn("Failed to sync bulk check-in:", syncErr);
         }
+
+        // Update local guestData state
+        setGuestData({ ...guestData, usedEntries: newUsed, status: 'Checked In' });
       }
 
       showStatus(`Checked in ${selectedQuantity} guests`, 'success');
@@ -725,9 +818,16 @@ const QrCode = () => {
       showStatus('Failed to complete bulk check-in', 'error');
     } finally {
       setIsVerifying(false);
-      setScannedValue(null);
-      setGuestData(null);
-      closeSheet(); // ⚡⚡⚡ AUTO-CLOSE SLIDER ⚡⚡⚡
+
+      // ⚡⚡⚡ FACILITY AWARE CLOSE ⚡⚡⚡
+      // Only close if no facilities available?
+      if (guestData && guestData.facilities && guestData.facilities.length > 0) {
+        // Keep open for facility check-in
+      } else {
+        setScannedValue(null);
+        setGuestData(null);
+        closeSheet();
+      }
     }
   };
 
@@ -881,7 +981,11 @@ const QrCode = () => {
             </View>
 
             {/* ScrollView for content if it gets too long */}
-            <View style={{ flex: 1, marginTop: 16 }}>
+            <ScrollView
+              style={{ flex: 1, marginTop: 16 }}
+              contentContainerStyle={{ paddingBottom: 20 }}
+              showsVerticalScrollIndicator={false}
+            >
               {guestData?.facilities && guestData.facilities.length > 0 && (
                 <View style={styles.facilitiesContainer}>
                   <Text style={styles.facilitiesTitle}>Facilities:</Text>
@@ -894,16 +998,61 @@ const QrCode = () => {
                   </View>
                 </View>
               )}
-              {(() => {
-                if (guestData) {
-                  console.log("DEBUG: guestData for Quantity Selector:", JSON.stringify({
-                    totalEntries: guestData.totalEntries,
-                    usedEntries: guestData.usedEntries,
-                    condition: guestData.totalEntries > 1 && (guestData.totalEntries - guestData.usedEntries > 0)
-                  }));
-                }
-                return null;
-              })()}
+              {/* ⚡⚡⚡ SELECT SCANNING OPTION (Wrapped) ⚡⚡⚡ */}
+              <View style={styles.scanningOptionsContainer}>
+                <Text style={styles.scanningForTitle}>Scanning for</Text>
+
+                <View style={styles.radioGroup}>
+                  {/* CHECK-IN RADIO */}
+                  {(() => {
+                    // Main Check-in Status Calculation
+                    const total = guestData?.totalEntries || 1;
+                    const used = guestData?.usedEntries || 0;
+                    const isFullyCheckedIn = used >= total;
+
+                    return (
+                      <TouchableOpacity
+                        style={styles.radioItem}
+                        onPress={() => !isFullyCheckedIn && setSelectedScanningOption('check_in')}
+                        activeOpacity={isFullyCheckedIn ? 1 : 0.7}
+                      >
+                        <View style={[styles.radioOuter, { borderColor: isFullyCheckedIn ? '#555' : '#FF8A3C' }]}>
+                          {selectedScanningOption === 'check_in' && <View style={[styles.radioInner, { backgroundColor: isFullyCheckedIn ? '#555' : '#FF8A3C' }]} />}
+                        </View>
+                        <Text style={[styles.radioLabel, isFullyCheckedIn && styles.disabledText]}>Check-In</Text>
+                      </TouchableOpacity>
+                    );
+                  })()}
+
+                  {/* FACILITIES RADIOS */}
+                  {guestData?.facilities && guestData.facilities.map((fac: any) => {
+                    const isMainCheckedIn = (guestData?.usedEntries || 0) > 0;
+                    let facilityDisabled = !isMainCheckedIn;
+
+                    // Optimistic Status Check
+                    if (!facilityDisabled && facilityStatus.length > 0) {
+                      const status = facilityStatus.find((s: any) => s.id == fac.id);
+                      if (status && status.available_scans <= 0) {
+                        facilityDisabled = true;
+                      }
+                    }
+
+                    return (
+                      <TouchableOpacity
+                        key={fac.id || fac.name}
+                        style={styles.radioItem}
+                        onPress={() => !facilityDisabled && setSelectedScanningOption(fac.id)}
+                        activeOpacity={facilityDisabled ? 1 : 0.7}
+                      >
+                        <View style={[styles.radioOuter, { borderColor: facilityDisabled ? '#555' : '#FF8A3C' }]}>
+                          {selectedScanningOption === fac.id && <View style={[styles.radioInner, { backgroundColor: facilityDisabled ? '#555' : '#FF8A3C' }]} />}
+                        </View>
+                        <Text style={[styles.radioLabel, facilityDisabled && styles.disabledText]}>{fac.name}</Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+              </View>
 
               {/* ⚡⚡⚡ QUANTITY SELECTOR ⚡⚡⚡ */}
               {guestData && (
@@ -941,7 +1090,7 @@ const QrCode = () => {
                   </View>
                 </View>
               )}
-            </View>
+            </ScrollView>
 
             <TouchableOpacity
               style={[styles.primaryButton, isVerifying && styles.primaryButtonDisabled]}
@@ -950,7 +1099,7 @@ const QrCode = () => {
               onPress={handleBulkCheckIn}
             >
               <Text style={styles.primaryButtonText}>
-                {isVerifying ? 'Verifying...' : 'Scan Next'}
+                {isVerifying ? 'Verifying...' : 'Check In'}
               </Text>
             </TouchableOpacity>
           </Animated.View>
@@ -1279,4 +1428,50 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '900',
   },
+  // ⚡⚡⚡ NEW STYLES FOR FACILITY UI ⚡⚡⚡
+  scanningOptionsContainer: {
+    marginTop: 16,
+  },
+  scanningForTitle: {
+    color: '#9C9C9C',
+    fontSize: 12,
+    marginBottom: 10,
+    textTransform: 'uppercase'
+  },
+  radioGroup: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 16,
+    marginBottom: 10
+  },
+  radioItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 10,
+    marginRight: 10
+  },
+  radioOuter: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    borderWidth: 2,
+    borderColor: '#FF8A3C',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 8
+  },
+  radioInner: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: '#FF8A3C'
+  },
+  radioLabel: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '600'
+  },
+  disabledText: {
+    color: '#555'
+  }
 })
