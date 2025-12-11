@@ -550,6 +550,18 @@ export const checkInEventUser = async (eventId, payload) => {
     }
 };
 
+export const getEventTickets = async (eventId) => {
+    try {
+        console.log(`Fetching Event Tickets (with facilities) for event: ${eventId}`);
+        const response = await client.get(`/events/${eventId}/eventticket`);
+        // console.log("EVENT TICKETS RESPONSE:", response.data);
+        return response.data;
+    } catch (error) {
+        console.log("GET EVENT TICKETS ERROR:", error.response?.data || error.message);
+        return { status: false, data: [] };
+    }
+};
+
 export const manualCheckInGuest = async (eventId, payload) => {
     try {
         console.log(`Manual Check-in for event ${eventId} with payload:`, payload);

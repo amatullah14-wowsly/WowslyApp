@@ -6,9 +6,10 @@ import {
     TouchableOpacity,
     StyleSheet,
     ActivityIndicator,
-    DeviceEventEmitter
+    DeviceEventEmitter,
+    ScrollView
 } from 'react-native';
-import { getGuestDetails, verifyQrCode, checkInEventUser } from '../api/event';
+import { getGuestDetails, verifyQrCode, checkInEventUser, getEventTickets, manualCheckInGuest } from '../api/event';
 import { updateTicketStatusLocal } from '../db';
 import Toast from 'react-native-toast-message';
 
@@ -40,12 +41,27 @@ const GuestDetailsModal: React.FC<GuestDetailsModalProps> = ({
     const [checkInStep, setCheckInStep] = useState<'initial' | 'quantity'>('initial');
     const [checkInQuantity, setCheckInQuantity] = useState(1);
 
+    // Facilities State
+    const [facilities, setFacilities] = useState<any[]>([]);
+    const [facilityAvailability, setFacilityAvailability] = useState<any[]>([]);
+    const [selectedScanningOption, setSelectedScanningOption] = useState<string | number>('check_in');
+
+    /* ---------------------- Reset State on Open ---------------------- */
+    useEffect(() => {
+        if (visible) {
+            setCheckInStep('initial');
+            setSelectedScanningOption('check_in');
+            setCheckInQuantity(1);
+        }
+    }, [visible]);
+
     /* ---------------------- Fetch API details ---------------------- */
     useEffect(() => {
         if (visible && eventId && guestId && !offline) {
             // Delay fetch to allow modal animation to complete (prevents UI freeze)
             const timer = setTimeout(() => {
                 fetchGuestDetails();
+                fetchFacilities();
             }, 200);
             return () => clearTimeout(timer);
         }
@@ -57,6 +73,19 @@ const GuestDetailsModal: React.FC<GuestDetailsModalProps> = ({
             setGuestData((prev: any) => ({ ...prev, ...guest }));
         }
     }, [guest]);
+
+    const fetchFacilities = async () => {
+        if (!eventId) return;
+        const res = await getEventTickets(eventId);
+        if (res && res.data) {
+            // We need to find the specific ticket type for this guest to show relevant facilities
+            // But usually facilities are returned per ticket type.
+            // We'll filter later or store all and find match.
+            // For now, let's store the raw data which is an array of tickets.
+            // We will extract facilities for the CURRENT guest's ticket in render or effect.
+            setFacilities(res.data);
+        }
+    };
 
     const fetchGuestDetails = async () => {
         setLoading(true);
@@ -106,6 +135,16 @@ const GuestDetailsModal: React.FC<GuestDetailsModalProps> = ({
     const totalEntries = Number(guestData?.ticket_data?.tickets_bought || guestData?.tickets_bought || guestData?.total_entries || 1);
     const isFullyCheckedIn = usedCount >= totalEntries;
 
+    // Determine facilities for THIS guest
+    const guestTicketId = guestData?.ticket_data?.ticket_id || guestData?.ticket_id;
+    const currentTicketWithFacilities = facilities.find((t: any) => t.id == guestTicketId);
+    const availableFacilities = currentTicketWithFacilities?.facilities || [];
+    const hasFacilities = availableFacilities.length > 0;
+
+    // "Check-in" option should be disabled if fully checked in
+    // Facilities should be disabled if NOT checked in (usedCount == 0) - per user req
+    const isGuestCheckedIn = usedCount > 0 || guestData?.status === 'checked_in';
+
     return (
         <Modal visible={visible} transparent animationType="slide">
             <TouchableOpacity style={styles.overlay} activeOpacity={1} onPress={onClose}>
@@ -122,7 +161,7 @@ const GuestDetailsModal: React.FC<GuestDetailsModalProps> = ({
                             <ActivityIndicator size="large" color="#FF8A3C" />
                         </View>
                     ) : guestData ? (
-                        <>
+                        <ScrollView contentContainerStyle={styles.scrollContent}>
                             <View style={styles.detailsContainer}>
                                 <View style={styles.detailRow}>
                                     <Text style={styles.label}>Name:</Text>
@@ -140,39 +179,21 @@ const GuestDetailsModal: React.FC<GuestDetailsModalProps> = ({
                                 </View>
 
                                 <View style={styles.detailRow}>
-                                    <Text style={styles.label}>Registration Time:</Text>
-                                    <Text style={styles.value}>
-                                        {guestData.registration_time || guestData.created_at || "N/A"}
-                                    </Text>
+                                    <Text style={styles.label}>Ticket Title:</Text>
+                                    <Text style={styles.value}>{guestData.ticket_data?.ticket_title || "Standard"}</Text>
                                 </View>
 
                                 <View style={styles.detailRow}>
-                                    <Text style={styles.label}>Registered By:</Text>
-                                    <Text style={styles.value}>{guestData.registered_by || "N/A"}</Text>
+                                    <Text style={styles.label}>Tickets Purchased:</Text>
+                                    <Text style={styles.value}>{totalEntries}</Text>
                                 </View>
 
-                                {guestData?.ticket_data && (
-                                    <>
-                                        <View style={styles.detailRow}>
-                                            <Text style={styles.label}>Ticket Title:</Text>
-                                            <Text style={styles.value}>{guestData.ticket_data.ticket_title}</Text>
-                                        </View>
+                                <View style={styles.detailRow}>
+                                    <Text style={styles.label}>Amount Paid:</Text>
+                                    <Text style={styles.value}>{guestData.amount || guestData.price || 0} ₹</Text>
+                                </View>
 
-                                        <View style={styles.detailRow}>
-                                            <Text style={styles.label}>Tickets Bought:</Text>
-                                            <Text style={styles.value}>{guestData.ticket_data.tickets_bought}</Text>
-                                        </View>
 
-                                        {(Number(guestData.ticket_data.tickets_bought) > 1) && (
-                                            <View style={styles.detailRow}>
-                                                <Text style={styles.label}>Entries Used:</Text>
-                                                <Text style={styles.value}>
-                                                    {Math.min(Number(guestData.used_entries || 0), Number(guestData.ticket_data.tickets_bought))} / {guestData.ticket_data.tickets_bought}
-                                                </Text>
-                                            </View>
-                                        )}
-                                    </>
-                                )}
 
                                 {checkInStep === 'initial' ? (
                                     <View style={styles.buttonContainer}>
@@ -180,9 +201,9 @@ const GuestDetailsModal: React.FC<GuestDetailsModalProps> = ({
                                             <TouchableOpacity
                                                 style={[
                                                     styles.actionButton,
-                                                    isFullyCheckedIn && styles.disabledButton
+                                                    (isFullyCheckedIn && !hasFacilities) && styles.disabledButton
                                                 ]}
-                                                disabled={isFullyCheckedIn}
+                                                disabled={isFullyCheckedIn && !hasFacilities}
                                                 onPress={async () => {
                                                     if (onManualCheckIn && guestId) {
                                                         onManualCheckIn(guestId);
@@ -200,29 +221,58 @@ const GuestDetailsModal: React.FC<GuestDetailsModalProps> = ({
                                                         }
 
                                                         setLoading(true);
+                                                        console.log("Starting Manual Check-in Verification...");
                                                         const res = await verifyQrCode(eventId, { qrGuestUuid: uuid });
-                                                        console.log("VerifyQR Result:", res);
 
                                                         if (res && (res.message === 'QR code verified' || res.success)) {
-                                                            // verified! now fetch fresh details to get accurate used_entries/tickets_bought
-                                                            console.log("QR Verified. Fetching fresh details...");
-                                                            const detailsRes = await getGuestDetails(eventId, guestId);
+                                                            console.log("QR Verified. Fetching Tickets...");
 
-                                                            if (detailsRes?.data) {
-                                                                const newData = detailsRes.data;
-                                                                console.log("Fresh details fetched:", newData);
-                                                                setGuestData((prev: any) => ({ ...prev, ...newData }));
-                                                            } else {
-                                                                // Fallback: use whatever verify returned if details fetch fails
-                                                                console.warn("Fresh details fetch failed, using verify result");
-                                                                if (res.data || res.guest_data || res.user) {
-                                                                    const newData = res.data || res.guest_data || res.user;
-                                                                    setGuestData((prev: any) => ({ ...prev, ...newData }));
+                                                            // Handle guest_data array
+                                                            const verifiedGuest = Array.isArray(res.guest_data) ? res.guest_data[0] : (res.guest_data || res.data);
+
+                                                            if (verifiedGuest) {
+                                                                // Calculate used entries from check_in_data availability
+                                                                let calculatedUsed = 0;
+                                                                if (Array.isArray(res.check_in_data)) {
+                                                                    calculatedUsed = res.check_in_data.reduce((acc: number, curr: any) => acc + (Number(curr.check_in_count) || 0), 0);
                                                                 }
+
+                                                                setGuestData((prev: any) => ({
+                                                                    ...prev,
+                                                                    ...verifiedGuest,
+                                                                    used_entries: calculatedUsed > 0 ? calculatedUsed : (prev?.used_entries || 0),
+                                                                    checked_in_count: calculatedUsed
+                                                                }));
+
+                                                                // Set facilities from response if available (optimistic)
+                                                                // We will overwrite this with getEventTickets shortly, but good for immediate feedback
+                                                                if (verifiedGuest.facilities) {
+                                                                    setFacilities([{ id: verifiedGuest.ticket_id, facilities: verifiedGuest.facilities }]);
+                                                                }
+                                                            }
+
+                                                            // Set facility availability status
+                                                            if (res.facility_availability_status) {
+                                                                setFacilityAvailability(res.facility_availability_status);
+                                                            }
+
+                                                            // --- NEW STEP: Call Event Tickets API ---
+                                                            // As per requirement: if verify is valid, call eventticket
+                                                            const ticketsRes = await getEventTickets(eventId);
+                                                            if (ticketsRes && ticketsRes.data) {
+                                                                console.log("Tickets Fetched Successfully");
+                                                                setFacilities(ticketsRes.data);
+                                                            }
+
+                                                            // Also refresh guest details to be sure
+                                                            const detailsRes = await getGuestDetails(eventId, guestId);
+                                                            if (detailsRes?.data) {
+                                                                setGuestData((prev: any) => ({ ...prev, ...detailsRes.data }));
                                                             }
 
                                                             setLoading(false);
                                                             setCheckInStep('quantity');
+
                                                         } else {
                                                             Toast.show({ type: 'error', text1: 'Verification Failed', text2: res?.message || 'Invalid QR' });
                                                             setLoading(false);
@@ -235,7 +285,7 @@ const GuestDetailsModal: React.FC<GuestDetailsModalProps> = ({
                                                 }}
                                             >
                                                 <Text style={styles.buttonText}>
-                                                    {isFullyCheckedIn ? 'Checked In' : 'Manual Check-In'}
+                                                    {isFullyCheckedIn && !hasFacilities ? 'Checked In' : 'Manual Check-In'}
                                                 </Text>
                                             </TouchableOpacity>
                                         )}
@@ -253,14 +303,51 @@ const GuestDetailsModal: React.FC<GuestDetailsModalProps> = ({
                                 ) : (
                                     /* ---------------------- STEP 2: Quantity Selection ---------------------- */
                                     <View style={styles.checkInContainer}>
+                                        <Text style={styles.scanningReportsTitle}>Scanning Reports</Text>
+
                                         <Text style={styles.scanningForTitle}>Scanning for</Text>
 
-                                        <View style={styles.radioRow}>
-                                            <View style={styles.radioOuter}>
-                                                <View style={styles.radioInner} />
-                                            </View>
-                                            <Text style={styles.radioLabel}>Check-In</Text>
-                                        </View>
+                                        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.radioGroup}>
+                                            {/* CHECK-IN RADIO */}
+                                            <TouchableOpacity
+                                                style={styles.radioItem}
+                                                onPress={() => !isFullyCheckedIn && setSelectedScanningOption('check_in')}
+                                                activeOpacity={isFullyCheckedIn ? 1 : 0.7}
+                                            >
+                                                <View style={[styles.radioOuter, { borderColor: isFullyCheckedIn ? '#CCC' : '#FF8A3C' }]}>
+                                                    {selectedScanningOption === 'check_in' && <View style={[styles.radioInner, { backgroundColor: isFullyCheckedIn ? '#CCC' : '#FF8A3C' }]} />}
+                                                </View>
+                                                <Text style={[styles.radioLabel, isFullyCheckedIn && styles.disabledText]}>Check-In</Text>
+                                            </TouchableOpacity>
+
+                                            {/* FACILITIES RADIOS */}
+                                            {availableFacilities.map((fac: any) => {
+                                                // Check availability from verifyQR response
+                                                const availability = facilityAvailability.find((f: any) => f.id === fac.id);
+                                                // Disable if guest NOT checked in yet OR if scans exhausted
+                                                const isExhausted = availability && availability.available_scans <= 0;
+                                                const facilityDisabled = !isGuestCheckedIn || isExhausted;
+
+                                                return (
+                                                    <TouchableOpacity
+                                                        key={fac.id}
+                                                        style={styles.radioItem}
+                                                        onPress={() => {
+                                                            if (facilityDisabled) return;
+                                                            setSelectedScanningOption(fac.id);
+                                                        }}
+                                                        activeOpacity={facilityDisabled ? 1 : 0.7}
+                                                    >
+                                                        <View style={[styles.radioOuter, { borderColor: facilityDisabled ? '#CCC' : '#FF8A3C' }]}>
+                                                            {selectedScanningOption === fac.id && <View style={[styles.radioInner, { backgroundColor: facilityDisabled ? '#CCC' : '#FF8A3C' }]} />}
+                                                        </View>
+                                                        <Text style={[styles.radioLabel, facilityDisabled && styles.disabledText]}>
+                                                            {fac.name} {availability ? `(${availability.available_scans})` : ''}
+                                                        </Text>
+                                                    </TouchableOpacity>
+                                                );
+                                            })}
+                                        </ScrollView>
 
                                         <View style={styles.quantityRow}>
                                             <Text style={styles.quantityLabel}>Number of guests:</Text>
@@ -279,10 +366,17 @@ const GuestDetailsModal: React.FC<GuestDetailsModalProps> = ({
 
                                                 <TouchableOpacity
                                                     onPress={() => {
-                                                        const total = Number(guestData?.ticket_data?.tickets_bought || guestData?.tickets_bought || guestData?.total_entries || 1);
-                                                        const used = Number(guestData?.used_entries || guestData?.checked_in_count || 0);
-                                                        const remaining = Math.max(0, total - used);
-                                                        setCheckInQuantity(Math.min(checkInQuantity + 1, remaining));
+                                                        let maxLimit = 1;
+                                                        if (selectedScanningOption === 'check_in') {
+                                                            const remaining = Math.max(0, totalEntries - usedCount);
+                                                            maxLimit = remaining;
+                                                        } else {
+                                                            // Logic for facility limit?
+                                                            // Usually same as total tickets bought? Or per facility logic?
+                                                            // User didn't specify facility limits. Assuming same as ticket count.
+                                                            maxLimit = totalEntries;
+                                                        }
+                                                        setCheckInQuantity(Math.min(checkInQuantity + 1, maxLimit));
                                                     }}
                                                     style={styles.counterButton}
                                                 >
@@ -292,65 +386,105 @@ const GuestDetailsModal: React.FC<GuestDetailsModalProps> = ({
                                         </View>
 
                                         <TouchableOpacity
-                                            style={styles.confirmCheckInButton}
+                                            style={[
+                                                styles.confirmCheckInButton,
+                                                // Disable if trying to check-in main entries but full
+                                                (selectedScanningOption === 'check_in' && isFullyCheckedIn) && styles.disabledButton,
+                                                // Disable if facilities selected but not checked in (defensive)
+                                                (selectedScanningOption !== 'check_in' && !isGuestCheckedIn) && styles.disabledButton
+                                            ]}
+                                            disabled={
+                                                (selectedScanningOption === 'check_in' && isFullyCheckedIn) ||
+                                                (selectedScanningOption !== 'check_in' && !isGuestCheckedIn)
+                                            }
                                             onPress={async () => {
                                                 if (!eventId || !guestId) return;
                                                 setLoading(true);
                                                 try {
-                                                    // New payload per user request
-                                                    const payload = {
+                                                    // Unified Payload Logic
+                                                    let payload: any = {
                                                         event_id: Number(eventId),
-                                                        guest_id: guestData?.id || guestData?.guest_id, // guest_id from data
-                                                        ticket_id: guestData?.ticket_data?.ticket_id || guestData?.ticket_id,
-                                                        check_in_count: checkInQuantity,
+                                                        guest_id: guestData?.id || guestData?.guest_id,
                                                         category_check_in_count: "",
                                                         other_category_check_in_count: 0
                                                     };
 
+                                                    if (selectedScanningOption === 'check_in') {
+                                                        // Main Ticket Check-in
+                                                        payload.ticket_id = guestData?.ticket_data?.ticket_id || guestData?.ticket_id;
+                                                        payload.check_in_count = checkInQuantity;
+                                                    } else {
+                                                        // Facility Check-in: Treat facility as a distinct ticket ID
+                                                        // Sending facility ID as ticket_id for /eventuser/checkin endpoint
+                                                        payload.ticket_id = selectedScanningOption;
+                                                        payload.check_in_count = checkInQuantity;
+                                                    }
+
+                                                    console.log('Sending Check-in Payload:', payload);
                                                     const res = await checkInEventUser(eventId, payload);
 
-                                                    // API returns the created object (with id) on success, or { status: false } on failure
-                                                    if (res && (res.success || res.id)) {
-                                                        Toast.show({ type: 'success', text1: 'Success', text2: 'Guest checked in successfully' });
+                                                    if (res && (res.success || res.id || res.message === 'Ticket checked in successfully')) {
+                                                        Toast.show({ type: 'success', text1: 'Success', text2: 'Checked in successfully' });
 
-                                                        // ⚡⚡⚡ PERSIST TO DB ⚡⚡⚡
-                                                        try {
-                                                            const uuid = guestData.guest_uuid || guestData.uuid || guestData.qr_code;
-                                                            // Ensure we have a valid guest object to save
-                                                            if (uuid) {
-                                                                const newUsed = (Number(guestData.used_entries) || 0) + Number(checkInQuantity);
-                                                                const guestToSync = {
-                                                                    ...guestData,
-                                                                    qr_code: uuid,
-                                                                    status: 'checked_in', // Explicitly set status
+                                                        // ---------------- SERVER-SIDE SYNC ----------------
+                                                        // 1. Fetch fresh data from server (Guest + Facilities)
+                                                        const freshGuestRes = await getGuestDetails(eventId, guestData?.id || guestData?.guest_id);
+
+                                                        if (freshGuestRes?.data) {
+                                                            const freshGuest = freshGuestRes.data;
+
+                                                            // 2. Update Local State with optimistic/confirmed check-in data
+                                                            setGuestData((prev: any) => {
+                                                                const isMainCheckIn = selectedScanningOption === 'check_in';
+                                                                const additionalUsed = isMainCheckIn ? checkInQuantity : 0;
+
+                                                                // Calculate correct used_entries
+                                                                const prevUsed = Number(prev?.used_entries || 0);
+                                                                const freshUsed = Number(freshGuest?.used_entries || freshGuest?.checked_in_count || 0);
+                                                                const newUsed = Math.max(prevUsed + additionalUsed, freshUsed);
+
+                                                                return {
+                                                                    ...prev,
+                                                                    ...freshGuest,
                                                                     used_entries: newUsed,
-                                                                    check_in_count: checkInQuantity,
-                                                                    synced: 1 // Online check-in is already synced
+                                                                    checked_in_count: newUsed,
+                                                                    status: newUsed > 0 ? 'checked_in' : (freshGuest.status || prev.status)
                                                                 };
+                                                            });
 
-                                                                // Import insertOrReplaceGuests if not already imported (it is exported from ../db)
-                                                                const { insertOrReplaceGuests } = require('../db');
-                                                                await insertOrReplaceGuests(Number(eventId), [guestToSync]);
-                                                                console.log("Persisted manual check-in to local DB");
+                                                            // Update Facility Availability Optimistically
+                                                            if (selectedScanningOption !== 'check_in') {
+                                                                setFacilityAvailability((prevStats: any[]) => {
+                                                                    return prevStats.map((fac: any) => {
+                                                                        if (fac.id === selectedScanningOption) {
+                                                                            return {
+                                                                                ...fac,
+                                                                                available_scans: Math.max(0, fac.available_scans - checkInQuantity)
+                                                                            };
+                                                                        }
+                                                                        return fac;
+                                                                    });
+                                                                });
                                                             }
-                                                        } catch (err) {
-                                                            console.warn("DB Persist Failed:", err);
+
+                                                            // 3. Save to Local DB (SQLite) to keep offline mode accurate
+                                                            try {
+                                                                const { insertOrReplaceGuests } = require('../db');
+                                                                // insertOrReplaceGuests expects an array of guests
+                                                                // It handles 'facilities' field if present in the object
+                                                                await insertOrReplaceGuests(Number(eventId), [{
+                                                                    ...freshGuest,
+                                                                    // Ensure we pass the QR code if not in fresh response, preventing it from being null
+                                                                    qr_code: guestData.qr_code || guestData.guest_uuid || freshGuest.uuid,
+                                                                    synced: 1 // Mark as synced since it came from server
+                                                                }]);
+                                                                console.log("Local DB synced with fresh server data.");
+                                                            } catch (err) {
+                                                                console.error("Failed to sync local DB:", err);
+                                                            }
                                                         }
 
-                                                        // Prepare updated guest object for optimistic update
-                                                        const updatedGuestData = {
-                                                            ...guestData,
-                                                            status: 'Checked In',
-                                                            check_in_status: 1,
-                                                            used_entries: (guestData?.used_entries || 0) + checkInQuantity
-                                                        };
-                                                        setGuestData(updatedGuestData);
-
                                                         DeviceEventEmitter.emit('REFRESH_GUEST_LIST');
-                                                        DeviceEventEmitter.emit('GUEST_CHECKED_IN_MANUALLY', { guestId: guestId, count: checkInQuantity, fullGuestData: updatedGuestData });
-
-                                                        // Close or reset
-                                                        setCheckInStep('initial');
                                                         onClose();
                                                     } else {
                                                         Toast.show({ type: 'error', text1: 'Check-in Failed', text2: res?.message || 'Unknown error' });
@@ -368,7 +502,7 @@ const GuestDetailsModal: React.FC<GuestDetailsModalProps> = ({
                                     </View>
                                 )}
                             </View>
-                        </>
+                        </ScrollView>
                     ) : (
                         <View style={styles.errorContainer}>
                             <Text style={styles.errorText}>Failed to load guest details</Text>
@@ -397,11 +531,15 @@ const styles = StyleSheet.create({
         width: '100%',
         padding: 24,
         paddingBottom: 40,
+        maxHeight: '85%',
         shadowColor: '#000',
         shadowOpacity: 0.25,
         shadowRadius: 4,
         shadowOffset: { width: 0, height: -2 },
         elevation: 5,
+    },
+    scrollContent: {
+        paddingBottom: 20
     },
     header: {
         flexDirection: 'row',
@@ -487,56 +625,52 @@ const styles = StyleSheet.create({
         shadowOpacity: 0,
         elevation: 0,
     },
+    disabledText: {
+        color: '#AAA'
+    },
     // Multi-step Check-in Styles
     checkInContainer: {
         marginTop: 10,
     },
-    sectionHeader: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        paddingVertical: 12,
-        borderBottomWidth: 1,
-        borderBottomColor: '#F0F0F0',
-    },
-    sectionTitle: {
+    scanningReportsTitle: {
         fontSize: 16,
         color: '#333',
-    },
-    sectionArrow: {
-        fontSize: 18,
-        color: '#666',
-        fontWeight: 'bold',
+        marginBottom: 4,
+        fontWeight: '500'
     },
     scanningForTitle: {
         fontSize: 15,
         color: '#666',
-        marginTop: 16,
+        marginTop: 8,
         marginBottom: 12,
     },
-    radioRow: {
+    radioGroup: {
         flexDirection: 'row',
         alignItems: 'center',
         marginBottom: 20,
+        gap: 16
+    },
+    radioItem: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginRight: 16
     },
     radioOuter: {
         width: 20,
         height: 20,
         borderRadius: 10,
         borderWidth: 2,
-        borderColor: '#FF8A3C',
         justifyContent: 'center',
         alignItems: 'center',
-        marginRight: 10,
+        marginRight: 8,
     },
     radioInner: {
         width: 10,
         height: 10,
         borderRadius: 5,
-        backgroundColor: '#FF8A3C',
     },
     radioLabel: {
-        fontSize: 16,
+        fontSize: 14,
         color: '#111',
         fontWeight: '500',
     },
