@@ -24,7 +24,7 @@ export async function closeDB() {
 }
 
 // ======================================================
-// INIT DB — FINAL SCHEMA (ONLY tickets + events)
+// INIT DB — FINAL SCHEMA (ONLY tickets + events + facility)
 // ======================================================
 export async function initDB() {
   const database = await openDB();
@@ -71,6 +71,21 @@ export async function initDB() {
     );
   `);
 
+  // FACILITY TABLE — use Kotlin-compatible column names
+  await database.executeSql(`
+    CREATE TABLE IF NOT EXISTS facility (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      guest_uuid TEXT,
+      facilityId INTEGER,
+      name TEXT,
+      availableScans INTEGER DEFAULT 0,
+      checkIn INTEGER DEFAULT 0,
+      eventId INTEGER,
+      ticket_id INTEGER,
+      synced INTEGER DEFAULT 0
+    );
+  `);
+
   // ------------------------
   // MIGRATIONS (safe)
   // ------------------------
@@ -81,10 +96,33 @@ export async function initDB() {
     } catch (e) { }
   };
 
+  const safeAddFacilityColumn = async (column: string, type: string) => {
+    try {
+      await database.executeSql(`ALTER TABLE facility ADD COLUMN ${column} ${type};`);
+      console.log(`Migration added facility column: ${column}`);
+    } catch (e) { }
+  };
+
   await safeAddColumn("qrGuestUuid", "TEXT");
   await safeAddColumn("qrTicketId", "INTEGER");
   await safeAddColumn("check_in_count", "INTEGER DEFAULT 0");
   await safeAddColumn("given_check_in_time", "TEXT");
+
+  // Ensure Kotlin columns exist (availableScans, checkIn)
+  await safeAddFacilityColumn("availableScans", "INTEGER");
+  await safeAddFacilityColumn("checkIn", "INTEGER");
+
+  // Ensure ticket_id column on facility exists
+  await safeAddFacilityColumn("ticket_id", "INTEGER");
+
+  // MIGRATE OLD DATA (if previous schema used total_scans / used_scans or availableScans/checkIn naming might differ)
+  try {
+    // If platform previously added total_scans / used_scans, migrate them over to availableScans/checkIn
+    await database.executeSql(`UPDATE facility SET availableScans = COALESCE(availableScans, total_scans) WHERE availableScans IS NULL;`);
+    await database.executeSql(`UPDATE facility SET checkIn = COALESCE(checkIn, used_scans) WHERE checkIn IS NULL;`);
+  } catch (e) {
+    // ignore migration errors
+  }
 
   return database;
 }
@@ -126,6 +164,11 @@ export async function insertOrReplaceGuests(eventId: number, guestsArray: any[])
     // ⚠️ CRITICAL: Store backend sync required fields
     const qrGuestUuid = g.guest_uuid || g.uuid || null;
     const qrTicketId = ticketId;
+
+    // INSERT FACILITIES 
+    if (g.facilities && Array.isArray(g.facilities)) {
+      await insertFacilities(eventId, qrGuestUuid, g.facilities);
+    }
 
     await db.executeSql(
       `INSERT OR REPLACE INTO tickets 
@@ -184,6 +227,7 @@ export async function updateTicketStatusLocal(qrValue: string, newStatus = 'chec
   );
 
   const previouslyUsed = current.rows.length > 0 ? current.rows.item(0).used_entries : 0;
+  const newUsedEntries = previouslyUsed + count;
 
   await db.executeSql(
     `UPDATE tickets 
@@ -198,9 +242,8 @@ export async function updateTicketStatusLocal(qrValue: string, newStatus = 'chec
       newStatus,
       iso,
       synced ? 1 : 0, // Use passed value
-      previouslyUsed + count,
-      count, // Note: this overwrites check_in_count with latest batch size, might be intended or accumulate? 
-      // Logic in OnlineGuestList suggests additive used_entries is key.
+      newUsedEntries,
+      newUsedEntries, // keep total check-in count aligned with used_entries
       sqlTime,
       qrValue.trim()
     ]
@@ -225,9 +268,6 @@ export async function getTicketsForEvent(eventId: number) {
 // ======================================================
 // GET TICKETS PAGINATED (OFFLINE)
 // ======================================================
-// ======================================================
-// GET TICKETS PAGINATED (OFFLINE)
-// ======================================================
 export async function getTicketsForEventPage(eventId: number, page: number = 1, limit: number = 100, search: string = '', filterStatus: string = 'All') {
   const db = await openDB();
   const offset = (page - 1) * limit;
@@ -236,7 +276,7 @@ export async function getTicketsForEventPage(eventId: number, page: number = 1, 
   let countQuery = `SELECT COUNT(*) as total FROM tickets WHERE event_id = ?`;
   const params: any[] = [eventId];
 
-  // ⚡⚡⚡ STATUS FILTER ⚡⚡⚡
+  // STATUS FILTER
   if (filterStatus === 'Checked In') {
     const statusClause = ` AND (status = 'checked_in' OR used_entries > 0)`;
     query += statusClause;
@@ -253,21 +293,17 @@ export async function getTicketsForEventPage(eventId: number, page: number = 1, 
     const searchClause = ` AND (guest_name LIKE ? OR phone LIKE ? OR qr_code LIKE ? OR ticket_id LIKE ?)`;
     query += searchClause;
     countQuery += searchClause;
-    params.push(s, s, s, s); // Params are reused for both
+    params.push(s, s, s, s);
   }
 
   query += ` ORDER BY guest_name COLLATE NOCASE LIMIT ? OFFSET ?;`;
 
-  // Params for main query: eventId, [search params...], limit, offset
   const queryParams = [...params, limit, offset];
 
-  // Execute Data Query
   const [res] = await db.executeSql(query, queryParams);
   const guests = [];
   for (let i = 0; i < res.rows.length; i++) guests.push(res.rows.item(i));
 
-  // Execute Count Query
-  // Params for count query: eventId, [search params...]
   const [countRes] = await db.executeSql(countQuery, params);
   const total = countRes.rows.item(0).total;
 
@@ -280,22 +316,41 @@ export async function getTicketsForEventPage(eventId: number, page: number = 1, 
 }
 
 // ======================================================
-// GET UNSYNCED CHECK-INS
+// GET UNSYNCED CHECK-INS (FOR A GIVEN EVENT)
 // ======================================================
-export async function getUnsyncedCheckins(eventId: number) {
+export async function getUnsyncedCheckins(eventId?: number) {
   const db = await openDB();
-  const [res] = await db.executeSql(
-    `SELECT * FROM tickets 
-     WHERE event_id = ? 
-       AND synced = 0 
-       AND check_in_count > 0
-     LIMIT 500;`,
-    [eventId]
-  );
+  if (typeof eventId === 'number') {
+    const [res] = await db.executeSql(
+      `SELECT * FROM tickets 
+       WHERE event_id = ? 
+         AND synced = 0 
+         AND check_in_count > 0
+       LIMIT 500;`,
+      [eventId]
+    );
+    const arr = [];
+    for (let i = 0; i < res.rows.length; i++) arr.push(res.rows.item(i));
+    return arr;
+  } else {
+    // return all unsynced checkins across events
+    const [res] = await db.executeSql(
+      `SELECT * FROM tickets 
+       WHERE synced = 0 
+         AND check_in_count > 0
+       LIMIT 500;`
+    );
+    const arr = [];
+    for (let i = 0; i < res.rows.length; i++) arr.push(res.rows.item(i));
+    return arr;
+  }
+}
 
-  const arr = [];
-  for (let i = 0; i < res.rows.length; i++) arr.push(res.rows.item(i));
-  return arr;
+// ======================================================
+// GET ALL UNSYNCED CHECKINS (HELPER)
+// ======================================================
+export async function getAllUnsyncedCheckins() {
+  return getUnsyncedCheckins(); // uses the branch that returns across events
 }
 
 // ======================================================
@@ -342,8 +397,6 @@ export async function deleteStaleGuests(eventId: number, activeQrCodes: string[]
   if (!activeQrCodes || activeQrCodes.length === 0) return;
   const db = await openDB();
 
-  // Delete tickets for this event that are NOT in the active list AND are already synced (safe to delete)
-  // We do NOT delete synced=0 (pending offline scans)
   const placeholders = activeQrCodes.map(() => '?').join(',');
 
   const results = await db.executeSql(
@@ -390,4 +443,122 @@ export async function getGuestCount(eventId: number) {
     [eventId]
   );
   return res.rows.item(0).total || 0;
+}
+
+// ======================================================
+// FACILITY METHODS (KOTLIN-NAMED COLUMNS)
+// ======================================================
+
+export async function insertFacilities(eventId: number, guestUuid: string, facilities: any[]) {
+  if (!facilities || facilities.length === 0) return;
+  const db = await openDB();
+
+  for (const f of facilities) {
+    const totalScans = parseInt(
+      f.scan_quantity ?? f.quantity ?? f.total_scans ?? 1,
+      10
+    ) || 1; // default to 1 to allow facility usage
+
+    const usedScans = parseInt(
+      f.scanned_count ?? f.check_in_count ?? 0,
+      10
+    );
+
+    // Clean old duplicates for this guest+facility
+    await db.executeSql(
+      `DELETE FROM facility WHERE guest_uuid = ? AND facilityId = ?;`,
+      [guestUuid, f.id]
+    );
+
+    await db.executeSql(
+      `INSERT INTO facility (guest_uuid, facilityId, name, availableScans, checkIn, eventId, synced)
+       VALUES (?, ?, ?, ?, ?, ?, 1);`,
+      [guestUuid, f.id, f.name, totalScans, usedScans, eventId]
+    );
+  }
+}
+
+
+export async function insertFacilityForGuest({
+  guest_uuid, facilityId, name, availableScans, checkIn, eventId, ticket_id
+}: { guest_uuid: string, facilityId: number, name: string, availableScans: number, checkIn: number, eventId?: number, ticket_id?: number }) {
+  const db = await openDB();
+
+  await db.executeSql(
+    `DELETE FROM facility WHERE guest_uuid = ? AND facilityId = ?`,
+    [guest_uuid, facilityId]
+  );
+
+  await db.executeSql(
+    `INSERT INTO facility (guest_uuid, facilityId, name, availableScans, checkIn, eventId, ticket_id, synced)
+     VALUES (?, ?, ?, ?, ?, ?, ?, 1)`,
+    [guest_uuid, facilityId, name, availableScans, checkIn, eventId, ticket_id]
+  );
+}
+
+export async function getFacilitiesForGuest(guestUuid: string) {
+  const db = await openDB();
+  // Return rows with expected field names used by UI: facilityId, name, availableScans, checkIn
+  const [res] = await db.executeSql(
+    `SELECT facilityId, name, availableScans, checkIn FROM facility WHERE guest_uuid = ?`,
+    [guestUuid]
+  );
+
+  const arr = [];
+  for (let i = 0; i < res.rows.length; i++) {
+    arr.push(res.rows.item(i));
+  }
+  return arr;
+}
+
+export async function updateFacilityCheckInLocal(
+  guestUuid: string,
+  facilityId: number,
+  increment: number = 1
+) {
+  const db = await openDB();
+
+  // 🔒 Prevent over check-in using WHERE clause so rowsAffected is 0 if full
+  const [result] = await db.executeSql(
+    `
+    UPDATE facility
+    SET 
+      checkIn = checkIn + ?,
+      synced = 0
+    WHERE guest_uuid = ? 
+      AND facilityId = ?
+      AND checkIn + ? <= COALESCE(availableScans, 1)
+    `,
+    [increment, guestUuid, facilityId, increment]
+  );
+
+  // Return number of rows actually updated
+  return result.rowsAffected;
+}
+
+
+export async function getUnsyncedFacilities(eventId: number) {
+  const db = await openDB();
+  // Select using Kotlin column names, aliasing to match older consumers if needed
+  const [res] = await db.executeSql(
+    `SELECT id, guest_uuid, facilityId, name, availableScans, checkIn, eventId, ticket_id FROM facility WHERE eventId = ? AND synced = 0 AND checkIn > 0;`,
+    [eventId]
+  );
+
+  const arr = [];
+  for (let i = 0; i < res.rows.length; i++) {
+    arr.push(res.rows.item(i));
+  }
+  return arr;
+}
+
+export async function markFacilitiesAsSynced(ids: number[]) {
+  if (!ids || ids.length === 0) return;
+  const db = await openDB();
+  const placeholders = ids.map(() => '?').join(',');
+
+  await db.executeSql(
+    `UPDATE facility SET synced = 1 WHERE id IN (${placeholders});`,
+    ids
+  );
 }

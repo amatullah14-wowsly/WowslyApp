@@ -101,10 +101,11 @@ export const syncOfflineCheckinsAPI = async (eventId, checkins) => {
       qrGuestUuid: item.qrGuestUuid,
       ticket_id: item.qrTicketId || item.ticket_id, // Fallback if already mapped
       check_in_count: item.check_in_count,
-      check_in_time: new Date(item.checkInTime || item.check_in_time || Date.now()).toISOString(),
-      facility_checkin: item.facility_checkIn_count?.map(f => ({
-        facility_id: f.id,
-        check_in_count: f.checkIn_count
+      // Kotlin expects a Long; send epoch millis
+      check_in_time: item.checkInTime || item.check_in_time || Date.now(),
+      facility_checkIn_count: item.facility_checkIn_count?.map(f => ({
+        id: f.id,
+        checkIn_count: f.checkIn_count
       }))
     }));
 

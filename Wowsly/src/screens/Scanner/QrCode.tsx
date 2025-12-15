@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react'
+import React, { useState, useEffect, useRef, useCallback } from 'react'
 import {
   SafeAreaView,
   StatusBar,
@@ -16,8 +16,8 @@ import {
   ScrollView,
 } from 'react-native'
 
-import { initDB, findTicketByQr, updateTicketStatusLocal, getTicketsForEvent, insertOrReplaceGuests } from '../../db'
-import { RouteProp, useRoute, useNavigation } from '@react-navigation/native'
+import { initDB, findTicketByQr, updateTicketStatusLocal, getTicketsForEvent, insertOrReplaceGuests, getFacilitiesForGuest, updateFacilityCheckInLocal, insertFacilityForGuest } from '../../db'
+import { RouteProp, useRoute, useNavigation, useFocusEffect } from '@react-navigation/native'
 import { Camera } from 'react-native-camera-kit'
 import { verifyQRCode, checkInGuest } from '../../api/api'
 import { getGuestDetails } from '../../api/event'
@@ -56,6 +56,8 @@ const QrCode = () => {
   const [selectedQuantity, setSelectedQuantity] = useState(1);
   const [scanStatus, setScanStatus] = useState<{ text: string, type: 'success' | 'error' | 'warning' } | null>(null);
 
+  const scanLockRef = useRef<string | null>(null);
+
   // ⚡⚡⚡ FACILITY LOGIC EXTENSION ⚡⚡⚡
   const [selectedScanningOption, setSelectedScanningOption] = useState<string | number>('check_in');
   const [facilityStatus, setFacilityStatus] = useState<any[]>([]);
@@ -68,6 +70,25 @@ const QrCode = () => {
       return () => clearTimeout(timer);
     }
   }, [scanStatus]);
+
+  // ⚡⚡⚡ AUTO-SELECT FACILITY EFFECT ⚡⚡⚡
+  useEffect(() => {
+    if (!guestData) return;
+
+    const used = guestData.usedEntries || 0;
+    const total = guestData.totalEntries || 1;
+
+    // Auto-select ONLY ONCE when main ticket already used
+    if (
+      used >= total &&
+      selectedScanningOption === 'check_in' &&
+      guestData.facilities?.length
+    ) {
+      const firstFac = guestData.facilities[0];
+      setSelectedScanningOption(firstFac.id);
+    }
+  }, [guestData]);
+
 
   const showStatus = (text: string, type: 'success' | 'error' | 'warning') => {
     setScanStatus({ text, type });
@@ -147,6 +168,9 @@ const QrCode = () => {
       // ⚡⚡⚡ RESET SCANNED VALUE ON CLOSE ⚡⚡⚡
       setScannedValue(null);
       setGuestData(null);
+      setScannedValue(null);
+      setGuestData(null);
+      scanLockRef.current = null;
     });
   };
 
@@ -161,6 +185,22 @@ const QrCode = () => {
       showStatus('Invalid Event ID passed to QR scanner', 'error');
     }
   }, [eventId])
+
+  // ⚡⚡⚡ RESET ON FOCUS ⚡⚡⚡
+  useFocusEffect(
+    useCallback(() => {
+      // Reset state when screen is focused to prevent ghost interactions
+      setScannedValue(null);
+      setGuestData(null);
+      setScanStatus(null);
+      setIsVerifying(false);
+      closeSheet(); // Ensure UI is closed
+
+      return () => {
+        // Optional cleanup on blur
+      };
+    }, [])
+  );
 
   useEffect(() => {
     const requestCameraPermission = async () => {
@@ -200,7 +240,9 @@ const QrCode = () => {
     const code = rawCode.trim()
     if (code === scannedValue) return // avoid duplicate scans
 
-    setScannedValue(code)
+    // 🔐 LOCK THIS SCAN
+    scanLockRef.current = code;
+
     handleVerifyQR(code)
   }
 
@@ -280,7 +322,8 @@ const QrCode = () => {
                 isValid: true,
                 totalEntries: ticket.total_entries || 1,
                 usedEntries: ticket.used_entries || 1,
-                facilities: ticket.facilities ? JSON.parse(ticket.facilities) : []
+                facilities: ticket.facilities ? JSON.parse(ticket.facilities) : [],
+                uuid: ticket.guest_uuid || ticket.uuid
               });
             } else {
               const ticket = response.data;
@@ -302,7 +345,7 @@ const QrCode = () => {
           } catch (e) {
             if (responseStr.includes("count")) {
               showStatus(responseStr, 'success');
-              setGuestData({ name: "Host Verified", ticketId: "Remote", status: "VALID ENTRY", isValid: true, totalEntries: 1, usedEntries: 1, facilities: [] });
+              setGuestData({ name: "Host Verified", ticketId: "Remote", status: "VALID ENTRY", isValid: true, totalEntries: 1, usedEntries: 1, facilities: [], scanToken });
             } else {
               showStatus(responseStr, 'error');
               setGuestData({ name: "Host Rejected", ticketId: "Remote", status: "INVALID", isValid: false, totalEntries: 0, usedEntries: 0, facilities: [] });
@@ -329,7 +372,42 @@ const QrCode = () => {
           // Prioritize tickets_bought if available (it was saved as total_entries in DB)
           const totalEntries = parseInt(String(ticket.total_entries || 1), 10);
           const usedEntries = parseInt(String(ticket.used_entries || 0), 10);
-          const facilities = ticket.facilities ? JSON.parse(ticket.facilities) : [];
+
+          let facilities = ticket.facilities ? JSON.parse(ticket.facilities) : [];
+
+          // ⚡⚡⚡ MERGE LOCAL FACILITY COUNTS IF AVAILABLE ⚡⚡⚡
+          // The facilities JSON in tickets table is static from download.
+          // We need real-time counts from 'facility' table.
+          try {
+            const dbFacilities = await getFacilitiesForGuest(ticket.qrGuestUuid || ticket.guest_uuid || ticket.qr_code);
+            if (dbFacilities.length > 0) {
+              // Map static facilities to dynamic counts
+              // If facilities array is empty (maybe not saved in tickets json), use dbFacilities
+              if (facilities.length === 0) {
+                facilities = dbFacilities.map(f => ({
+                  id: f.facilityId,
+                  name: f.name,
+                  quantity: f.availableScans, // or whatever field used in UI
+                  scanned_count: f.checkIn // important
+                }));
+              } else {
+                // Merge counts
+                facilities = facilities.map((f: any) => {
+                  const match = dbFacilities.find(dbF => dbF.facilityId == f.id);
+                  if (match) {
+                    return {
+                      ...f,
+                      scanned_count: match.checkIn // Update used count
+                    };
+                  }
+                  return f;
+                });
+              }
+              console.log("DEBUG: Merged offline facilities:", JSON.stringify(facilities));
+            }
+          } catch (e) {
+            console.log("Failed to load dynamic facilities offline", e);
+          }
 
           console.log("DEBUG: Offline Ticket Found:", JSON.stringify(ticket));
           console.log(`DEBUG: total_entries: ${ticket.total_entries}, used_entries: ${ticket.used_entries}`);
@@ -347,7 +425,10 @@ const QrCode = () => {
                 isValid: false,
                 totalEntries,
                 usedEntries,
-                facilities
+                facilities,
+                facilities,
+                scanToken: scanLockRef.current,
+                uuid: ticket.qrGuestUuid || ticket.guest_uuid || ticket.qr_code
               });
               // Reset scan after delay
               setTimeout(() => setScannedValue(null), 2000);
@@ -370,45 +451,60 @@ const QrCode = () => {
               usedEntries, // Show current used count
               facilities,
               guestId: ticket.guest_id || ticket.id,
-              qrCode: ticket.qr_code || qrGuestUuid
+              qrCode: ticket.qr_code || qrGuestUuid,
+              qrCode: ticket.qr_code || qrGuestUuid,
+              uuid: ticket.qrGuestUuid || ticket.guest_uuid || ticket.qr_code
             });
             openSheet();
           } else {
-            // Single entry AND Not Full: Auto check-in
-            await updateTicketStatusLocal(qrGuestUuid, 'checked_in');
+            // Single entry AND Not Full
+            const hasFacilities = facilities && facilities.length > 0;
 
-            // Broadcast
-            const broadcastData = {
-              guest_name: ticket.guest_name || "Guest",
-              qr_code: ticket.qr_code || qrGuestUuid,
-              total_entries: totalEntries,
-              used_entries: usedEntries + 1,
-              facilities: facilities,
-              guest_id: ticket.guest_id || ticket.id
-            };
-            DeviceEventEmitter.emit('BROADCAST_SCAN_TO_CLIENTS', broadcastData);
+            if (hasFacilities) {
+              // Open sheet if facilities exist (don't auto check-in main ticket without user seeing it)
+              setGuestData({
+                name: ticket.guest_name || "Guest",
+                ticketId: ticket.qr_code || "N/A",
+                status: "VALID ENTRY (OFFLINE)",
+                isValid: true,
+                totalEntries,
+                usedEntries,
+                facilities,
+                guestId: ticket.guest_id || ticket.id,
+                qrCode: ticket.qr_code || qrGuestUuid,
+                qrCode: ticket.qr_code || qrGuestUuid,
+                uuid: ticket.qrGuestUuid || ticket.guest_uuid || ticket.qr_code
+              });
+              openSheet();
+            } else {
+              // Safe to Auto check-in (No facilities, Single Entry)
+              await updateTicketStatusLocal(qrGuestUuid, 'checked_in');
 
-            setGuestData({
-              name: ticket.guest_name || "Guest",
-              ticketId: ticket.qr_code || "N/A",
-              status: "VALID ENTRY (OFFLINE)",
-              isValid: true,
-              totalEntries,
-              usedEntries: usedEntries + 1,
-              facilities,
-              guestId: ticket.guest_id || ticket.id,
-              qrCode: ticket.qr_code || qrGuestUuid
-            });
+              // Broadcast
+              const broadcastData = {
+                guest_name: ticket.guest_name || "Guest",
+                qr_code: ticket.qr_code || qrGuestUuid,
+                total_entries: totalEntries,
+                used_entries: usedEntries + 1,
+                facilities: facilities,
+                guest_id: ticket.guest_id || ticket.id
+              };
+              DeviceEventEmitter.emit('BROADCAST_SCAN_TO_CLIENTS', broadcastData);
 
-            // openSheet(); // 👈 REMOVED
-
-            showStatus(`Checked in ${ticket.guest_name || "Guest"}`, 'success');
-
-            setTimeout(() => {
-              setScannedValue(null);
-              setGuestData(null);
-              // closeSheet(); // 👈 REMOVED
-            }, 1500);
+              showStatus('Checked In', 'success');
+              setGuestData({
+                name: ticket.guest_name || "Guest",
+                ticketId: ticket.qr_code || "N/A",
+                status: "Checked In",
+                isValid: true,
+                totalEntries,
+                usedEntries: usedEntries + 1,
+                facilities,
+                scanToken: scanLockRef.current,
+                uuid: ticket.qrGuestUuid || ticket.guest_uuid || ticket.qr_code
+              });
+              setTimeout(() => setScannedValue(null), 2000);
+            }
           }
 
         } else {
@@ -507,20 +603,24 @@ const QrCode = () => {
               usedEntries: currentUsed,
               facilities: d.facilities || guest.facilities || [],
               guestId: guestId,
-              qrCode: qrGuestUuid
+              qrCode: qrGuestUuid,
+              qrCode: qrGuestUuid,
+              uuid: guest.guest_uuid || guest.uuid || qrGuestUuid
             };
             setGuestData(newGuestData);
 
             // ⚡⚡⚡ AUTO CHECK-IN FOR SINGLE TICKET ⚡⚡⚡
-            // Only auto check-in if NOT full. If full (and we are here due to facilities), open sheet.
-            if (totalEntries === 1 && currentUsed < totalEntries) {
-              // Trigger bulk check-in immediately with quantity 1
-              // We need to use a timeout or effect to ensure state is set, 
-              // OR just call a modified check-in function directly.
-              // Better: Call check-in logic directly to avoid state race conditions.
+            // Only auto-check-in if single-entry AND guest has NO facilities
+            const hasFacilities = Array.isArray(newGuestData.facilities) && newGuestData.facilities.length > 0;
+            if (totalEntries === 1 && currentUsed < totalEntries && !hasFacilities) {
+              // safe to auto-check-in (no facility flow required)
               handleDirectCheckIn(newGuestData, 1);
             } else {
+              // open sheet always if facilities exist OR multi-entry OR already used
               openSheet();
+              console.log("⚡ FACILITY SHAPE ⚡", JSON.stringify(newGuestData?.facilities, null, 2));
+
+
             }
           } // End if (detailsResponse?.data)
         } catch (detailsError) {
@@ -584,6 +684,8 @@ const QrCode = () => {
           setTimeout(() => {
             setScannedValue(null);
             setGuestData(null);
+            setGuestData(null);
+            scanLockRef.current = null;
           }, 1500);
         }
 
@@ -651,6 +753,8 @@ const QrCode = () => {
         setTimeout(() => {
           setScannedValue(null);
           setGuestData(null);
+          setGuestData(null);
+          scanLockRef.current = null;
         }, 1500);
       }
 
@@ -664,6 +768,16 @@ const QrCode = () => {
   };
 
   const handleBulkCheckIn = async () => {
+    // 🚫 BLOCK ANY CHECK-IN WITHOUT QR SCAN
+    // Relaxed check: Allow scannedValue OR guestData.qrCode, and compare case-insensitively
+    const activeCode = scannedValue || guestData?.qrCode;
+    const currentLock = scanLockRef.current;
+
+    if (!currentLock || !activeCode || currentLock.toLowerCase() !== activeCode.toLowerCase()) {
+      console.log(`Scan Lock Mismatch: Lock=${currentLock}, Active=${activeCode}`);
+      showStatus("Please scan QR code first", "error");
+      return;
+    }
     const checkInCount = selectedQuantity;
     const guestId = guestData?.guestId;
     const qrCode = guestData?.qrCode || scannedValue;
@@ -674,44 +788,70 @@ const QrCode = () => {
       return;
     }
 
-    // ⚡⚡⚡ FACILITY CHECK LOGIC ⚡⚡⚡
-    if (selectedScanningOption !== 'check_in') {
-      // Facility Flow
-      setIsVerifying(true);
-      try {
-        const payload = {
-          event_id: parseInt(eventId),
-          guest_id: guestId,
-          ticket_id: guestData.actualTicketId || 0, // ALWAYS Main Ticket ID
-          check_in_count: checkInCount,
-          category_check_in_count: "",
-          other_category_check_in_count: 0,
-          guest_facility_id: String(selectedScanningOption) // Added facility ID
-        };
-
-        const res = await checkInGuest(eventId, payload);
-        if (!res?.id && !res?.check_in_time && !res?.success && !res?.status) {
-          throw new Error(res?.message || "Facility check-in failed");
-        }
-
-        // Optimistic Update for Facility Status
-        setFacilityStatus(prev => prev.map(f => {
-          if (String(f.id) === String(selectedScanningOption)) {
-            return { ...f, available_scans: Math.max(0, f.available_scans - checkInCount) };
-          }
-          return f;
-        }));
-
-        showStatus(`Facility Checked In`, 'success');
-        // KEEP SHEET OPEN
-      } catch (error) {
-        console.error(error);
-        showStatus(error?.message || 'Facility check-in failed', 'error');
-      } finally {
-        setIsVerifying(false);
-      }
+    // Require QR Scan
+    if (!guestData || !guestData.qrCode) {
+      showStatus("Scan QR first", "error");
       return;
     }
+
+    // Facility Check-In
+    if (selectedScanningOption !== 'check_in') {
+
+      const facilityId = Number(selectedScanningOption);
+      // ⚡⚡⚡ USE CORRECT UUID FOR FACILITY LOOKUP ⚡⚡⚡
+      const uuid = guestData.uuid || guestData.qrCode;
+
+      console.log(`DEBUG: Facility Check-In Selected. Option: ${selectedScanningOption}, UUID: ${uuid}, Count: ${checkInCount}`);
+
+      try {
+        // Ensure facility row exists locally before updating (fallback for guests saved without facility rows)
+        const selectedFacility = guestData.facilities?.find((f: any) => Number(f.id) === facilityId);
+        const availableScans = selectedFacility?.quantity ?? selectedFacility?.scan_quantity ?? selectedFacility?.total_scans ?? 1;
+        const currentScanned = selectedFacility?.scanned_count ?? 0;
+
+        await insertFacilityForGuest({
+          guest_uuid: uuid,
+          facilityId,
+          name: selectedFacility?.name || `Facility ${facilityId}`,
+          availableScans: parseInt(String(availableScans || 1), 10),
+          checkIn: parseInt(String(currentScanned || 0), 10),
+          eventId: eventId,
+          ticket_id: guestData.actualTicketId || guestData.ticketId || 0
+        });
+
+        const rowsAffected = await updateFacilityCheckInLocal(uuid, facilityId, checkInCount);
+
+        if (!rowsAffected || rowsAffected === 0) {
+          showStatus("Facility check-in failed", "error");
+          return;
+        }
+
+        // ✅ ONLY NOW show success
+        showStatus(`Facility Checked In (Offline)`, 'success');
+
+        // 🔒 Force re-scan after one facility action
+        scanLockRef.current = null;
+
+        // ⚡⚡⚡ UI UPDATE: Update facility state locally ⚡⚡⚡
+        if (guestData && guestData.facilities) {
+          const updatedFacilities = guestData.facilities.map((f: any) => {
+            if (Number(f.id) === facilityId) {
+              return { ...f, scanned_count: (f.scanned_count || 0) + checkInCount };
+            }
+            return f;
+          });
+          setGuestData({ ...guestData, facilities: updatedFacilities });
+        }
+
+        return;
+      } catch (err) {
+        console.error("Facility check-in failed:", err);
+        showStatus('Facility check-in failed', 'error');
+        return;
+      }
+    }
+
+    console.log(`DEBUG: Main Check-in Fallthrough. Option: ${selectedScanningOption}, Used: ${guestData.usedEntries}, Total: ${guestData.totalEntries}`);
     // ⚡⚡⚡ END FACILITY CHECK LOGIC ⚡⚡⚡
 
     // ⚡⚡⚡ SAFETY CHECK (MAIN TICKET) ⚡⚡⚡
@@ -813,6 +953,17 @@ const QrCode = () => {
 
       showStatus(`Checked in ${selectedQuantity} guests`, 'success');
 
+      // ⚡⚡⚡ UI UPDATE: Update guestData triggerly so Modal disables buttons ⚡⚡⚡
+      if (guestData) {
+        const newUsed = (guestData.usedEntries || 0) + selectedQuantity;
+        setGuestData({
+          ...guestData,
+          usedEntries: newUsed,
+          // Update status text if full?
+          status: newUsed >= guestData.totalEntries ? 'ALREADY SCANNED' : guestData.status
+        });
+      }
+
     } catch (error) {
       console.error("Bulk check-in error:", error);
       showStatus('Failed to complete bulk check-in', 'error');
@@ -826,12 +977,19 @@ const QrCode = () => {
       } else {
         setScannedValue(null);
         setGuestData(null);
+        scanLockRef.current = null;
         closeSheet();
       }
     }
   };
 
   // Helper for dynamic stats
+  const isMainTicketCheckedIn =
+    !!guestData &&
+    selectedScanningOption === 'check_in' &&
+    (guestData.usedEntries || 0) >= (guestData.totalEntries || 1);
+
+
   const getDisplayedStats = () => {
     if (!guestData) return { bought: 0, scanned: 0, remaining: 0 };
 
@@ -851,6 +1009,8 @@ const QrCode = () => {
   };
 
   const stats = getDisplayedStats();
+  const hasFacilities = Array.isArray(guestData?.facilities) && guestData.facilities.length > 0;
+  const showQuantitySelector = !!guestData && !hasFacilities && (guestData.totalEntries || 1) > 1;
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -1008,7 +1168,8 @@ const QrCode = () => {
                     // Main Check-in Status Calculation
                     const total = guestData?.totalEntries || 1;
                     const used = guestData?.usedEntries || 0;
-                    const isFullyCheckedIn = used >= total;
+                    // ⚡⚡⚡ UPDATED: Disable if checked in ONCE ⚡⚡⚡
+                    const isFullyCheckedIn = used > 0;
 
                     return (
                       <TouchableOpacity
@@ -1024,16 +1185,32 @@ const QrCode = () => {
                     );
                   })()}
 
-                  {/* FACILITIES RADIOS */}
+              {/* FACILITIES RADIOS */}
                   {guestData?.facilities && guestData.facilities.map((fac: any) => {
                     const isMainCheckedIn = (guestData?.usedEntries || 0) > 0;
                     let facilityDisabled = !isMainCheckedIn;
 
                     // Optimistic Status Check
-                    if (!facilityDisabled && facilityStatus.length > 0) {
-                      const status = facilityStatus.find((s: any) => s.id == fac.id);
-                      if (status && status.available_scans <= 0) {
-                        facilityDisabled = true;
+                    if (!facilityDisabled) {
+                      // 1. Check Optimistic Status (Real-time updates)
+                      if (facilityStatus.length > 0) {
+                        const status = facilityStatus.find((s: any) => String(s.id) === String(fac.id));
+                        if (status && status.available_scans <= 0) {
+                          facilityDisabled = true;
+                        }
+                      }
+
+                      // 2. Check Static Guest Data (Initial Load State)
+                      if (!facilityDisabled && fac.scanned_count !== undefined && fac.quantity !== undefined) {
+                        if (fac.scanned_count >= fac.quantity) {
+                          facilityDisabled = true;
+                        }
+                      }
+                      // Fallback: disable if we already marked scanned_count >= availableScans (when quantity missing)
+                      if (!facilityDisabled && fac.scanned_count !== undefined && fac.availableScans !== undefined) {
+                        if (fac.scanned_count >= fac.availableScans) {
+                          facilityDisabled = true;
+                        }
                       }
                     }
 
@@ -1054,8 +1231,8 @@ const QrCode = () => {
                 </View>
               </View>
 
-              {/* ⚡⚡⚡ QUANTITY SELECTOR ⚡⚡⚡ */}
-              {guestData && (
+              {/* ⚡⚡⚡ QUANTITY SELECTOR (only when no facilities and multi-entry) ⚡⚡⚡ */}
+              {showQuantitySelector && (
                 <View style={styles.quantityContainer}>
                   <Text style={styles.quantityLabel}>Check-in Quantity:</Text>
                   <View style={styles.quantityControls}>
@@ -1093,14 +1270,23 @@ const QrCode = () => {
             </ScrollView>
 
             <TouchableOpacity
-              style={[styles.primaryButton, isVerifying && styles.primaryButtonDisabled]}
+              style={[
+                styles.primaryButton,
+                (isVerifying || isMainTicketCheckedIn) && styles.primaryButtonDisabled
+              ]}
               activeOpacity={0.9}
-              disabled={isVerifying}
+              disabled={isVerifying || isMainTicketCheckedIn}
               onPress={handleBulkCheckIn}
             >
+
               <Text style={styles.primaryButtonText}>
-                {isVerifying ? 'Verifying...' : 'Check In'}
+                {isVerifying
+                  ? 'Verifying...'
+                  : isMainTicketCheckedIn
+                    ? 'Already Checked In'
+                    : 'Check In'}
               </Text>
+
             </TouchableOpacity>
           </Animated.View>
         )}

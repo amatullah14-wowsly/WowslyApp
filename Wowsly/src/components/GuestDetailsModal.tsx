@@ -10,7 +10,7 @@ import {
     ScrollView
 } from 'react-native';
 import { getGuestDetails, verifyQrCode, checkInEventUser, getEventTickets } from '../api/event';
-import { updateTicketStatusLocal } from '../db';
+import { updateTicketStatusLocal, getFacilitiesForGuest, updateFacilityCheckInLocal } from '../db';
 import Toast from 'react-native-toast-message';
 
 type GuestDetailsModalProps = {
@@ -66,15 +66,47 @@ const GuestDetailsModal: React.FC<GuestDetailsModalProps> = ({
     }, [guest]);
 
     const fetchFacilities = async () => {
-        if (!eventId) return;
-        const res = await getEventTickets(eventId);
-        if (res && res.data) {
-            // We need to find the specific ticket type for this guest to show relevant facilities
-            // But usually facilities are returned per ticket type.
-            // We'll filter later or store all and find match.
-            // For now, let's store the raw data which is an array of tickets.
-            // We will extract facilities for the CURRENT guest's ticket in render or effect.
-            setFacilities(res.data);
+        if (!eventId && !offline ? true : !guestData?.guest_uuid) return; // Basic validation
+
+        if (offline) {
+            const uuid = guestData?.guest_uuid || guestData?.uuid || guestData?.qr_code;
+            if (uuid) {
+                const localFacilities = await getFacilitiesForGuest(uuid);
+                // Format for UI (match API structure if needed, or adapt)
+                // Local DB: { id, facilityId, name, availableScans, checkIn }
+                // UI expects: array of tickets/facilities? 
+                // The line 131: currentTicketWithFacilities = facilities.find(...)
+                // The UI expects facilities to be linked to ticket types.
+                // But offline we just get flat facilities for this guest.
+                // We can mock the structure so existing UI logic works.
+
+                const mockTicket = {
+                    id: guestData?.ticket_data?.ticket_id || guestData?.ticket_id,
+                    facilities: localFacilities.map(f => ({
+                        id: f.facilityId, // Use facilityId as 'id' for selection
+                        name: f.name,
+                        // Adapt fields for usage check
+                        // UI check: status.available_scans <= 0
+                        // We don't have separate 'facilityStatus' array yet for offline, 
+                        // or we can generate it from here.
+                    }))
+                };
+                setFacilities([mockTicket]);
+
+                // Also set availability status specifically for offline
+                // The UI logic checks 'facilityStatus' state too (lines 196, 330)
+                const statuses = localFacilities.map(f => ({
+                    id: f.facilityId,
+                    available_scans: (f.availableScans || 0) - (f.checkIn || 0)
+                }));
+                setFacilityStatus(statuses);
+            }
+        } else {
+            if (!eventId) return;
+            const res = await getEventTickets(eventId);
+            if (res && res.data) {
+                setFacilities(res.data);
+            }
         }
     };
 
@@ -307,28 +339,38 @@ const GuestDetailsModal: React.FC<GuestDetailsModalProps> = ({
                                         <Text style={styles.scanningForTitle}>Scanning for</Text>
 
                                         <View style={styles.radioGroup}>
-                                            {/* CHECK-IN RADIO */}
-                                            <TouchableOpacity
-                                                style={styles.radioItem}
-                                                onPress={() => !isFullyCheckedIn && setSelectedScanningOption('check_in')}
-                                                activeOpacity={isFullyCheckedIn ? 1 : 0.7}
-                                            >
-                                                <View style={[styles.radioOuter, { borderColor: isFullyCheckedIn ? '#CCC' : '#FF8A3C' }]}>
-                                                    {selectedScanningOption === 'check_in' && <View style={[styles.radioInner, { backgroundColor: isFullyCheckedIn ? '#CCC' : '#FF8A3C' }]} />}
-                                                </View>
-                                                <Text style={[styles.radioLabel, isFullyCheckedIn && styles.disabledText]}>Check-In</Text>
-                                            </TouchableOpacity>
+                                            {/* CHECK-IN RADIO (Main Ticket) */}
+                                            {/* Logic: Enabled ONLY if remaining tickets > 0 */}
+                                            {(() => {
+                                                const remainingMain = Math.max(0, totalEntries - usedCount);
+                                                const mainCheckInDisabled = remainingMain <= 0;
+
+                                                return (
+                                                    <TouchableOpacity
+                                                        style={styles.radioItem}
+                                                        onPress={() => !mainCheckInDisabled && setSelectedScanningOption('check_in')}
+                                                        activeOpacity={mainCheckInDisabled ? 1 : 0.7}
+                                                    >
+                                                        <View style={[styles.radioOuter, { borderColor: mainCheckInDisabled ? '#CCC' : '#FF8A3C' }]}>
+                                                            {selectedScanningOption === 'check_in' && <View style={[styles.radioInner, { backgroundColor: mainCheckInDisabled ? '#CCC' : '#FF8A3C' }]} />}
+                                                        </View>
+                                                        <Text style={[styles.radioLabel, mainCheckInDisabled && styles.disabledText]}>Check-In</Text>
+                                                    </TouchableOpacity>
+                                                );
+                                            })()}
 
                                             {/* FACILITIES RADIOS */}
+                                            {/* Logic: Enabled ONLY if Main Tickets <= 0 AND Facility Scans > 0 */}
                                             {availableFacilities.map((fac: any) => {
-                                                // Assuming facility structure: { id, name, ... }
-                                                // Disable if guest NOT checked in yet
-                                                let facilityDisabled = !isGuestCheckedIn;
+                                                const remainingMain = Math.max(0, totalEntries - usedCount);
+                                                // Kotlin Rule: Facilities enabled only if main ticket is exhausted
+                                                const mainTicketExhausted = remainingMain <= 0;
 
-                                                // Check availability from verify stats
+                                                let facilityDisabled = !mainTicketExhausted; // Disabled if main ticket still valid
+
+                                                // Also check specific facility availability
                                                 if (!facilityDisabled && facilityStatus.length > 0) {
                                                     const status = facilityStatus.find((s: any) => s.id == fac.id);
-                                                    // If status exists and available_scans is 0 or less, disable
                                                     if (status && status.available_scans <= 0) {
                                                         facilityDisabled = true;
                                                     }
@@ -389,19 +431,75 @@ const GuestDetailsModal: React.FC<GuestDetailsModalProps> = ({
                                         <TouchableOpacity
                                             style={[
                                                 styles.confirmCheckInButton,
-                                                // Disable if trying to check-in main entries but full
-                                                (selectedScanningOption === 'check_in' && isFullyCheckedIn) && styles.disabledButton,
-                                                // Disable if facilities selected but not checked in (defensive)
-                                                (selectedScanningOption !== 'check_in' && !isGuestCheckedIn) && styles.disabledButton
+                                                // Disable logic matching strict rules
+                                                (() => {
+                                                    const remainingMain = Math.max(0, totalEntries - usedCount);
+                                                    if (selectedScanningOption === 'check_in') {
+                                                        return remainingMain <= 0; // Disable if no main tickets left
+                                                    } else {
+                                                        // Facility logic
+                                                        if (remainingMain > 0) return true; // Disable facility if main tickets exist
+
+                                                        // Check specific facility availability
+                                                        const stat = facilityStatus.find((s: any) => s.id == selectedScanningOption);
+                                                        return stat ? stat.available_scans <= 0 : false;
+                                                    }
+                                                })() && styles.disabledButton
                                             ]}
                                             disabled={
-                                                (selectedScanningOption === 'check_in' && isFullyCheckedIn) ||
-                                                (selectedScanningOption !== 'check_in' && !isGuestCheckedIn)
+                                                (() => {
+                                                    const remainingMain = Math.max(0, totalEntries - usedCount);
+                                                    if (selectedScanningOption === 'check_in') {
+                                                        return remainingMain <= 0;
+                                                    } else {
+                                                        if (remainingMain > 0) return true;
+                                                        const stat = facilityStatus.find((s: any) => s.id == selectedScanningOption);
+                                                        return stat ? stat.available_scans <= 0 : false;
+                                                    }
+                                                })()
                                             }
                                             onPress={async () => {
-                                                if (!eventId || !guestId) return;
+                                                if ((!eventId && !offline) || (!guestData && offline)) return;
                                                 setLoading(true);
                                                 try {
+                                                    // OFFLINE LOGIC
+                                                    if (offline) {
+                                                        const uuid = guestData.guest_uuid || guestData.uuid || guestData.qr_code;
+                                                        if (selectedScanningOption === 'check_in') {
+                                                            await updateTicketStatusLocal(uuid, 'checked_in', checkInQuantity, false);
+                                                        } else {
+                                                            // Facility Check-In
+                                                            await updateFacilityCheckInLocal(uuid, Number(selectedScanningOption), checkInQuantity);
+                                                        }
+
+                                                        Toast.show({ type: 'success', text1: 'Success', text2: 'Checked in locally' });
+
+                                                        // Refresh Data
+                                                        const updatedGuestData = {
+                                                            ...guestData,
+                                                            status: 'Checked In',
+                                                            used_entries: selectedScanningOption === 'check_in'
+                                                                ? (Number(guestData?.used_entries) || 0) + checkInQuantity
+                                                                : (Number(guestData?.used_entries) || 0)
+                                                        };
+                                                        setGuestData(updatedGuestData);
+
+                                                        if (selectedScanningOption !== 'check_in') {
+                                                            // Update local status state
+                                                            setFacilityStatus(prev => prev.map(f => {
+                                                                if (String(f.id) === String(selectedScanningOption)) {
+                                                                    return { ...f, available_scans: Math.max(0, f.available_scans - checkInQuantity) };
+                                                                }
+                                                                return f;
+                                                            }));
+                                                        }
+
+                                                        DeviceEventEmitter.emit('REFRESH_GUEST_LIST'); // Notify list to refresh from DB
+                                                        setCheckInStep('initial');
+                                                        setLoading(false);
+                                                        return;
+                                                    }
+
                                                     // Standard Payload base
                                                     let payload: any = {
                                                         event_id: Number(eventId),

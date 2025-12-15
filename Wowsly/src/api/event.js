@@ -327,32 +327,82 @@ export const getTicketSoldUsers = async (eventId, ticketId, eventType = 'paid') 
     }
 };
 
-import { getUnsyncedCheckins, markTicketsAsSynced } from '../db';
+import { getUnsyncedCheckins, markTicketsAsSynced, getUnsyncedFacilities, markFacilitiesAsSynced } from '../db';
 import { checkInGuest, syncOfflineCheckinsAPI } from './api';
 
 export const syncPendingCheckins = async (eventId) => {
     try {
         console.log("Starting sync for event:", eventId);
-        const unsynced = await getUnsyncedCheckins(eventId);
-        console.log(`Found ${unsynced.length} unsynced check-ins`);
+        const unsyncedGuests = await getUnsyncedCheckins(eventId);
+        const unsyncedFacilities = await getUnsyncedFacilities(eventId);
 
-        if (unsynced.length === 0) {
+        console.log(`Found ${unsyncedGuests.length} unsynced guests and ${unsyncedFacilities.length} unsynced facilities`);
+
+        if (unsyncedGuests.length === 0 && unsyncedFacilities.length === 0) {
             return { success: true, count: 0, message: "No pending check-ins to sync" };
         }
 
-        // ⚡⚡⚡ BULK SYNC IMPLEMENTATION ⚡⚡⚡
-        // ⚡⚡⚡ BULK SYNC IMPLEMENTATION ⚡⚡⚡
-        const bulkPayload = unsynced.map(guest => {
-            return {
-                qrGuestUuid: guest.qrGuestUuid || guest.qr_code, // Use stored UUID or fallback to QR
-                check_in_count: parseInt(guest.check_in_count || 1),
-                ticket_id: parseInt(guest.qrTicketId || guest.ticket_id || 0), // Changed key to ticket_id
-                check_in_time: guest.given_check_in_time || guest.checkInTime || new Date().toISOString(), // Changed key to snake_case
-                facility_checkIn_count: [] // Empty array as requested
-            };
+        // ⚡⚡⚡ MERGE GUESTS AND FACILITIES ⚡⚡⚡
+        const payloadMap = new Map();
+        const facilityIdsToSync = [];
+        const qrCodesToSync = [];
+
+        // 1. Add Guests
+        unsyncedGuests.forEach(g => {
+            const uuid = g.qrGuestUuid || g.qr_code;
+            qrCodesToSync.push(g.qr_code); // Track for marking synced
+
+            payloadMap.set(uuid, {
+                qrGuestUuid: uuid,
+                check_in_count: parseInt(g.check_in_count || g.used_entries || 0), // total offline main check-ins
+                ticket_id: parseInt(g.qrTicketId || g.ticket_id || 0),
+                // Kotlin expects Long epoch millis
+                check_in_time: g.given_check_in_time
+                  ? new Date(g.given_check_in_time).getTime()
+                  : (g.checkInTime || Date.now()),
+                facility_checkIn_count: []
+            });
         });
 
-        console.log(`DEBUG: Sending bulk sync for ${bulkPayload.length} guests`);
+        // 2. Add Facilities
+        // Group unsynced facilities by guest_uuid first
+        const facilitiesByGuest = {};
+
+        unsyncedFacilities.forEach(f => {
+            const uuid = f.guest_uuid;
+            facilityIdsToSync.push(f.id); // Track for marking synced
+
+            if (!facilitiesByGuest[uuid]) {
+                facilitiesByGuest[uuid] = [];
+            }
+            facilitiesByGuest[uuid].push(f);
+        });
+
+        // Now process groups
+        Object.keys(facilitiesByGuest).forEach(uuid => {
+            const facilities = facilitiesByGuest[uuid];
+
+            if (!payloadMap.has(uuid)) {
+                payloadMap.set(uuid, {
+                    qrGuestUuid: uuid,
+                    check_in_count: 0, // ⚡⚡⚡ FIX: 0 here avoids incrementing main ticket count if only syncing facilities
+                    ticket_id: facilities[0]?.ticket_id || 0,
+                    check_in_time: new Date().toISOString(),
+                    facility_checkIn_count: []
+                });
+            }
+
+            const entry = payloadMap.get(uuid);
+
+            entry.facility_checkIn_count = facilities.map(f => ({
+                id: f.facilityId,
+                checkIn_count: f.checkIn || 0
+            }));
+        });
+
+        const bulkPayload = Array.from(payloadMap.values());
+
+        console.log(`DEBUG: Sending bulk sync for ${bulkPayload.length} unique guests`);
         if (bulkPayload.length > 0) {
             console.log("DEBUG: Bulk Payload Sample:", JSON.stringify(bulkPayload[0]));
         }
@@ -362,13 +412,16 @@ export const syncPendingCheckins = async (eventId) => {
 
         if (res && (res.success || res.status === true || res.message === "Check-in successful")) {
             // Mark all as synced
-            const qrCodes = unsynced.map(g => g.qr_code);
-            await markTicketsAsSynced(qrCodes);
+            if (qrCodesToSync.length > 0) await markTicketsAsSynced(qrCodesToSync);
+            if (facilityIdsToSync.length > 0) await markFacilitiesAsSynced(facilityIdsToSync);
+
+            // Return counts
+            const totalUpdated = qrCodesToSync.length + facilityIdsToSync.length;
 
             return {
                 success: true,
-                count: qrCodes.length,
-                message: `Synced ${qrCodes.length} guests successfully`
+                count: totalUpdated,
+                message: `Synced ${totalUpdated} items successfully`
             };
         } else {
             console.warn("Bulk sync failed:", res);

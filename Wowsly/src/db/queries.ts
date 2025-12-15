@@ -1,94 +1,92 @@
-import { getDB } from "./index";
+// src/db/queries.ts
+import { openDB, formatToSQLDatetime } from "./index";
+
+/**
+ * Utility functions that use the core openDB() functions in index.ts.
+ * This file replaces the previous getDB() usage and keeps queries readable.
+ */
 
 // -------------------- INSERT DOWNLOADED TICKETS --------------------
-export async function saveTickets(tickets) {
-  const db = getDB();
-  const insertQuery = `
-    INSERT OR REPLACE INTO tickets
-    (event_id, guest_id, ticket_id, name, email, phone, qr_code, status, synced)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1)
-  `;
+export async function saveTickets(tickets: any[]) {
+  const db = await openDB();
+  if (!Array.isArray(tickets) || tickets.length === 0) return;
 
-  const tx = await db.transaction();
   try {
-    for (let t of tickets) {
-      await tx.executeSql(insertQuery, [
-        t.event_id,
-        t.guest_id,
-        t.ticket_id,
-        t.name,
-        t.email,
-        t.email,
-        t.phone || t.mobile || t.phone_number || null,
-        t.qr_code,
-        t.qr_code,
-        t.status,
-      ]);
-    }
-    await tx.commit();
+    await db.transaction(async (tx: any) => {
+      const insertQuery = `
+        INSERT OR REPLACE INTO tickets
+        (event_id, guest_id, ticket_id, guest_name, email, phone, qr_code, status, synced)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1)
+      `;
+      for (let t of tickets) {
+        await tx.executeSql(insertQuery, [
+          t.event_id,
+          t.guest_id,
+          t.ticket_id,
+          t.name || t.guest_name || null,
+          t.email || null,
+          t.phone || t.mobile || t.phone_number || null,
+          t.qr_code || t.code || null,
+          t.status || 'pending'
+        ]);
+      }
+    });
   } catch (e) {
     console.log("SAVE TICKETS ERROR:", e);
-    await tx.rollback();
   }
 }
 
 // -------------------- FIND TICKET BY QR --------------------
-export async function getTicketByQR(qr) {
-  const db = getDB();
-  const res = await db.executeSql("SELECT * FROM tickets WHERE qr_code = ?", [qr]);
-  return res[0].rows.length > 0 ? res[0].rows.item(0) : null;
+export async function getTicketByQR(qr: string) {
+  const db = await openDB();
+  const [res] = await db.executeSql("SELECT * FROM tickets WHERE qr_code = ? LIMIT 1", [qr]);
+  return res.rows.length > 0 ? res.rows.item(0) : null;
 }
 
 // -------------------- STORE OFFLINE CHECK-IN --------------------
-export async function saveOfflineCheckin(ticket) {
-  const db = getDB();
+// Note: Your index.ts stores check-in directly into tickets table (check_in_count + synced flags).
+// This function keeps the older "checkins" table approach if you used it; otherwise you can skip.
+export async function saveOfflineCheckin(ticket: any) {
+  const db = await openDB();
 
-  // Prevent duplicates
-  const existing = await db.executeSql(
-    "SELECT 1 FROM checkins WHERE qrGuestUuid = ?",
+  // Prevent duplicates by qrGuestUuid
+  const [existing] = await db.executeSql(
+    "SELECT 1 FROM tickets WHERE qrGuestUuid = ? AND check_in_count > 0 LIMIT 1",
     [ticket.qrGuestUuid]
   );
-  if (existing[0].rows.length > 0) return;
+  if (existing.rows.length > 0) return;
 
-  const query = `
-    INSERT INTO checkins (
-      event_id,
-      qrGuestUuid,
-      qrTicketId,
-      check_in_count,
-      given_check_in_time,
-      synced
-    ) VALUES (?, ?, ?, ?, ?, 0)
-  `;
+  const iso = ticket.scanned_at || new Date().toISOString();
+  const sqlTime = formatToSQLDatetime(iso);
 
-  await db.executeSql(query, [
-    ticket.event_id,
-    ticket.qrGuestUuid,
-    ticket.qrTicketId,
-    ticket.check_in_count,
-    formatToSQLDatetime(ticket.scanned_at),
-  ]);
+  // We will store directly in tickets by updating the check_in_count and synced flag
+  await db.executeSql(
+    `UPDATE tickets
+     SET check_in_count = ?, given_check_in_time = ?, synced = 0, used_entries = used_entries + ?
+     WHERE qrGuestUuid = ?`,
+    [ticket.check_in_count || 1, sqlTime, ticket.check_in_count || 1, ticket.qrGuestUuid]
+  );
 }
 
-function formatToSQLDatetime(iso) {
-  const d = new Date(iso);
-  return d.toISOString().slice(0, 19).replace("T", " ");
-}
-
-// -------------------- GET UNSYNCED CHECKINS --------------------
-export async function getUnsyncedCheckins() {
-  const db = getDB();
-  const res = await db.executeSql("SELECT * FROM checkins WHERE synced = 0");
-  return res[0].rows.raw();
+// -------------------- GET ALL UNSYNCED CHECKINS --------------------
+export async function getUnsyncedCheckinsAll() {
+  const db = await openDB();
+  const [res] = await db.executeSql("SELECT * FROM tickets WHERE synced = 0 AND check_in_count > 0");
+  const arr = [];
+  for (let i = 0; i < res.rows.length; i++) arr.push(res.rows.item(i));
+  return arr;
 }
 
 // -------------------- MARK CHECKINS AS SYNCED --------------------
-export async function markTicketsAsSynced(uuidList) {
-  if (uuidList.length === 0) return;
-  const db = getDB();
-
+export async function markTicketsAsSynced(uuidList: string[]) {
+  if (!uuidList || uuidList.length === 0) return;
+  const db = await openDB();
   const placeholders = uuidList.map(() => "?").join(",");
-  const query = `UPDATE checkins SET synced = 1 WHERE qrGuestUuid IN (${placeholders})`;
-
+  const query = `UPDATE tickets SET synced = 1 WHERE qrGuestUuid IN (${placeholders})`;
   await db.executeSql(query, uuidList);
+}
+
+function formatToSQLDatetime(iso: string) {
+  const d = new Date(iso);
+  return d.toISOString().slice(0, 19).replace("T", " ");
 }
