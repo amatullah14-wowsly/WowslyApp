@@ -9,6 +9,8 @@ import {
   View,
   ActivityIndicator,
   DeviceEventEmitter,
+  Modal,
+  BackHandler,
 } from 'react-native';
 import { useNavigation, useRoute, useFocusEffect } from '@react-navigation/native';
 import OfflineCard from '../../components/OfflineCard';
@@ -51,6 +53,7 @@ const OfflineDashboard = () => {
   const [summary, setSummary] = useState<any[]>(cachedSummary);
 
   const [pendingCount, setPendingCount] = useState(0);
+  const [showExitWarning, setShowExitWarning] = useState(false);
 
   const totals = useMemo(() => {
     const unique = summary.reduce((acc, item) => acc + (item.count || 0), 0);
@@ -221,6 +224,26 @@ const OfflineDashboard = () => {
   }, []);
 
   // --------------------------------------------------------
+  //                      EXIT HANDLING
+  // --------------------------------------------------------
+  const handleBackPress = useCallback(() => {
+    if (pendingCount > 0) {
+      setShowExitWarning(true);
+      return true; // Prevent default behavior
+    }
+    navigation.goBack();
+    return true;
+  }, [pendingCount, navigation]);
+
+  useEffect(() => {
+    const backHandler = BackHandler.addEventListener(
+      'hardwareBackPress',
+      handleBackPress,
+    );
+    return () => backHandler.remove();
+  }, [handleBackPress]);
+
+  // --------------------------------------------------------
   //                      UPLOAD OFFLINE DATA
   // --------------------------------------------------------
 
@@ -266,7 +289,7 @@ const OfflineDashboard = () => {
 
         <View style={styles.header}>
           <View style={styles.backButtonContainer}>
-            <BackButton onPress={() => navigation.goBack()} />
+            <BackButton onPress={handleBackPress} />
           </View>
           <Text style={styles.headerTitle}>Offline Mode</Text>
         </View>
@@ -373,6 +396,41 @@ const OfflineDashboard = () => {
         </View>
 
       </ScrollView>
+
+      {/* ⚠️ EXIT WARNING MODAL ⚠️ */}
+      <Modal
+        visible={showExitWarning}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setShowExitWarning(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Pending Uploads</Text>
+            <Text style={styles.modalText}>
+              Your uploads are remaining. If you exit, your scanned data will be lost.
+            </Text>
+            <View style={styles.modalButtons}>
+              <TouchableOpacity
+                style={[styles.modalButton, styles.cancelButton]}
+                onPress={() => setShowExitWarning(false)}
+              >
+                <Text style={styles.modalButtonText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.modalButton, styles.exitButton]}
+                onPress={() => {
+                  setShowExitWarning(false);
+                  navigation.goBack();
+                }}
+              >
+                <Text style={[styles.modalButtonText, styles.exitButtonText]}>Exit Anyway</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
     </SafeAreaView>
   );
 };
@@ -500,17 +558,77 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: '#E5E7EB',
     paddingTop: 12,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    marginBottom: 4,
   },
   pendingText: {
     fontSize: 12,
+    fontWeight: '600',
     color: '#F59E0B',
-    fontWeight: '500',
   },
   storageText: {
     fontSize: 10,
     color: '#9CA3AF',
+    marginTop: 2,
+  },
+  // ⚡⚡⚡ MODAL STYLES ⚡⚡⚡
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  modalContent: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 24,
+    width: '90%',
+    maxWidth: 400,
+    elevation: 5,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#111827',
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  modalText: {
+    fontSize: 14,
+    color: '#4B5563',
+    marginBottom: 24,
+    textAlign: 'center',
+    lineHeight: 20,
+  },
+  modalButtons: {
+    flexDirection: 'row',
+    gap: 12,
+    justifyContent: 'center',
+  },
+  modalButton: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  cancelButton: {
+    backgroundColor: '#F3F4F6',
+  },
+  exitButton: {
+    backgroundColor: '#EF4444',
+  },
+  modalButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#374151',
+  },
+  exitButtonText: {
+    color: '#FFFFFF',
   },
 });
+
