@@ -67,29 +67,25 @@ const EventListing = () => {
           const nextRes = await getEventsPage(currentPage, 'created');
           const nextEvents = nextRes?.data || [];
 
+          // Check for next page info immediately
+          hasMore = !!(nextRes.next_page_url || (nextRes.meta && nextRes.meta.current_page < nextRes.meta.last_page));
+          if (currentPage > 50) hasMore = false;
+
           if (nextEvents.length > 0) {
-            // Deduplicate (just in case)
+            // Deduplicate
             const newUnique = nextEvents.filter((n: any) => !accumulatedEvents.some((e: any) => e.id === n.id));
             accumulatedEvents = [...accumulatedEvents, ...newUnique];
-
+            
             // ⚡⚡⚡ BATCH UPDATE UI ⚡⚡⚡
-            // We update state every page so user sees progress
-            setAllEvents([...accumulatedEvents]);
-            // Re-run filter for the new full list
-            // Note: filterEvents uses 'allEvents' from state usually, but inside here we need the latest array
-            // So we call a helper or just inline filtered logic or update state.
-            // Be careful with closure on searchQuery.
-            // But since 'setAllEvents' triggers component re-render, the 'useEffect[searchQuery]' might not trigger unless query changes.
-            // We should manually trigger filter w/ current query.
-            // However, we want to perform this filter inside the loop using current accumulatedEvents.
+            // Update every 5 pages or if finished
+            if (currentPage % 5 === 0 || !hasMore) {
+               setAllEvents([...accumulatedEvents]);
+            }
           }
-
-          // Check for next
-          hasMore = !!(nextRes.next_page_url || (nextRes.meta && nextRes.meta.current_page < nextRes.meta.last_page));
-
-          // Safety
-          if (currentPage > 50) hasMore = false;
         }
+        
+        // Final update upon completion
+        setAllEvents([...accumulatedEvents]);
         setFetchingMore(false);
       }
 
@@ -400,8 +396,9 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     gap: 16,
-    paddingBottom: 4,
+    paddingBottom: 2,
     backgroundColor: 'white',
+    height: 40,
   },
   pageIcon: {
     width: 28,

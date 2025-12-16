@@ -103,7 +103,7 @@ const Otp = () => {
             <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
                 <View style={styles.wowsly}>
                     <Image
-                        source={require('../../assets/img/common/logo.png')}
+                        source={require('../../assets/img/common/WowslyLogo.png')}
                         style={styles.logo}
                     />
                     <Text style={styles.heading}>Wowsly Organizer</Text>
@@ -170,8 +170,8 @@ const styles = StyleSheet.create({
         
     },
     logo: {
-        width: 50,
-        height: 38,
+        width: 80,
+        height: 55,
         alignSelf: 'center',
     },
     heading: {
