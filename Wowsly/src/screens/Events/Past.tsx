@@ -13,13 +13,14 @@ import {
 import { useNavigation } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import EventCard from '../../components/EventCard';
-import { getEvents } from '../../api/event';
+import { getEvents, getEventsPage } from '../../api/event';
 
 const Past = () => {
   const navigation = useNavigation<any>();
-  const [events, setEvents] = useState([]);
-  const [allEvents, setAllEvents] = useState([]); // Store all fetched events
+  const [events, setEvents] = useState<any[]>([]);
+  const [allEvents, setAllEvents] = useState<any[]>([]); // Store all fetched events
   const [loading, setLoading] = useState(true);
+  const [fetchingMore, setFetchingMore] = useState(false); // Track background fetching
   const [refreshing, setRefreshing] = useState(false);
   const [page, setPage] = useState(1);
   const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
@@ -33,14 +34,48 @@ const Past = () => {
 
   const fetchEvents = async (force = false) => {
     if (!force) setLoading(true);
-    const res = await getEvents(force);
-    const fetchedEvents = res?.data || [];
 
-    setAllEvents(fetchedEvents);
-    filterEvents(fetchedEvents, searchQuery);
+    try {
+      // ⚡⚡⚡ INCREMENTAL LOADING (COPIED FROM EVENTLISTING) ⚡⚡⚡
+      // 1. Fetch Page 1 immediately
+      const res = await getEventsPage(1, 'created');
+      const initialEvents = res?.data || [];
 
-    setLoading(false);
-    setRefreshing(false);
+      setAllEvents(initialEvents);
+      filterEvents(initialEvents, searchQuery);
+      setLoading(false);
+      setRefreshing(false);
+
+      // 2. Background Loop
+      let currentPage = 1;
+      let hasMore = !!(res.next_page_url || (res.meta && res.meta.current_page < res.meta.last_page));
+      let accumulatedEvents = [...initialEvents];
+
+      if (hasMore) {
+        setFetchingMore(true);
+        while (hasMore) {
+          currentPage++;
+          const nextRes = await getEventsPage(currentPage, 'created');
+          const nextEvents = nextRes?.data || [];
+
+          if (nextEvents.length > 0) {
+            const newUnique = nextEvents.filter((n: any) => !accumulatedEvents.some((e: any) => e.id === n.id));
+            accumulatedEvents = [...accumulatedEvents, ...newUnique];
+
+            setAllEvents([...accumulatedEvents]);
+            // Logic to update filtered list will be handled by useEffect dependency on allEvents
+          }
+
+          hasMore = !!(nextRes.next_page_url || (nextRes.meta && nextRes.meta.current_page < nextRes.meta.last_page));
+          if (currentPage > 50) hasMore = false;
+        }
+        setFetchingMore(false);
+      }
+    } catch (e) {
+      console.log('Error fetching past events:', e);
+      setLoading(false);
+      setRefreshing(false);
+    }
   };
 
   const filterEvents = (sourceEvents: any[], query: string) => {
@@ -62,10 +97,10 @@ const Past = () => {
     setPage(1); // Reset to first page on filter
   };
 
-  // Re-run filter when searchQuery changes
+  // Re-run filter when searchQuery or allEvents changes
   useEffect(() => {
     filterEvents(allEvents, searchQuery);
-  }, [searchQuery]);
+  }, [searchQuery, allEvents]);
 
   const onRefresh = () => {
     setRefreshing(true);

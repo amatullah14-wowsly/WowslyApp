@@ -112,15 +112,15 @@ const EventListing = () => {
     const today = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
 
     const filtered = sourceEvents.filter((event: any) => {
-      // const endDate = event.end_date ? event.end_date.split('T')[0] : null;
-
-      // if (!endDate) return false; // 👈 REMOVED STRICT CHECK
-
       // Search Filter
       const matchesSearch = event.title?.toLowerCase().includes(query.toLowerCase());
 
-      // ⚡⚡⚡ SHOW ALL EVENTS (PAST & UPCOMING) ⚡⚡⚡
-      return matchesSearch;
+      // Date Filter: >= Today
+      // If no end_date, assume it is valid (Current)
+      if (!event.end_date) return matchesSearch;
+
+      const endDate = event.end_date.split('T')[0];
+      return matchesSearch && endDate >= today;
     });
 
     setEvents(filtered);
