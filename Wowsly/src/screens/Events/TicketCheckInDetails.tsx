@@ -81,10 +81,25 @@ const TicketCheckInDetails = () => {
         setRecordsLoading(true);
         try {
             const res = await getTicketCheckInRecords(eventId, ticketId, pageNum);
+            console.log(`FetchRecords Page ${pageNum} Res:`, JSON.stringify(res).substring(0, 200) + "...");
             if (res && res.data) {
-                setRecords(res.data);
-                setPage(res.current_page);
-                setTotalPages(res.last_page);
+                // Normalize data to array if it's an object (API inconsistency)
+                let recordsData = res.data;
+                if (recordsData && typeof recordsData === 'object' && !Array.isArray(recordsData)) {
+                     // Assume it's an object keyed by index/id, convert to array values
+                     recordsData = Object.values(recordsData);
+                }
+
+                setRecords(recordsData);
+                
+                // Handle pagination from root or meta object
+                const meta = res.meta || res;
+                const currentPage = meta.current_page || pageNum;
+                const lastPage = meta.last_page || 1;
+                
+                setPage(currentPage);
+                setTotalPages(lastPage);
+                console.log(`Pagination updated: Page ${currentPage} of ${lastPage}`);
             }
         } catch (error) {
             console.error("Failed to fetch records", error);
