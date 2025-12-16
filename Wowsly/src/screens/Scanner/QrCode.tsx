@@ -78,14 +78,22 @@ const QrCode = () => {
     const used = guestData.usedEntries || 0;
     const total = guestData.totalEntries || 1;
 
-    // Auto-select ONLY ONCE when main ticket already used
+    // Auto-select NEXT available facility when main ticket used
     if (
       used >= total &&
       selectedScanningOption === 'check_in' &&
       guestData.facilities?.length
     ) {
-      const firstFac = guestData.facilities[0];
-      setSelectedScanningOption(firstFac.id);
+      // Find the first facility that is NOT fully scanned
+      const nextFac = guestData.facilities.find((f: any) => {
+        const available = f.quantity ?? f.total_scans ?? f.availableScans ?? 1;
+        const scanned = f.scanned_count ?? f.checkIn ?? f.used_scans ?? 0;
+        return scanned < available;
+      });
+
+      if (nextFac) {
+        setSelectedScanningOption(nextFac.id);
+      }
     }
   }, [guestData]);
 
@@ -234,16 +242,22 @@ const QrCode = () => {
 
   // ----------------- QR SCAN HANDLER -----------------
   const onReadCode = (event: any) => {
-    const rawCode = event.nativeEvent.codeStringValue
-    if (!rawCode) return
+    const rawCode = event.nativeEvent.codeStringValue;
+    if (!rawCode) return;
 
-    const code = rawCode.trim()
-    if (code === scannedValue) return // avoid duplicate scans
+    const code = rawCode.trim();
 
-    // 🔐 LOCK THIS SCAN
+    // 🔐 STRICT LOCK: Prevent re-scanning the same code while it's being processed or open
+    // We check both state (scannedValue) and Ref (scanLockRef)
+    if (code === scannedValue || code === scanLockRef.current) return;
+
+    console.log("New QR Scan:", code);
+
+    // 🔐 LOCK THIS SCAN IMMEDIATELY
     scanLockRef.current = code;
+    setScannedValue(code); // Update state to trigger UI changes if any
 
-    handleVerifyQR(code)
+    handleVerifyQR(code);
   }
 
   // ----------------- OFFLINE DATA STATE -----------------
@@ -369,6 +383,16 @@ const QrCode = () => {
         const ticket = await findTicketByQr(qrGuestUuid)
 
         if (ticket) {
+          // ⚡⚡⚡ STRICT EVENT VALIDATION ⚡⚡⚡
+          // Prevent cross-event ticket scanning (offline multi-tenancy fix)
+          if (Number(ticket.event_id) !== Number(eventId)) {
+            console.log(`OFFLINE SECURITY: Blocked cross-event scan. Ticket Event: ${ticket.event_id}, Current Event: ${eventId}`);
+            showStatus('Invalid Ticket (Wrong Event)', 'error');
+            setGuestData(null);
+            setTimeout(() => setScannedValue(null), 2000);
+            return;
+          }
+
           // Prioritize tickets_bought if available (it was saved as total_entries in DB)
           const totalEntries = parseInt(String(ticket.total_entries || 1), 10);
           const usedEntries = parseInt(String(ticket.used_entries || 0), 10);
@@ -609,6 +633,27 @@ const QrCode = () => {
             };
             setGuestData(newGuestData);
 
+            // ⚡⚡⚡ CHECK FULL REDEMPTION (ONLINE) ⚡⚡⚡
+            let allFacilitiesFull = true;
+            if (newGuestData.facilities && newGuestData.facilities.length > 0) {
+              allFacilitiesFull = newGuestData.facilities.every((f: any) => {
+                const available = f.quantity ?? f.total_scans ?? f.availableScans ?? 1;
+                const scanned = f.scanned_count ?? f.checkIn ?? f.used_scans ?? 0;
+                return scanned >= available;
+              });
+            } else {
+              // No facilities means we only care about main ticket logic below
+              allFacilitiesFull = true;
+            }
+
+            const isMainTicketFull = currentUsed >= totalEntries;
+
+            if (isMainTicketFull && allFacilitiesFull && !isOfflineMode) {
+              showStatus('Ticket and all facilities fully redeemed', 'error');
+              setTimeout(() => setScannedValue(null), 2000);
+              return;
+            }
+
             // ⚡⚡⚡ AUTO CHECK-IN FOR SINGLE TICKET ⚡⚡⚡
             // Only auto-check-in if single-entry AND guest has NO facilities
             const hasFacilities = Array.isArray(newGuestData.facilities) && newGuestData.facilities.length > 0;
@@ -619,8 +664,6 @@ const QrCode = () => {
               // open sheet always if facilities exist OR multi-entry OR already used
               openSheet();
               console.log("⚡ FACILITY SHAPE ⚡", JSON.stringify(newGuestData?.facilities, null, 2));
-
-
             }
           } // End if (detailsResponse?.data)
         } catch (detailsError) {
@@ -796,58 +839,105 @@ const QrCode = () => {
 
     // Facility Check-In
     if (selectedScanningOption !== 'check_in') {
-
       const facilityId = Number(selectedScanningOption);
       // ⚡⚡⚡ USE CORRECT UUID FOR FACILITY LOOKUP ⚡⚡⚡
       const uuid = guestData.uuid || guestData.qrCode;
 
-      console.log(`DEBUG: Facility Check-In Selected. Option: ${selectedScanningOption}, UUID: ${uuid}, Count: ${checkInCount}`);
+      if (isOfflineMode) {
+        // ⚡⚡⚡ OFFLINE FACILITY CHECK-IN ⚡⚡⚡
+        console.log(`DEBUG: Offline Facility Check-In Selected. Option: ${selectedScanningOption}, UUID: ${uuid}, Count: ${checkInCount}`);
 
-      try {
-        // Ensure facility row exists locally before updating (fallback for guests saved without facility rows)
-        const selectedFacility = guestData.facilities?.find((f: any) => Number(f.id) === facilityId);
-        const availableScans = selectedFacility?.quantity ?? selectedFacility?.scan_quantity ?? selectedFacility?.total_scans ?? 1;
-        const currentScanned = selectedFacility?.scanned_count ?? 0;
+        try {
+          // Ensure facility row exists locally before updating (fallback for guests saved without facility rows)
+          const selectedFacility = guestData.facilities?.find((f: any) => Number(f.id) === facilityId);
+          const availableScans = selectedFacility?.quantity ?? selectedFacility?.scan_quantity ?? selectedFacility?.total_scans ?? 1;
+          const currentScanned = selectedFacility?.scanned_count ?? 0;
 
-        await insertFacilityForGuest({
-          guest_uuid: uuid,
-          facilityId,
-          name: selectedFacility?.name || `Facility ${facilityId}`,
-          availableScans: parseInt(String(availableScans || 1), 10),
-          checkIn: parseInt(String(currentScanned || 0), 10),
-          eventId: eventId,
-          ticket_id: guestData.actualTicketId || guestData.ticketId || 0
-        });
+          await insertFacilityForGuest({
+            guest_uuid: uuid,
+            facilityId,
+            name: selectedFacility?.name || `Facility ${facilityId}`,
+            availableScans: parseInt(String(availableScans || 1), 10),
+            checkIn: parseInt(String(currentScanned || 0), 10),
+            eventId: eventId,
+            ticket_id: guestData.actualTicketId || guestData.ticketId || 0
+          });
 
-        const rowsAffected = await updateFacilityCheckInLocal(uuid, facilityId, checkInCount);
+          const rowsAffected = await updateFacilityCheckInLocal(uuid, facilityId, checkInCount);
 
-        if (!rowsAffected || rowsAffected === 0) {
-          showStatus("Facility check-in failed", "error");
+          if (!rowsAffected || rowsAffected === 0) {
+            showStatus("Facility check-in failed", "error");
+            return;
+          }
+
+          // ✅ ONLY NOW show success
+          showStatus(`Facility Checked In (Offline)`, 'success');
+
+          // ⚡⚡⚡ UI UPDATE: Update facility state locally ⚡⚡⚡
+          if (guestData && guestData.facilities) {
+            const updatedFacilities = guestData.facilities.map((f: any) => {
+              if (Number(f.id) === facilityId) {
+                return { ...f, scanned_count: (f.scanned_count || 0) + checkInCount };
+              }
+              return f;
+            });
+            setGuestData({ ...guestData, facilities: updatedFacilities });
+          }
+
+          return;
+        } catch (err) {
+          console.error("Facility check-in failed:", err);
+          showStatus('Facility check-in failed', 'error');
           return;
         }
+      } else {
+        // ⚡⚡⚡ ONLINE FACILITY CHECK-IN ⚡⚡⚡
+        console.log(`DEBUG: Online Facility Check-In Selected. Option: ${selectedScanningOption}, Count: ${checkInCount}`);
 
-        // ✅ ONLY NOW show success
-        showStatus(`Facility Checked In (Offline)`, 'success');
+        try {
+          const payload = {
+            event_id: parseInt(eventId),
+            guest_id: guestId,
+            ticket_id: guestData.actualTicketId || 0,
+            check_in_count: 1, // Fixed to 1
+            category_check_in_count: "",
+            other_category_check_in_count: 0,
+            guest_facility_id: facilityId // 👈 ID of the facility
+          };
 
-        // 🔒 Force re-scan after one facility action
-        scanLockRef.current = null;
+          const res = await checkInGuest(eventId, payload);
+          console.log("ONLINE FACILITY CHECK-IN RESPONSE:", JSON.stringify(res));
 
-        // ⚡⚡⚡ UI UPDATE: Update facility state locally ⚡⚡⚡
-        if (guestData && guestData.facilities) {
-          const updatedFacilities = guestData.facilities.map((f: any) => {
-            if (Number(f.id) === facilityId) {
-              return { ...f, scanned_count: (f.scanned_count || 0) + checkInCount };
-            }
-            return f;
-          });
-          setGuestData({ ...guestData, facilities: updatedFacilities });
+          if (!res?.id && !res?.check_in_time && !res?.success && !res?.status && !res?.message?.includes("uccess")) {
+            throw new Error(res?.message || "Facility check-in failed");
+          }
+
+          showStatus(`Facility Checked In`, 'success');
+
+          if (guestData && guestData.facilities) {
+            const updatedFacilities = guestData.facilities.map((f: any) => {
+              if (Number(f.id) === facilityId) {
+                const current = f.scanned_count ?? f.checkIn ?? f.used_scans ?? 0;
+                const newVal = current + checkInCount;
+                return {
+                  ...f,
+                  scanned_count: newVal,
+                  checkIn: newVal,
+                  used_scans: newVal
+                };
+              }
+              return f;
+            });
+            setGuestData({ ...guestData, facilities: updatedFacilities });
+          }
+
+          return;
+
+        } catch (err) {
+          console.error("Online Facility check-in failed:", err);
+          showStatus('Online Facility check-in failed', 'error');
+          return;
         }
-
-        return;
-      } catch (err) {
-        console.error("Facility check-in failed:", err);
-        showStatus('Facility check-in failed', 'error');
-        return;
       }
     }
 
@@ -971,15 +1061,53 @@ const QrCode = () => {
       setIsVerifying(false);
 
       // ⚡⚡⚡ FACILITY AWARE CLOSE ⚡⚡⚡
-      // Only close if no facilities available?
-      if (guestData && guestData.facilities && guestData.facilities.length > 0) {
-        // Keep open for facility check-in
+      // Requirement: "ek vaar ek guest nu main check in thyu... to scan the next guest"
+      // If we just performed a MAIN CHECK-IN, we should close the sheet to allow scanning the next guest.
+      // If we performed a FACILITY CHECK-IN, we kept it open (returned early) so we won't reach here? 
+      // ACTUALLY: The return statements in facility logic prevent reaching here.
+      // So if we are here, it means we did a MAIN check-in (or it failed/returned early).
+      // Wait, let's verify flow. Facility logic has 'return;' inside 'if(selectedScanningOption !== 'check_in')'.
+      // So this finally block runs:
+      // 1. If facility check-in throws error (catch -> finally)
+      // 2. If Main check-in completes (success -> finally)
+
+      // So for Main Check-in success, we want to CLOSE even if facilities exist.
+
+      if (selectedScanningOption === 'check_in') {
+        // Auto-close for main check-in to allow next scan
+        setTimeout(() => {
+          setScannedValue(null);
+          setGuestData(null);
+          scanLockRef.current = null;
+          closeSheet();
+        }, 1500);
       } else {
-        setScannedValue(null);
-        setGuestData(null);
-        scanLockRef.current = null;
-        closeSheet();
+        // Should not interfere with facility logic if it returned early, 
+        // but if it errored, we might want to keep it open?
+        // If facility logic errored, we want to retry facility.
+        // If facility logic success, we returned early, so this finally block WONT run?
+        // WRONG: finally always runs.
+        // But wait, if facility logic has 'return', does finally run? YES.
+
+        // If facility logic returns, finally RUNS.
+        // In facility logic (Step 65/69), currently:
+        // ... showStatus('Facility Checked In') ... return;
+
+        // So if I put close logic here, it will close after facility check-in too!
+        // I must check `selectedScanningOption`.
+
+        // If selectedScanningOption !== 'check_in' (Facility), we generally want to KEEP OPEN.
+        // So we do NOTHING here for facilities (let them stay open).
       }
+
+      // Existing logic was:
+      // if (guestData && guestData.facilities ...) { keep open } else { close }
+
+      // New Logic: 
+      // If Main Check-in -> Close (regardless of facilities)
+      // If Facility Check-in -> Keep Open (handled by doing nothing, or explicit keep open ?)
+      // Actually, if I remove the 'closeSheet()' call for facilities, it stays open.
+
     }
   };
 
@@ -1096,52 +1224,55 @@ const QrCode = () => {
                 bottom: - (SHEET_MAX_HEIGHT - SHEET_MIN_HEIGHT) // Push it down initially so only MIN_HEIGHT is visible
               }
             ]}
-            {...panResponder.panHandlers}
           >
-            <View style={styles.sheetHandle} />
-            <View style={styles.guestRow}>
-              <View>
-                <Text style={styles.guestName}>
-                  {isVerifying ? 'Verifying...' : (guestData?.name || 'Scan a QR Code')}
-                </Text>
-                <Text style={styles.ticketId}>
-                  Ticket ID: {guestData?.ticketId || '---'}
-                </Text>
+            {/* ⚡⚡⚡ DRAG HANDLE AREA ONLY ⚡⚡⚡ */}
+            <View {...panResponder.panHandlers}>
+              <View style={styles.sheetHandle} />
+              <View style={styles.guestRow}>
+                <View>
+                  <Text style={styles.guestName}>
+                    {isVerifying ? 'Verifying...' : (guestData?.name || 'Scan a QR Code')}
+                  </Text>
+                  <Text style={styles.ticketId}>
+                    Ticket ID: {guestData?.ticketId || '---'}
+                  </Text>
 
-                {/* ⚡⚡⚡ CONDITIONAL STATS (DYNAMIC) ⚡⚡⚡ */}
+                  {/* ⚡⚡⚡ CONDITIONAL STATS (DYNAMIC) ⚡⚡⚡ */}
+                  {guestData && (
+                    <View style={styles.statsContainer}>
+                      <View style={styles.statItem}>
+                        <Text style={styles.statLabel}>Bought</Text>
+                        <Text style={styles.statValue}>{stats.bought}</Text>
+                      </View>
+                      <View style={styles.statDivider} />
+                      <View style={styles.statItem}>
+                        <Text style={styles.statLabel}>Scanned</Text>
+                        <Text style={styles.statValue}>{stats.scanned}</Text>
+                      </View>
+                      <View style={styles.statDivider} />
+                      <View style={styles.statItem}>
+                        <Text style={styles.statLabel}>Remaining</Text>
+                        <Text style={styles.statValue}>{stats.remaining}</Text>
+                      </View>
+                    </View>
+                  )}
+                </View>
                 {guestData && (
-                  <View style={styles.statsContainer}>
-                    <View style={styles.statItem}>
-                      <Text style={styles.statLabel}>Bought</Text>
-                      <Text style={styles.statValue}>{stats.bought}</Text>
-                    </View>
-                    <View style={styles.statDivider} />
-                    <View style={styles.statItem}>
-                      <Text style={styles.statLabel}>Scanned</Text>
-                      <Text style={styles.statValue}>{stats.scanned}</Text>
-                    </View>
-                    <View style={styles.statDivider} />
-                    <View style={styles.statItem}>
-                      <Text style={styles.statLabel}>Remaining</Text>
-                      <Text style={styles.statValue}>{stats.remaining}</Text>
-                    </View>
+                  <View style={[
+                    styles.statusPill,
+                    !guestData?.isValid && styles.statusPillInvalid
+                  ]}>
+                    <Text style={styles.statusPillText}>
+                      {guestData?.status || 'VALID ENTRY'}
+                    </Text>
                   </View>
                 )}
               </View>
-              {guestData && (
-                <View style={[
-                  styles.statusPill,
-                  !guestData?.isValid && styles.statusPillInvalid
-                ]}>
-                  <Text style={styles.statusPillText}>
-                    {guestData?.status || 'VALID ENTRY'}
-                  </Text>
-                </View>
-              )}
             </View>
 
             {/* ScrollView for content if it gets too long */}
             <ScrollView
+
               style={{ flex: 1, marginTop: 16 }}
               contentContainerStyle={{ paddingBottom: 20 }}
               showsVerticalScrollIndicator={false}
@@ -1185,14 +1316,17 @@ const QrCode = () => {
                     );
                   })()}
 
-              {/* FACILITIES RADIOS */}
+                  {/* FACILITIES RADIOS */}
                   {guestData?.facilities && guestData.facilities.map((fac: any) => {
                     const isMainCheckedIn = (guestData?.usedEntries || 0) > 0;
                     let facilityDisabled = !isMainCheckedIn;
 
-                    // Optimistic Status Check
+                    // Optimistic Status Check & Local Data Check combined
                     if (!facilityDisabled) {
-                      // 1. Check Optimistic Status (Real-time updates)
+                      const available = fac.quantity ?? fac.total_scans ?? fac.availableScans ?? 1;
+                      const scanned = fac.scanned_count ?? fac.checkIn ?? fac.used_scans ?? 0;
+
+                      // Global status check (from API or other signal)
                       if (facilityStatus.length > 0) {
                         const status = facilityStatus.find((s: any) => String(s.id) === String(fac.id));
                         if (status && status.available_scans <= 0) {
@@ -1200,17 +1334,9 @@ const QrCode = () => {
                         }
                       }
 
-                      // 2. Check Static Guest Data (Initial Load State)
-                      if (!facilityDisabled && fac.scanned_count !== undefined && fac.quantity !== undefined) {
-                        if (fac.scanned_count >= fac.quantity) {
-                          facilityDisabled = true;
-                        }
-                      }
-                      // Fallback: disable if we already marked scanned_count >= availableScans (when quantity missing)
-                      if (!facilityDisabled && fac.scanned_count !== undefined && fac.availableScans !== undefined) {
-                        if (fac.scanned_count >= fac.availableScans) {
-                          facilityDisabled = true;
-                        }
+                      // Count check
+                      if (scanned >= available) {
+                        facilityDisabled = true;
                       }
                     }
 
@@ -1269,29 +1395,71 @@ const QrCode = () => {
               )}
             </ScrollView>
 
-            <TouchableOpacity
-              style={[
-                styles.primaryButton,
-                (isVerifying || isMainTicketCheckedIn) && styles.primaryButtonDisabled
-              ]}
-              activeOpacity={0.9}
-              disabled={isVerifying || isMainTicketCheckedIn}
-              onPress={handleBulkCheckIn}
-            >
+            {(() => {
+              // ⚡⚡⚡ DYNAMIC BUTTON DISABLED STATE ⚡⚡⚡
+              let isSelectionDisabled = false;
+              let buttonText = 'Check In';
 
-              <Text style={styles.primaryButtonText}>
-                {isVerifying
-                  ? 'Verifying...'
-                  : isMainTicketCheckedIn
-                    ? 'Already Checked In'
-                    : 'Check In'}
-              </Text>
+              // 1. GLOBAL FULL CHECK
+              const isMainFull = (guestData.usedEntries || 0) >= (guestData.totalEntries || 1);
+              let areAllFacilitiesFull = true;
+              if (guestData.facilities && guestData.facilities.length > 0) {
+                areAllFacilitiesFull = guestData.facilities.every((f: any) => {
+                  const avail = f.quantity ?? f.total_scans ?? f.availableScans ?? 1;
+                  const used = f.scanned_count ?? f.checkIn ?? f.used_scans ?? 0;
+                  return used >= avail;
+                });
+              } else {
+                areAllFacilitiesFull = true; // No facilities means "all full" logic depends only on main
+              }
 
-            </TouchableOpacity>
+              if (isMainFull && areAllFacilitiesFull) {
+                isSelectionDisabled = true;
+                buttonText = 'Fully Checked In';
+              } else if (isVerifying) {
+                isSelectionDisabled = true;
+                buttonText = 'Verifying...';
+              } else if (selectedScanningOption === 'check_in') {
+                // Main Ticket Logic
+                if (isMainFull) {
+                  isSelectionDisabled = true;
+                  buttonText = 'Already Checked In';
+                }
+              } else {
+                // Facility Logic
+                const facId = Number(selectedScanningOption);
+                const fac = guestData.facilities?.find((f: any) => f.id === facId);
+                if (fac) {
+                  const available = fac.quantity ?? fac.total_scans ?? fac.availableScans ?? 1;
+                  const scanned = fac.scanned_count ?? fac.checkIn ?? fac.used_scans ?? 0;
+                  if (scanned >= available) {
+                    isSelectionDisabled = true;
+                    buttonText = `${fac.name} Checked In`;
+                  }
+                }
+              }
+
+              return (
+                <TouchableOpacity
+                  style={[
+                    styles.primaryButton,
+                    isSelectionDisabled && styles.primaryButtonDisabled
+                  ]}
+                  activeOpacity={0.9}
+                  disabled={isSelectionDisabled}
+                  onPress={handleBulkCheckIn}
+                >
+                  <Text style={styles.primaryButtonText}>
+                    {buttonText}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })()}
           </Animated.View>
-        )}
-      </View>
-    </SafeAreaView>
+        )
+        }
+      </View >
+    </SafeAreaView >
   )
 }
 
@@ -1443,9 +1611,13 @@ const styles = StyleSheet.create({
   },
   statusPill: {
     backgroundColor: '#1FC566',
-    borderRadius: 26,
-    paddingHorizontal: 20,
-    paddingVertical: 22,
+    borderRadius: 20,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    marginLeft: 10,
+    maxWidth: 120, // Prevent overflow
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   statusPillInvalid: {
     backgroundColor: '#E74C3C',
@@ -1453,7 +1625,8 @@ const styles = StyleSheet.create({
   statusPillText: {
     color: '#FFFFFF',
     fontWeight: '700',
-    fontSize: 12,
+    fontSize: 10, // Slightly smaller text
+    textAlign: 'center',
   },
   primaryButton: {
     marginTop: 8,
@@ -1592,11 +1765,13 @@ const styles = StyleSheet.create({
   },
   statusBannerText: {
     color: '#FFFFFF',
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: '700',
     textAlign: 'left',
-    flex: 1, // Force text to take available space and wrap
+    lineHeight: 20,
+    flex: 1,
     flexWrap: 'wrap',
+    flexShrink: 1,
     textShadowColor: 'rgba(0, 0, 0, 0.25)',
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 2,

@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useEffect, useCallback } from 'react';
+import React, { useMemo, useState, useEffect, useCallback, useRef } from 'react';
 import {
   Image,
   SafeAreaView,
@@ -119,9 +119,9 @@ const OfflineDashboard = () => {
   //              DOWNLOAD OFFLINE GUESTS + FACILITIES
   // --------------------------------------------------------
 
-  const handleDownloadData = async () => {
+  const handleDownloadData = async (isAuto = false) => {
     if (!eventId) {
-      Toast.show({ type: 'error', text1: 'Error', text2: 'No event ID' });
+      if (!isAuto) Toast.show({ type: 'error', text1: 'Error', text2: 'No event ID' });
       return;
     }
 
@@ -140,7 +140,8 @@ const OfflineDashboard = () => {
 
         const deletedCount = await deleteStaleGuests(eventId, activeQrCodes);
 
-        const initialCount = offlineData ? offlineData.length : 0;
+        // Usage of module-level cache ensures we don't use stale state value in closure
+        const initialCount = (cachedOfflineData || offlineData || []).length;
 
         // ---- INSERT GUESTS ----
         await insertOrReplaceGuests(eventId, res.guests_list);
@@ -172,17 +173,17 @@ const OfflineDashboard = () => {
             END FACILITY INSERT LOGIC
            ------------------------------------------------------------ */
 
-        // ---- Reload Offline DB Data ----
-        const tickets = await getTicketsForEvent(eventId);
-        setOfflineData(tickets);
+        // ---- Reload Offline DB Data & Stats ----
+        await loadOfflineData();
+
+        // Use updated cache for calculations
+        const tickets = cachedOfflineData;
 
         const finalCount = tickets ? tickets.length : 0;
         const addedCount = Math.max(0, finalCount - (initialCount - (deletedCount || 0)));
 
-
-
         if (addedCount === 0 && deletedCount === 0) {
-          Toast.show({ type: 'info', text1: 'Download Complete', text2: 'Already up to date' });
+          if (!isAuto) Toast.show({ type: 'info', text1: 'Download Complete', text2: 'Already up to date' });
         } else {
           Toast.show({
             type: 'success',
@@ -192,20 +193,32 @@ const OfflineDashboard = () => {
         }
 
       } else {
-        Toast.show({
-          type: 'error',
-          text1: 'Error',
-          text2: res?.message || 'Failed to download'
-        });
+        if (!isAuto) {
+          Toast.show({
+            type: 'error',
+            text1: 'Error',
+            text2: res?.message || 'Failed to download'
+          });
+        }
       }
 
     } catch (err) {
       console.error(err);
-      Toast.show({ type: 'error', text1: 'Error', text2: 'Download failed' });
+      if (!isAuto) Toast.show({ type: 'error', text1: 'Error', text2: 'Download failed' });
     } finally {
       setDownloading(false);
     }
   };
+
+  // ⚡⚡⚡ AUTO DOWNLOAD ON MOUNT ONLY (Entry from Mode Selection) ⚡⚡⚡
+  useEffect(() => {
+    // This only runs ONCE when the screen component is first mounted.
+    // It does NOT run when coming back from GuestList (Refocus).
+    const timer = setTimeout(() => {
+      handleDownloadData(true);
+    }, 500);
+    return () => clearTimeout(timer);
+  }, []);
 
   // --------------------------------------------------------
   //                      UPLOAD OFFLINE DATA
@@ -272,7 +285,7 @@ const OfflineDashboard = () => {
               title="Download Data"
               subtitle="Get the latest guest list"
               meta={offlineData ? `Total: ${totals.unique} guests` : 'Tap to download'}
-              onPress={handleDownloadData}
+              onPress={() => handleDownloadData(false)}
             />
             {downloading && (
               <View style={styles.downloadingOverlay}>
