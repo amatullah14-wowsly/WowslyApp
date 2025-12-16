@@ -664,3 +664,27 @@ export const verifyQrAndCheckin = async (eventId, payload) => {
         return { status: false, message: "Verify and Check-in failed" };
     }
 };
+
+export const getTicketCheckInRecords = async (eventId, ticketId, page = 1) => {
+    try {
+        console.log(`Fetching Ticket Check-in Records for event: ${eventId}, ticket: ${ticketId}, page: ${page}`);
+        const response = await client.get(`/events/${eventId}/ticket/${ticketId}/checkin/records?page=${page}`);
+        // console.log("TICKET CHECK-IN RECORDS RESPONSE:", JSON.stringify(response.data));
+        return response.data;
+    } catch (error) {
+        console.log("GET TICKET CHECK-IN RECORDS ERROR:", error.response?.data || error.message);
+        return { status: false, data: [] };
+    }
+};
+
+export const getTicketCheckInCount = async (eventId, ticketId) => {
+    try {
+        console.log(`Fetching Ticket Check-in Count for event: ${eventId}, ticket: ${ticketId}`);
+        const response = await client.get(`/events/${eventId}/ticket/${ticketId}/checkin/records/count`);
+        console.log("TICKET CHECK-IN COUNT RESPONSE:", JSON.stringify(response.data));
+        return response.data;
+    } catch (error) {
+        console.log("GET TICKET CHECK-IN COUNT ERROR:", error.response?.data || error.message);
+        return { status: false, data: [] };
+    }
+};

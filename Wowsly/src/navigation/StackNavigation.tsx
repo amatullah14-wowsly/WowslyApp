@@ -18,6 +18,8 @@ import QrCode from '../screens/Scanner/QrCode';
 import OnlineGuestList from '../screens/GuestList/OnlineGuestList';
 import OfflineGuestList from '../screens/GuestList/OfflineGuestList';
 import ClientConnection from '../screens/Mode/ClientConnection';
+import CheckInRecords from '../screens/Events/CheckInRecords';
+import TicketCheckInDetails from '../screens/Events/TicketCheckInDetails';
 const Stack = createNativeStackNavigator();
 const StackNavigation = () => {
   return (
@@ -39,6 +41,8 @@ const StackNavigation = () => {
       <Stack.Screen name='OnlineGuestList' component={OnlineGuestList} />
       <Stack.Screen name='OfflineGuestList' component={OfflineGuestList} />
       <Stack.Screen name='ClientConnection' component={ClientConnection} />
+      <Stack.Screen name='CheckInRecords' component={CheckInRecords} />
+      <Stack.Screen name='TicketCheckInDetails' component={TicketCheckInDetails} />
 
 
     </Stack.Navigator>
