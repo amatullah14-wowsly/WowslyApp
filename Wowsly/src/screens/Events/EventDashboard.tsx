@@ -8,7 +8,7 @@ import BackButton from '../../components/BackButton';
 import Svg, { G, Path, Circle, Text as SvgText } from 'react-native-svg';
 import * as d3 from 'd3-shape';
 
-import TicketsSoldModal from '../../components/TicketsSoldModal';
+
 
 const COLORS = ['#FFF5C4', '#FFD180', '#FFAB40', '#FF6D00', '#D50000', '#8E0000', '#5D0000'];
 
@@ -38,8 +38,7 @@ const EventDashboard = ({ route }: EventDashboardProps) => {
 
 
 
-    // Tickets Sold Modal State
-    const [ticketsSoldModalVisible, setTicketsSoldModalVisible] = useState(false);
+
 
     // Refresh data when screen comes into focus
     useFocusEffect(
@@ -252,7 +251,7 @@ const EventDashboard = ({ route }: EventDashboardProps) => {
                             icon={require('../../assets/img/eventdashboard/ticket.png')}
                             title="Tickets"
                             value={ticketList.length > 0 ? ticketList.reduce((acc, t) => acc + (t.sold_out || 0), 0).toString() : (displayData.tickets_sold || "0")}
-                            onPress={() => setTicketsSoldModalVisible(true)}
+                            onPress={() => navigation.navigate("TicketsSoldRecords", { eventId: displayData.id, tickets: ticketList })}
                             showArrow={true}
                         />
 
@@ -425,15 +424,6 @@ const EventDashboard = ({ route }: EventDashboardProps) => {
                     </View>
                 </View>
             </ScrollView >
-
-
-
-            <TicketsSoldModal
-                visible={ticketsSoldModalVisible}
-                onClose={() => setTicketsSoldModalVisible(false)}
-                eventId={displayData.id}
-                tickets={ticketList}
-            />
 
             <View />
         </View>

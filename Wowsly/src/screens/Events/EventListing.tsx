@@ -15,16 +15,16 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import React, { useEffect, useMemo, useState, useCallback } from "react";
 import EventCard from "../../components/EventCard";
 import { useNavigation } from "@react-navigation/native";
-import { getEvents } from "../../api/event";
+import { getEvents, getEventsPage } from "../../api/event"; // Modified import
 
 const EventListing = () => {
   const navigation = useNavigation<any>();
 
   // 🔥 Live events from API
-  // 🔥 Live events from API
-  const [events, setEvents] = useState([]);
-  const [allEvents, setAllEvents] = useState([]); // Store all fetched events
+  const [events, setEvents] = useState<any[]>([]);
+  const [allEvents, setAllEvents] = useState<any[]>([]); // Store all fetched events
   const [loading, setLoading] = useState(true);
+  const [fetchingMore, setFetchingMore] = useState(false); // Track background fetching
   const [refreshing, setRefreshing] = useState(false);
 
   const [page, setPage] = useState(1);
@@ -41,16 +41,69 @@ const EventListing = () => {
 
   const fetchEvents = async (force = false) => {
     if (!force) setLoading(true);
-    const res = await getEvents(force);
-    const fetchedEvents = res?.data || [];
-    console.log('Fetched events count:', fetchedEvents.length);
 
-    setAllEvents(fetchedEvents);
-    filterEvents(fetchedEvents, searchQuery);
+    try {
+      // ⚡⚡⚡ INCREMENTAL LOADING STRATEGY ⚡⚡⚡
+      // 1. Fetch Page 1 immediately
+      const res = await getEventsPage(1, 'created');
+      const initialEvents = res?.data || [];
+      console.log('Fetched Page 1 events:', initialEvents.length);
 
-    setLoading(false);
-    setRefreshing(false);
+      setAllEvents(initialEvents);
+      // Ensure we run filter immediately
+      filterEvents(initialEvents, searchQuery);
+      setLoading(false); // UI is now interactive!
+      setRefreshing(false);
+
+      // 2. Background Loop for remaining pages
+      let currentPage = 1;
+      let hasMore = !!(res.next_page_url || (res.meta && res.meta.current_page < res.meta.last_page));
+      let accumulatedEvents = [...initialEvents];
+
+      if (hasMore) {
+        setFetchingMore(true);
+        while (hasMore) {
+          currentPage++;
+          const nextRes = await getEventsPage(currentPage, 'created');
+          const nextEvents = nextRes?.data || [];
+
+          if (nextEvents.length > 0) {
+            // Deduplicate (just in case)
+            const newUnique = nextEvents.filter((n: any) => !accumulatedEvents.some((e: any) => e.id === n.id));
+            accumulatedEvents = [...accumulatedEvents, ...newUnique];
+
+            // ⚡⚡⚡ BATCH UPDATE UI ⚡⚡⚡
+            // We update state every page so user sees progress
+            setAllEvents([...accumulatedEvents]);
+            // Re-run filter for the new full list
+            // Note: filterEvents uses 'allEvents' from state usually, but inside here we need the latest array
+            // So we call a helper or just inline filtered logic or update state.
+            // Be careful with closure on searchQuery.
+            // But since 'setAllEvents' triggers component re-render, the 'useEffect[searchQuery]' might not trigger unless query changes.
+            // We should manually trigger filter w/ current query.
+            // However, we want to perform this filter inside the loop using current accumulatedEvents.
+          }
+
+          // Check for next
+          hasMore = !!(nextRes.next_page_url || (nextRes.meta && nextRes.meta.current_page < nextRes.meta.last_page));
+
+          // Safety
+          if (currentPage > 50) hasMore = false;
+        }
+        setFetchingMore(false);
+      }
+
+    } catch (e) {
+      console.log("Error in incremental fetch:", e);
+      setLoading(false);
+      setRefreshing(false);
+    }
   };
+
+  // Re-run filter when allEvents changes (to capture background updates)
+  useEffect(() => {
+    filterEvents(allEvents, searchQuery);
+  }, [allEvents, searchQuery]);
 
   const filterEvents = (sourceEvents: any[], query: string) => {
     // Filter: Show "Current" and "Upcoming" events
@@ -74,10 +127,7 @@ const EventListing = () => {
     setPage(1); // Reset to first page on filter
   };
 
-  // Re-run filter when searchQuery changes
-  useEffect(() => {
-    filterEvents(allEvents, searchQuery);
-  }, [searchQuery]);
+
 
   const onRefresh = () => {
     setRefreshing(true);

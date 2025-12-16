@@ -20,6 +20,7 @@ import OfflineGuestList from '../screens/GuestList/OfflineGuestList';
 import ClientConnection from '../screens/Mode/ClientConnection';
 import CheckInRecords from '../screens/Events/CheckInRecords';
 import TicketCheckInDetails from '../screens/Events/TicketCheckInDetails';
+import TicketsSoldRecords from '../screens/Events/TicketsSoldRecords';
 const Stack = createNativeStackNavigator();
 const StackNavigation = () => {
   return (
@@ -43,6 +44,7 @@ const StackNavigation = () => {
       <Stack.Screen name='ClientConnection' component={ClientConnection} />
       <Stack.Screen name='CheckInRecords' component={CheckInRecords} />
       <Stack.Screen name='TicketCheckInDetails' component={TicketCheckInDetails} />
+      <Stack.Screen name='TicketsSoldRecords' component={TicketsSoldRecords} />
 
 
     </Stack.Navigator>

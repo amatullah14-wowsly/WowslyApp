@@ -70,6 +70,19 @@ const fetchEventsByType = async (type) => {
     return events;
 };
 
+// ⚡⚡⚡ NEW: Fetch single page for incremental loading ⚡⚡⚡
+export const getEventsPage = async (page = 1, type = 'created') => {
+    try {
+        const url = `/events?page=${page}&type=${type}&per_page=100`;
+        console.log(`fetching events page ${page}...`);
+        const response = await client.get(url);
+        return response.data; // { data: [...], next_page_url: ..., meta: ... }
+    } catch (error) {
+        console.log(`PAGE ${page} ERROR:`, error.message);
+        return { data: [], next_page_url: null };
+    }
+};
+
 export const getEvents = async (forceRefresh = false) => {
     try {
         const now = Date.now();
@@ -358,8 +371,8 @@ export const syncPendingCheckins = async (eventId) => {
                 ticket_id: parseInt(g.qrTicketId || g.ticket_id || 0),
                 // Kotlin expects Long epoch millis
                 check_in_time: g.given_check_in_time
-                  ? new Date(g.given_check_in_time).getTime()
-                  : (g.checkInTime || Date.now()),
+                    ? new Date(g.given_check_in_time).getTime()
+                    : (g.checkInTime || Date.now()),
                 facility_checkIn_count: []
             });
         });
