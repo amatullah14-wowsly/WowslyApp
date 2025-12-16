@@ -9,8 +9,11 @@ import {
     TouchableOpacity,
 } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
-import { getEventTicketCheckins } from '../../api/event';
 import BackButton from '../../components/BackButton';
+import { getEventTicketCheckins, downloadTicketCsv } from '../../api/event';
+import RNFS from 'react-native-fs';
+import Toast from 'react-native-toast-message';
+import { PermissionsAndroid, Platform, Alert } from 'react-native';
 
 type FacilityStat = {
     facility_name: string;
@@ -57,6 +60,68 @@ const CheckInRecords = () => {
         }
     };
 
+    const handleDownload = async (item: TicketStat) => {
+        try {
+            if (Platform.OS === 'android' && Number(Platform.Version) < 33) {
+                const granted = await PermissionsAndroid.request(
+                    PermissionsAndroid.PERMISSIONS.WRITE_EXTERNAL_STORAGE,
+                    {
+                        title: "Storage Permission Required",
+                        message: "App needs access to your storage to download the CSV file",
+                        buttonNeutral: "Ask Me Later",
+                        buttonNegative: "Cancel",
+                        buttonPositive: "OK"
+                    }
+                );
+                if (granted !== PermissionsAndroid.RESULTS.GRANTED) {
+                    Alert.alert('Permission Denied', 'Storage permission is required to download files.');
+                    return;
+                }
+            }
+
+            Toast.show({
+                type: 'info',
+                text1: 'Downloading...',
+                text2: 'Please wait while we generate the CS Vfile.'
+            });
+
+            const csvData = await downloadTicketCsv(eventId, item.ticket_id);
+
+            if (!csvData) {
+                Toast.show({ type: 'error', text1: 'Download Failed', text2: 'No data received from server.' });
+                return;
+            }
+
+            // Create filename
+            const timestamp = new Date().getTime();
+            const sanitizedName = item.ticket_name.replace(/[^a-z0-9]/gi, '_').toLowerCase();
+            const filename = `Checkins_${sanitizedName}_${timestamp}.csv`;
+
+            // Determine path
+            const path = Platform.OS === 'android'
+                ? `${RNFS.DownloadDirectoryPath}/${filename}`
+                : `${RNFS.DocumentDirectoryPath}/${filename}`;
+
+            console.log('Writing file to:', path);
+
+            await RNFS.writeFile(path, csvData, 'utf8');
+
+            Toast.show({
+                type: 'success',
+                text1: 'Download Successful',
+                text2: `Saved to ${Platform.OS === 'android' ? 'Downloads' : 'Documents'}`
+            });
+
+        } catch (error: any) {
+            console.error('Download Error:', error);
+            Toast.show({
+                type: 'error',
+                text1: 'Download Failed',
+                text2: error.message || 'An error occurred.'
+            });
+        }
+    };
+
     const renderItem = ({ item }: { item: TicketStat }) => {
         const checkedIn = Number(item.total_check_in || 0);
         const total = Number(item.total_purchase_ticket || 0);
@@ -76,7 +141,10 @@ const CheckInRecords = () => {
                             <Image source={INFO_ICON} style={styles.icon} resizeMode="contain" />
                         </TouchableOpacity>
                         {/* Download Icon */}
-                        <TouchableOpacity style={{ marginLeft: 8 }}>
+                        <TouchableOpacity
+                            style={{ marginLeft: 8 }}
+                            onPress={() => handleDownload(item)}
+                        >
                             <Image source={DOWNLOAD_ICON} style={styles.icon} resizeMode="contain" />
                         </TouchableOpacity>
                     </View>

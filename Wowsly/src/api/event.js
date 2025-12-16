@@ -690,6 +690,20 @@ export const getTicketCheckInRecords = async (eventId, ticketId, page = 1) => {
     }
 };
 
+export const downloadTicketCsv = async (eventId, ticketId) => {
+    try {
+        console.log(`Downloading CSV for event: ${eventId}, ticket: ${ticketId}`);
+        // Response type arraybuffer/blob is usually needed for files, but if it returns text/csv string, default is fine.
+        // User sample response looks like text string.
+        const response = await client.get(`/events/${eventId}/ticket/${ticketId}/checkin/records/download`);
+        console.log("DOWNLOAD CSV RESPONSE Length:", response.data?.length || 0);
+        return response.data;
+    } catch (error) {
+        console.log("DOWNLOAD CSV ERROR:", error.response?.data || error.message);
+        return null;
+    }
+};
+
 export const getTicketCheckInCount = async (eventId, ticketId) => {
     try {
         console.log(`Fetching Ticket Check-in Count for event: ${eventId}, ticket: ${ticketId}`);
