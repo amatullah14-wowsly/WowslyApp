@@ -137,7 +137,8 @@ const styles = StyleSheet.create({
     },
     header: {
         width: '100%',
-        height: 60,
+        height: 90,
+        paddingTop: 20, // Push content down
         backgroundColor: 'white',
         alignItems: 'center',
         flexDirection: 'row',

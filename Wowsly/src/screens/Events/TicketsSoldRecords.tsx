@@ -195,11 +195,12 @@ export default TicketsSoldRecords;
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: '#F5F5F5',
+        backgroundColor: 'white',
     },
     header: {
         width: '100%',
-        height: 60,
+        height: 90,
+        paddingTop: 20, // Push content down
         alignItems: 'center',
         flexDirection: 'row',
         justifyContent: 'space-between',
