@@ -9,12 +9,13 @@ import {
   View,
   Modal,
   RefreshControl,
+  BackHandler,
 } from "react-native";
 import FastImage from 'react-native-fast-image';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import React, { useEffect, useMemo, useState, useCallback } from "react";
 import EventCard from "../../components/EventCard";
-import { useNavigation } from "@react-navigation/native";
+import { useNavigation, useFocusEffect } from "@react-navigation/native";
 import { getEvents, getEventsPage } from "../../api/event"; // Modified import
 
 const EventListing = () => {
@@ -38,6 +39,21 @@ const EventListing = () => {
   useEffect(() => {
     fetchEvents();
   }, []);
+
+  // 🔙 Handle Hardware Back Button
+  useFocusEffect(
+    useCallback(() => {
+      const onBackPress = () => {
+        setLogoutModalVisible(true);
+        return true; // Stop default behavior (exit app)
+      };
+
+      BackHandler.addEventListener('hardwareBackPress', onBackPress);
+
+      return () =>
+        BackHandler.removeEventListener('hardwareBackPress', onBackPress);
+    }, [])
+  );
 
   const fetchEvents = async (force = false) => {
     if (!force) setLoading(true);
@@ -75,15 +91,15 @@ const EventListing = () => {
             // Deduplicate
             const newUnique = nextEvents.filter((n: any) => !accumulatedEvents.some((e: any) => e.id === n.id));
             accumulatedEvents = [...accumulatedEvents, ...newUnique];
-            
+
             // ⚡⚡⚡ BATCH UPDATE UI ⚡⚡⚡
             // Update every 5 pages or if finished
             if (currentPage % 5 === 0 || !hasMore) {
-               setAllEvents([...accumulatedEvents]);
+              setAllEvents([...accumulatedEvents]);
             }
           }
         }
-        
+
         // Final update upon completion
         setAllEvents([...accumulatedEvents]);
         setFetchingMore(false);
