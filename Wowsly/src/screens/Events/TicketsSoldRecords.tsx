@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
     View,
     Text,
@@ -11,7 +11,9 @@ import {
     Platform,
     UIManager,
     SafeAreaView,
-    Animated
+    Modal,
+    ScrollView,
+    Dimensions
 } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import BackButton from '../../components/BackButton';
@@ -50,6 +52,10 @@ const TicketsSoldRecords = () => {
     const [loadingUsers, setLoadingUsers] = useState(false);
     const [soldDataCache, setSoldDataCache] = useState<Record<string, SoldUser[]>>({});
 
+    // Modal State
+    const [modalVisible, setModalVisible] = useState(false);
+    const [selectedUser, setSelectedUser] = useState<SoldUser | null>(null);
+
     const toggleExpand = async (ticket: TicketType) => {
         LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
 
@@ -86,35 +92,61 @@ const TicketsSoldRecords = () => {
         }
     }
 
-    const UserCard = ({ item }: { item: SoldUser }) => (
-        <View style={styles.userCard}>
-            <View style={styles.userCardHeader}>
-                <Text style={styles.userName}>{item.name}</Text>
-                <Text style={styles.ticketCountPill}>{item.tickets_bought} Ticket{item.tickets_bought !== 1 ? 's' : ''}</Text>
-            </View>
+    const formatTime = (timeString: string) => {
+        if (!timeString) return '';
 
-            <View style={styles.userCardDetails}>
-                <View style={styles.detailRow}>
-                    <Text style={styles.detailLabel}>Mobile:</Text>
-                    <Text style={styles.detailValue}>+{item.dialing_code || 91} {item.mobile}</Text>
-                </View>
-                <View style={styles.detailRow}>
-                    <Text style={styles.detailLabel}>Registered By:</Text>
-                    <Text style={styles.detailValue}>{item.registered_by || 'Self'}</Text>
-                </View>
-                {item.invited_by && (
-                    <View style={styles.detailRow}>
-                        <Text style={styles.detailLabel}>Invited By:</Text>
-                        <Text style={styles.detailValue}>{item.invited_by}</Text>
-                    </View>
-                )}
-                <View style={styles.detailRow}>
-                    <Text style={styles.detailLabel}>Time:</Text>
-                    <Text style={styles.detailValue}>
-                        {new Date(item.created_at).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', hour12: true })}
+        let dateToParse = timeString;
+        if (dateToParse.indexOf('T') === -1) {
+            dateToParse = dateToParse.replace(' ', 'T');
+        }
+
+        if (!dateToParse.endsWith('Z') && !dateToParse.includes('+')) {
+            dateToParse += 'Z';
+        }
+
+        const date = new Date(dateToParse);
+
+        if (isNaN(date.getTime())) return timeString;
+
+        return date.toLocaleString('en-US', {
+            day: 'numeric',
+            month: 'short',
+            hour: 'numeric',
+            minute: 'numeric',
+            hour12: true
+        });
+    };
+
+    const handleViewDetails = (user: SoldUser) => {
+        setSelectedUser(user);
+        setModalVisible(true);
+    };
+
+    const closeModal = () => {
+        setModalVisible(false);
+        setSelectedUser(null);
+    };
+
+    const UserCard = ({ item }: { item: SoldUser }) => (
+        <View style={styles.gridCard}>
+            <View style={styles.cardHeaderCenter}>
+                <Text style={styles.gridGuestName} numberOfLines={2}>{item.name}</Text>
+                <View style={styles.ticketBadge}>
+                    <Text style={styles.gridTicketCount}>
+                        {item.tickets_bought} Ticket{item.tickets_bought !== 1 ? 's' : ''}
                     </Text>
                 </View>
+                <Text style={styles.gridCheckInTime}>
+                    {formatTime(item.created_at)}
+                </Text>
             </View>
+
+            <TouchableOpacity
+                style={styles.viewDetailsButton}
+                onPress={() => handleViewDetails(item)}
+            >
+                <Text style={styles.viewDetailsText}>View Details</Text>
+            </TouchableOpacity>
         </View>
     );
 
@@ -154,7 +186,7 @@ const TicketsSoldRecords = () => {
                         {loadingUsers && !soldDataCache[item.id] ? (
                             <ActivityIndicator size="small" color="#FF8A3C" style={{ padding: 20 }} />
                         ) : (
-                            <View style={styles.usersListContainer}>
+                            <View style={styles.usersGridContainer}>
                                 {users.length > 0 ? (
                                     users.map((user, index) => (
                                         <UserCard key={index} item={user} />
@@ -186,6 +218,66 @@ const TicketsSoldRecords = () => {
                 renderItem={renderTicketItem}
                 contentContainerStyle={styles.listContent}
             />
+
+            {/* Details Modal */}
+            <Modal
+                animationType="fade"
+                transparent={true}
+                visible={modalVisible}
+                onRequestClose={closeModal}
+            >
+                <View style={styles.modalOverlay}>
+                    <View style={styles.modalContainer}>
+                        <View style={styles.modalHeader}>
+                            <Text style={styles.modalTitle}>Sold Ticket Details</Text>
+                            <TouchableOpacity onPress={closeModal} style={styles.closeButton}>
+                                <Text style={styles.closeButtonText}>✕</Text>
+                            </TouchableOpacity>
+                        </View>
+
+                        {selectedUser && (
+                            <ScrollView contentContainerStyle={styles.modalBody}>
+                                <View style={styles.modalRow}>
+                                    <Text style={styles.modalLabel}>Name:</Text>
+                                    <Text style={styles.modalValueMain}>{selectedUser.name}</Text>
+                                </View>
+                                <View style={styles.separator} />
+
+                                <View style={styles.modalRow}>
+                                    <Text style={styles.modalLabel}>Mobile:</Text>
+                                    <Text style={styles.modalValue}>+{selectedUser.dialing_code || 91} {selectedUser.mobile}</Text>
+                                </View>
+                                <View style={styles.modalRow}>
+                                    <Text style={styles.modalLabel}>Registered By:</Text>
+                                    <Text style={styles.modalValue}>{selectedUser.registered_by || 'Self'}</Text>
+                                </View>
+                                {selectedUser.invited_by && (
+                                    <View style={styles.modalRow}>
+                                        <Text style={styles.modalLabel}>Invited By:</Text>
+                                        <Text style={styles.modalValue}>{selectedUser.invited_by}</Text>
+                                    </View>
+                                )}
+                                <View style={styles.modalRow}>
+                                    <Text style={styles.modalLabel}>Purchased:</Text>
+                                    <Text style={styles.modalValue}>{selectedUser.tickets_bought} Ticket(s)</Text>
+                                </View>
+                                <View style={styles.modalRow}>
+                                    <Text style={styles.modalLabel}>Time:</Text>
+                                    <Text style={styles.modalValue}>
+                                        {formatTime(selectedUser.created_at)}
+                                    </Text>
+                                </View>
+                            </ScrollView>
+                        )}
+
+                        <View style={styles.modalFooter}>
+                            <TouchableOpacity style={styles.modalCloseBtn} onPress={closeModal}>
+                                <Text style={styles.modalCloseBtnText}>Close</Text>
+                            </TouchableOpacity>
+                        </View>
+                    </View>
+                </View>
+            </Modal>
         </SafeAreaView>
     );
 };
@@ -195,12 +287,11 @@ export default TicketsSoldRecords;
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: 'white',
+        backgroundColor: '#F8F9FA',
     },
     header: {
         width: '100%',
-        height: 90,
-        paddingTop: 20, // Push content down
+        height: 60,
         alignItems: 'center',
         flexDirection: 'row',
         justifyContent: 'space-between',
@@ -237,7 +328,7 @@ const styles = StyleSheet.create({
         width: 44,
         height: 44,
         borderRadius: 22,
-        backgroundColor: '#FFF0E0', // Light orange bg
+        backgroundColor: '#FFF0E0',
         justifyContent: 'center',
         alignItems: 'center',
         marginRight: 14,
@@ -245,7 +336,7 @@ const styles = StyleSheet.create({
     ticketIcon: {
         width: 22,
         height: 22,
-        tintColor: '#FF8A3C', // Orange icon
+        tintColor: '#FF8A3C',
     },
     headerInfo: {
         flex: 1,
@@ -270,80 +361,177 @@ const styles = StyleSheet.create({
     },
     expandedContent: {
         backgroundColor: '#FAFAFA',
-        padding: 16,
+        padding: 12,
         borderTopWidth: 1,
         borderTopColor: '#F0F0F0',
     },
-    usersListContainer: {
-        gap: 12,
-    },
-
-    // User Card Styles
-    userCard: {
-        backgroundColor: 'white',
-        borderRadius: 10,
-        padding: 14,
-        borderWidth: 1,
-        borderColor: '#EEE',
-    },
-    userCardHeader: {
+    usersGridContainer: {
         flexDirection: 'row',
+        flexWrap: 'wrap',
         justifyContent: 'space-between',
-        alignItems: 'flex-start',
-        marginBottom: 10,
-        borderBottomWidth: 1,
-        borderBottomColor: '#F5F5F5',
-        paddingBottom: 8,
-    },
-    userName: {
-        fontSize: 15,
-        fontWeight: '700',
-        color: '#333',
-        flex: 1,
-        marginRight: 8,
-    },
-    ticketCountPill: {
-        backgroundColor: '#E8F5E9',
-        color: '#2E7D32',
-        fontSize: 11,
-        fontWeight: '600',
-        paddingHorizontal: 8,
-        paddingVertical: 2,
-        borderRadius: 10,
-        overflow: 'hidden',
-    },
-    userCardDetails: {
-        gap: 6,
-    },
-    detailRow: {
-        flexDirection: 'row',
-        alignItems: 'center',
-    },
-    detailLabel: {
-        width: 90,
-        fontSize: 12,
-        color: '#888',
-        fontWeight: '500',
-    },
-    detailValue: {
-        flex: 1,
-        fontSize: 12,
-        color: '#444',
-        fontWeight: '500',
+        gap: 12,
     },
     emptyState: {
         padding: 20,
         alignItems: 'center',
         justifyContent: 'center',
-        backgroundColor: 'white',
-        borderRadius: 8,
-        borderStyle: 'dashed',
-        borderWidth: 1,
-        borderColor: '#DDD',
+        width: '100%',
     },
     noDataText: {
         color: '#999',
         fontStyle: 'italic',
         fontSize: 14,
+    },
+
+    // REDESIGNED Compact Card Styles
+    gridCard: {
+        backgroundColor: 'white',
+        borderRadius: 12,
+        padding: 12,
+        elevation: 2,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.1,
+        shadowRadius: 3,
+        width: '48%', // 2 columns with gap
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        minHeight: 130,
+        borderWidth: 1,
+        borderColor: '#EAEAEA',
+        marginBottom: 4
+    },
+    cardHeaderCenter: {
+        alignItems: 'center',
+        width: '100%',
+        flex: 1,
+        justifyContent: 'center',
+    },
+    gridGuestName: {
+        fontSize: 14,
+        fontWeight: '700',
+        color: '#222',
+        textAlign: 'center',
+        marginBottom: 6,
+        lineHeight: 18,
+    },
+    ticketBadge: {
+        backgroundColor: '#FFF0E0',
+        paddingHorizontal: 8,
+        paddingVertical: 3,
+        borderRadius: 8,
+        marginBottom: 6,
+        borderWidth: 1,
+        borderColor: '#FFD2B3',
+    },
+    gridTicketCount: {
+        fontSize: 12,
+        color: '#E65100',
+        fontWeight: '700',
+    },
+    gridCheckInTime: {
+        fontSize: 10,
+        color: '#999',
+        marginTop: 2,
+    },
+    viewDetailsButton: {
+        marginTop: 10,
+        width: '100%',
+        paddingVertical: 6,
+        backgroundColor: '#fff',
+        borderRadius: 6,
+        alignItems: 'center',
+        borderWidth: 1,
+        borderColor: '#DDD',
+    },
+    viewDetailsText: {
+        fontSize: 11,
+        fontWeight: '600',
+        color: '#555',
+    },
+
+    // Modal Styles
+    modalOverlay: {
+        flex: 1,
+        backgroundColor: 'rgba(0,0,0,0.5)',
+        justifyContent: 'center',
+        alignItems: 'center',
+        padding: 20,
+    },
+    modalContainer: {
+        width: '90%',
+        maxHeight: '80%',
+        backgroundColor: 'white',
+        borderRadius: 20,
+        elevation: 5,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.2,
+        shadowRadius: 10,
+        overflow: 'hidden',
+    },
+    modalHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        padding: 20,
+        borderBottomWidth: 1,
+        borderBottomColor: '#F0F0F0',
+    },
+    modalTitle: {
+        fontSize: 18,
+        fontWeight: '700',
+        color: '#222',
+    },
+    closeButton: {
+        padding: 5,
+    },
+    closeButtonText: {
+        fontSize: 20,
+        color: '#999',
+    },
+    modalBody: {
+        padding: 20,
+    },
+    modalRow: {
+        marginBottom: 12,
+    },
+    modalLabel: {
+        fontSize: 12,
+        color: '#888',
+        fontWeight: '600',
+        textTransform: 'uppercase',
+        marginBottom: 2,
+    },
+    modalValueMain: {
+        fontSize: 18,
+        fontWeight: '700',
+        color: '#111',
+    },
+    modalValue: {
+        fontSize: 15,
+        color: '#333',
+        fontWeight: '500',
+    },
+    separator: {
+        height: 1,
+        backgroundColor: '#F0F0F0',
+        marginVertical: 12,
+    },
+    modalFooter: {
+        padding: 16,
+        borderTopWidth: 1,
+        borderTopColor: '#F0F0F0',
+    },
+    modalCloseBtn: {
+        backgroundColor: '#FF8A3C',
+        borderRadius: 12,
+        paddingVertical: 14,
+        alignItems: 'center',
+    },
+    modalCloseBtnText: {
+        color: 'white',
+        fontSize: 16,
+        fontWeight: '700',
     }
 });

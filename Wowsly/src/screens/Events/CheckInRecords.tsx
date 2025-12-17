@@ -7,13 +7,18 @@ import {
     FlatList,
     Image,
     TouchableOpacity,
+    Platform,
+    Alert,
+    Dimensions
 } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import BackButton from '../../components/BackButton';
 import { getEventTicketCheckins, downloadTicketCsv } from '../../api/event';
 import RNFS from 'react-native-fs';
 import Toast from 'react-native-toast-message';
-import { PermissionsAndroid, Platform, Alert } from 'react-native';
+import { PermissionsAndroid } from 'react-native';
+
+const { width } = Dimensions.get('window');
 
 type FacilityStat = {
     facility_name: string;
@@ -32,10 +37,22 @@ type TicketStat = {
 };
 
 const INFO_ICON = require('../../assets/img/common/info.png');
+// Using a generic download icon if specific asset isn't available, or keep existing url
 const DOWNLOAD_ICON = { uri: 'https://img.icons8.com/ios-glyphs/30/000000/download.png' };
 
+const CustomProgressBar = ({ current, total, color = '#FF8A3C', height = 6 }: { current: number, total: number, color?: string, height?: number }) => {
+    const percentage = total > 0 ? (current / total) * 100 : 0;
+    const clampedPercentage = Math.min(100, Math.max(0, percentage));
+
+    return (
+        <View style={[styles.progressBarBackground, { height }]}>
+            <View style={[styles.progressBarFill, { width: `${clampedPercentage}%`, backgroundColor: color, height }]} />
+        </View>
+    );
+};
+
 const CheckInRecords = () => {
-    const navigation = useNavigation();
+    const navigation = useNavigation<any>();
     const route = useRoute<any>();
     const { eventId } = route.params || {};
     const [loading, setLoading] = useState(true);
@@ -82,7 +99,7 @@ const CheckInRecords = () => {
             Toast.show({
                 type: 'info',
                 text1: 'Downloading...',
-                text2: 'Please wait while we generate the CS Vfile.'
+                text2: 'Please wait while we generate the CSV file.'
             });
 
             const csvData = await downloadTicketCsv(eventId, item.ticket_id);
@@ -126,23 +143,28 @@ const CheckInRecords = () => {
         const checkedIn = Number(item.total_check_in || 0);
         const total = Number(item.total_purchase_ticket || 0);
         const facilities = item.total_facilities_check_in?.facilities || [];
+        const percentage = total > 0 ? Math.round((checkedIn / total) * 100) : 0;
 
         return (
             <View style={styles.card}>
                 <View style={styles.cardHeader}>
-                    <Text style={styles.ticketName} numberOfLines={1}>{item.ticket_name}</Text>
+                    <View style={styles.titleContainer}>
+                        <Text style={styles.ticketName} numberOfLines={1}>{item.ticket_name}</Text>
+                        <Text style={styles.ticketPercentage}>{percentage}% Done</Text>
+                    </View>
                     <View style={styles.iconsRow}>
-                        {/* Info Icon */}
-                        <TouchableOpacity onPress={() => navigation.navigate('TicketCheckInDetails', {
-                            eventId,
-                            ticketId: item.ticket_id,
-                            ticketName: item.ticket_name
-                        })}>
+                        <TouchableOpacity
+                            style={styles.iconButton}
+                            onPress={() => navigation.navigate('TicketCheckInDetails', {
+                                eventId,
+                                ticketId: item.ticket_id,
+                                ticketName: item.ticket_name
+                            })}>
                             <Image source={INFO_ICON} style={styles.icon} resizeMode="contain" />
                         </TouchableOpacity>
-                        {/* Download Icon */}
+
                         <TouchableOpacity
-                            style={{ marginLeft: 8 }}
+                            style={[styles.iconButton, { marginLeft: 8 }]}
                             onPress={() => handleDownload(item)}
                         >
                             <Image source={DOWNLOAD_ICON} style={styles.icon} resizeMode="contain" />
@@ -150,16 +172,40 @@ const CheckInRecords = () => {
                     </View>
                 </View>
 
-                <View style={styles.statsContainer}>
-                    <Text style={styles.entryText}>
-                        Entry : {checkedIn}/{total}
-                    </Text>
-                    {facilities.map((facility, index) => (
-                        <Text key={index} style={styles.entryText}>
-                            {facility.facility_name} : {facility.check_in_count}/{facility.facilities_taken_by_user}
+                {/* Main Check-in Progress */}
+                <View style={styles.mainProgressContainer}>
+                    <View style={styles.progressLabelRow}>
+                        <Text style={styles.progressLabel}>Check-Ins</Text>
+                        <Text style={styles.progressValue}>
+                            <Text style={styles.highlightValue}>{checkedIn}</Text>
+                            <Text style={styles.totalValue}> / {total}</Text>
                         </Text>
-                    ))}
+                    </View>
+                    <CustomProgressBar current={checkedIn} total={total} height={8} />
                 </View>
+
+                {/* Separator if facilities exist */}
+                {facilities.length > 0 && <View style={styles.separator} />}
+
+                {/* Facilities List */}
+                {facilities.length > 0 && (
+                    <View style={styles.facilitiesContainer}>
+                        <Text style={styles.facilitiesHeader}>Facilities</Text>
+                        {facilities.map((facility, index) => {
+                            const fCheckedIn = Number(facility.check_in_count || 0);
+                            const fTotal = Number(facility.facilities_taken_by_user || 0);
+                            return (
+                                <View key={index} style={styles.facilityRow}>
+                                    <View style={styles.facilityInfo}>
+                                        <Text style={styles.facilityName} numberOfLines={1}>{facility.facility_name}</Text>
+                                        <Text style={styles.facilityCount}>{fCheckedIn}/{fTotal}</Text>
+                                    </View>
+                                    <CustomProgressBar current={fCheckedIn} total={fTotal} height={4} color="#4CAF50" />
+                                </View>
+                            );
+                        })}
+                    </View>
+                )}
             </View>
         );
     };
@@ -178,13 +224,11 @@ const CheckInRecords = () => {
                 </View>
             ) : (
                 <FlatList
-                    key={'check-in-grid-2'} // Force fresh render when columns change
+                    key={'check-in-list-simple'} // Changed key to force fresh render for single column
                     data={checkInStats}
                     keyExtractor={(item, index) => `${item.ticket_id}-${index}`}
                     renderItem={renderItem}
                     contentContainerStyle={styles.listContent}
-                    numColumns={2}
-                    columnWrapperStyle={styles.columnWrapper}
                     ListEmptyComponent={
                         <View style={styles.emptyContainer}>
                             <Text style={styles.emptyText}>No check-in records found.</Text>
@@ -201,24 +245,27 @@ export default CheckInRecords;
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: 'white',
+        backgroundColor: '#F8F9FA', // Slightly gray background for better card contrast
     },
     header: {
         width: '100%',
         height: 90,
-        paddingTop: 20, // Push content down
+        paddingTop: 20,
         backgroundColor: 'white',
         alignItems: 'center',
         flexDirection: 'row',
         justifyContent: 'space-between',
         paddingHorizontal: 20,
-        borderBottomWidth: 1,
-        borderBottomColor: '#F0F0F0',
+        elevation: 2,
+        shadowColor: '#000',
+        shadowOpacity: 0.05,
+        shadowRadius: 5,
+        zIndex: 10,
     },
     title: {
         fontSize: 18,
         fontWeight: '600',
-        color: 'black',
+        color: '#111',
     },
     loadingContainer: {
         flex: 1,
@@ -229,60 +276,137 @@ const styles = StyleSheet.create({
         padding: 16,
         paddingBottom: 40,
     },
-    columnWrapper: {
-        justifyContent: 'space-between',
-        gap: 12,
-    },
     card: {
-        backgroundColor: '#F3F4F6',
-        borderRadius: 12,
-        padding: 16,
-        marginBottom: 12,
-        minHeight: 120, // Increased min height
-        width: '48%', // Adjusted for 2 columns with gap
+        backgroundColor: 'white',
+        borderRadius: 16,
+        padding: 16, // More padding
+        marginBottom: 16,
+        width: '100%', // Full width cards look better for detailed info like this
         shadowColor: '#000',
-        shadowOpacity: 0.05,
-        shadowOffset: { width: 0, height: 2 },
-        shadowRadius: 4,
-        elevation: 2,
+        shadowOpacity: 0.08,
+        shadowOffset: { width: 0, height: 4 },
+        shadowRadius: 8,
+        elevation: 3,
+        borderWidth: 1,
+        borderColor: '#EAEAEA',
     },
     cardHeader: {
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'flex-start',
-        marginBottom: 12,
+        marginBottom: 16,
+    },
+    titleContainer: {
+        flex: 1,
+        marginRight: 10,
     },
     ticketName: {
-        fontSize: 16,
+        fontSize: 18,
         fontWeight: '700',
-        color: '#111',
-        flex: 1,
-        marginRight: 8,
+        color: '#222',
+        marginBottom: 4,
+    },
+    ticketPercentage: {
+        fontSize: 12,
+        color: '#888',
+        fontWeight: '600',
+        backgroundColor: '#F0F0F0',
+        alignSelf: 'flex-start',
+        paddingHorizontal: 8,
+        paddingVertical: 2,
+        borderRadius: 6,
+        overflow: 'hidden',
     },
     iconsRow: {
         flexDirection: 'row',
         alignItems: 'center',
     },
+    iconButton: {
+        padding: 6,
+        backgroundColor: '#F5F5F5',
+        borderRadius: 8,
+    },
     icon: {
         width: 18,
         height: 18,
-        tintColor: '#1F2937',
+        tintColor: '#333',
     },
-    statsContainer: {
-        gap: 4,
+    mainProgressContainer: {
+        marginBottom: 8,
     },
-    entryText: {
-        fontSize: 13,
-        color: '#333',
+    progressLabelRow: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: 6,
+    },
+    progressLabel: {
+        fontSize: 14,
+        color: '#555',
         fontWeight: '500',
-        lineHeight: 18,
+    },
+    progressValue: {
+        fontSize: 14,
+        fontWeight: '600',
+    },
+    highlightValue: {
+        color: '#FF8A3C',
+        fontWeight: '700',
+    },
+    totalValue: {
+        color: '#999',
+        fontSize: 12,
+    },
+    progressBarBackground: {
+        width: '100%',
+        backgroundColor: '#F0F0F0',
+        borderRadius: 4,
+        overflow: 'hidden',
+    },
+    progressBarFill: {
+        borderRadius: 4,
+    },
+    separator: {
+        height: 1,
+        backgroundColor: '#F0F0F0',
+        marginVertical: 12,
+    },
+    facilitiesContainer: {
+        gap: 10,
+    },
+    facilitiesHeader: {
+        fontSize: 13,
+        fontWeight: '700',
+        color: '#444',
+        marginBottom: 4,
+        letterSpacing: 0.5,
+        textTransform: 'uppercase',
+    },
+    facilityRow: {
+        marginBottom: 4,
+    },
+    facilityInfo: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        marginBottom: 4,
+    },
+    facilityName: {
+        fontSize: 13,
+        color: '#555',
+        flex: 1,
+    },
+    facilityCount: {
+        fontSize: 12,
+        color: '#777',
+        fontWeight: '500',
     },
     emptyContainer: {
-        padding: 20,
+        padding: 40,
         alignItems: 'center',
     },
     emptyText: {
-        color: '#666',
+        color: '#888',
         fontSize: 16,
     }
 });
+
