@@ -133,7 +133,7 @@ const TicketsSoldRecords = () => {
                 <Text style={styles.gridGuestName} numberOfLines={2}>{item.name}</Text>
                 <View style={styles.ticketBadge}>
                     <Text style={styles.gridTicketCount}>
-                        {item.tickets_bought} Ticket{item.tickets_bought !== 1 ? 's' : ''}
+                        {item.tickets_bought} × Ticket{item.tickets_bought !== 1 ? 's' : ''}
                     </Text>
                 </View>
                 <Text style={styles.gridCheckInTime}>
@@ -259,7 +259,7 @@ const TicketsSoldRecords = () => {
                                 )}
                                 <View style={styles.modalRow}>
                                     <Text style={styles.modalLabel}>Purchased:</Text>
-                                    <Text style={styles.modalValue}>{selectedUser.tickets_bought} Ticket(s)</Text>
+                                    <Text style={styles.modalValue}>{selectedUser.tickets_bought} × Ticket(s)</Text>
                                 </View>
                                 <View style={styles.modalRow}>
                                     <Text style={styles.modalLabel}>Time:</Text>
