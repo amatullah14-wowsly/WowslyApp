@@ -43,6 +43,8 @@ type TicketType = {
     sold_out: number | string;
 };
 
+import SystemNavigationBar from 'react-native-system-navigation-bar';
+
 const TicketsSoldRecords = () => {
     const navigation = useNavigation();
     const route = useRoute<any>();
@@ -120,11 +122,13 @@ const TicketsSoldRecords = () => {
     const handleViewDetails = (user: SoldUser) => {
         setSelectedUser(user);
         setModalVisible(true);
+        SystemNavigationBar.stickyImmersive(); // Enforce immersive
     };
 
     const closeModal = () => {
         setModalVisible(false);
         setSelectedUser(null);
+        SystemNavigationBar.stickyImmersive(); // Re-enforce on close
     };
 
     const UserCard = ({ item }: { item: SoldUser }) => (
@@ -221,7 +225,7 @@ const TicketsSoldRecords = () => {
 
             {/* Details Modal */}
             <Modal
-                animationType="fade"
+                animationType="slide"
                 transparent={true}
                 visible={modalVisible}
                 onRequestClose={closeModal}
@@ -454,18 +458,17 @@ const styles = StyleSheet.create({
     modalOverlay: {
         flex: 1,
         backgroundColor: 'rgba(0,0,0,0.5)',
-        justifyContent: 'center',
-        alignItems: 'center',
-        padding: 20,
+        justifyContent: 'flex-end',
     },
     modalContainer: {
-        width: '90%',
-        maxHeight: '80%',
+        width: '100%',
+        maxHeight: '50%',
         backgroundColor: 'white',
-        borderRadius: 20,
+        borderTopLeftRadius: 20,
+        borderTopRightRadius: 20,
         elevation: 5,
         shadowColor: '#000',
-        shadowOffset: { width: 0, height: 4 },
+        shadowOffset: { width: 0, height: -2 },
         shadowOpacity: 0.2,
         shadowRadius: 10,
         overflow: 'hidden',
@@ -474,12 +477,13 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
-        padding: 20,
+        paddingHorizontal: 20,
+        paddingVertical: 10,
         borderBottomWidth: 1,
         borderBottomColor: '#F0F0F0',
     },
     modalTitle: {
-        fontSize: 18,
+        fontSize: 16, // Reduced font
         fontWeight: '700',
         color: '#222',
     },
@@ -487,37 +491,39 @@ const styles = StyleSheet.create({
         padding: 5,
     },
     closeButtonText: {
-        fontSize: 20,
+        fontSize: 18,
         color: '#999',
     },
     modalBody: {
         padding: 20,
+        paddingBottom: 30,
     },
     modalRow: {
-        marginBottom: 12,
+        marginBottom: 8, // Reduced margin
     },
     modalLabel: {
-        fontSize: 12,
+        fontSize: 11, // Reduced font
         color: '#888',
         fontWeight: '600',
         textTransform: 'uppercase',
         marginBottom: 2,
     },
     modalValueMain: {
-        fontSize: 18,
+        fontSize: 16, // Reduced font
         fontWeight: '700',
         color: '#111',
     },
     modalValue: {
-        fontSize: 15,
+        fontSize: 14, // Reduced font
         color: '#333',
         fontWeight: '500',
     },
     separator: {
         height: 1,
         backgroundColor: '#F0F0F0',
-        marginVertical: 12,
+        marginVertical: 8, // Reduced margin
     },
+    // Footer restored
     modalFooter: {
         padding: 16,
         borderTopWidth: 1,
@@ -526,7 +532,7 @@ const styles = StyleSheet.create({
     modalCloseBtn: {
         backgroundColor: '#FF8A3C',
         borderRadius: 12,
-        paddingVertical: 14,
+        paddingVertical: 12, // Slightly reduced padding
         alignItems: 'center',
     },
     modalCloseBtnText: {

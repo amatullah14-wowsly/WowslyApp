@@ -11,7 +11,10 @@ import AsyncStorage from "@react-native-async-storage/async-storage";   // <-- A
 
 const App = () => {
   useEffect(() => {
-    SystemNavigationBar.stickyImmersive();
+    const setupImmersiveMode = async () => {
+      await SystemNavigationBar.stickyImmersive();
+    };
+    setupImmersiveMode();
     initScanStore();
 
     // Initialize SQLite database

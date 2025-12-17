@@ -49,6 +49,8 @@ type GuestRecord = {
     }[];
 };
 
+import SystemNavigationBar from 'react-native-system-navigation-bar';
+
 const TicketCheckInDetails = () => {
     const navigation = useNavigation();
     const route = useRoute<any>();
@@ -119,11 +121,13 @@ const TicketCheckInDetails = () => {
     const handleViewDetails = (guest: GuestRecord) => {
         setSelectedGuest(guest);
         setModalVisible(true);
+        SystemNavigationBar.stickyImmersive(); // Enforce immersive
     };
 
     const closeModal = () => {
         setModalVisible(false);
         setSelectedGuest(null);
+        SystemNavigationBar.stickyImmersive(); // Re-enforce on close just in case
     };
 
     const formatTime = (timeString: string) => {
@@ -248,7 +252,7 @@ const TicketCheckInDetails = () => {
 
             {/* Details Modal */}
             <Modal
-                animationType="fade"
+                animationType="slide"
                 transparent={true}
                 visible={modalVisible}
                 onRequestClose={closeModal}
@@ -516,18 +520,17 @@ const styles = StyleSheet.create({
     modalOverlay: {
         flex: 1,
         backgroundColor: 'rgba(0,0,0,0.5)',
-        justifyContent: 'center',
-        alignItems: 'center',
-        padding: 20,
+        justifyContent: 'flex-end',
     },
     modalContainer: {
-        width: '90%',
-        maxHeight: '80%',
+        width: '100%',
+        maxHeight: '50%', // Compact height
         backgroundColor: 'white',
-        borderRadius: 20,
+        borderTopLeftRadius: 20,
+        borderTopRightRadius: 20,
         elevation: 5,
         shadowColor: '#000',
-        shadowOffset: { width: 0, height: 4 },
+        shadowOffset: { width: 0, height: -2 },
         shadowOpacity: 0.2,
         shadowRadius: 10,
         overflow: 'hidden',
@@ -536,12 +539,13 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
-        padding: 20,
+        paddingHorizontal: 20,
+        paddingVertical: 10, // Compact padding
         borderBottomWidth: 1,
         borderBottomColor: '#F0F0F0',
     },
     modalTitle: {
-        fontSize: 18,
+        fontSize: 16, // Compact font
         fontWeight: '700',
         color: '#222',
     },
@@ -549,56 +553,55 @@ const styles = StyleSheet.create({
         padding: 5,
     },
     closeButtonText: {
-        fontSize: 20,
+        fontSize: 18,
         color: '#999',
     },
     modalBody: {
         padding: 20,
+        paddingBottom: 30,
     },
     modalRow: {
-        marginBottom: 12,
-        //       flexDirection: 'row',
-        //       alignItems: 'center',
+        marginBottom: 8, // Compact margin
     },
     modalLabel: {
-        fontSize: 12,
+        fontSize: 11, // Compact font
         color: '#888',
         fontWeight: '600',
         textTransform: 'uppercase',
         marginBottom: 2,
     },
     modalValueMain: {
-        fontSize: 18,
+        fontSize: 16, // Compact font
         fontWeight: '700',
         color: '#111',
     },
     modalValue: {
-        fontSize: 15,
+        fontSize: 14, // Compact font
         color: '#333',
         fontWeight: '500',
     },
     separator: {
         height: 1,
         backgroundColor: '#F0F0F0',
-        marginVertical: 12,
+        marginVertical: 8, // Compact margin
     },
     modalFacilitiesContainer: {
-        marginTop: 10,
+        marginTop: 8,
         backgroundColor: '#F9F9F9',
         borderRadius: 12,
-        padding: 16,
+        padding: 12,
     },
     modalSectionTitle: {
-        fontSize: 14,
+        fontSize: 13,
         fontWeight: '700',
         color: '#444',
-        marginBottom: 10,
+        marginBottom: 8,
     },
     modalFacilityItem: {
-        marginBottom: 12,
+        marginBottom: 8,
         borderBottomWidth: 1,
         borderBottomColor: '#EEE',
-        paddingBottom: 8,
+        paddingBottom: 6,
     },
     modalFacilityHeader: {
         flexDirection: 'row',
@@ -606,12 +609,12 @@ const styles = StyleSheet.create({
         marginBottom: 4,
     },
     modalFacilityName: {
-        fontSize: 14,
+        fontSize: 13,
         fontWeight: '600',
         color: '#333',
     },
     modalFacilityCount: {
-        fontSize: 13,
+        fontSize: 12,
         color: '#666',
     },
     facilityTimes: {
@@ -620,7 +623,7 @@ const styles = StyleSheet.create({
         gap: 6,
     },
     facilityTimeText: {
-        fontSize: 11,
+        fontSize: 10,
         color: '#888',
         backgroundColor: 'white',
         paddingHorizontal: 6,

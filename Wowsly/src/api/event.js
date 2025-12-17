@@ -715,3 +715,15 @@ export const getTicketCheckInCount = async (eventId, ticketId) => {
         return { status: false, data: [] };
     }
 };
+
+export const getRegistrationAnswers = async (eventId, page = 1) => {
+    try {
+        console.log(`Fetching Registration Answers for event: ${eventId}, page: ${page}`);
+        const response = await client.get(`/events/${eventId}/registrationform/answer?page=${page}&current_timezone=Asia%2FCalcutta`);
+        // console.log("REGISTRATION ANSWERS RESPONSE:", JSON.stringify(response.data));
+        return response.data;
+    } catch (error) {
+        console.log("GET REGISTRATION ANSWERS ERROR:", error.response?.data || error.message);
+        return { status: false, data: [] };
+    }
+};

@@ -264,7 +264,7 @@ const EventDashboard = ({ route }: EventDashboardProps) => {
                             icon={require('../../assets/img/eventdashboard/registration.png')}
                             title="Registration"
                             value={displayData.eventuserCount || "0"}
-                            onPress={() => navigation.navigate("RegisteredGuests", { eventId: displayData.id })}
+                            onPress={() => navigation.navigate("RegistrationDashboard", { eventId: displayData.id })}
                             showArrow={true}
                         />
                     )}
