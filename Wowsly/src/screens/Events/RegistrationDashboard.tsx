@@ -3,19 +3,79 @@ import React, { useState, useEffect, useCallback } from 'react'
 import { useNavigation, useRoute } from '@react-navigation/native';
 import BackButton from '../../components/BackButton';
 // import GuestScreenTemplate from '../Guests/GuestScreenTemplate'; // Removed per request
-import { getRegistrationAnswers } from '../../api/event';
+import { getRegistrationAnswers, exportRegistrationReplies, getExportStatus } from '../../api/event';
+import { ToastAndroid, Alert, Platform, Linking } from 'react-native';
 
 const RegistrationDashboard = () => {
     const navigation = useNavigation();
     const route = useRoute<any>();
     const { eventId } = route.params || {};
     const [activeTab, setActiveTab] = useState<'Form' | 'Replies'>('Form');
+    
+    // Export State
+    const [exportStatus, setExportStatus] = useState<'idle' | 'processing' | 'completed'>('idle');
+    const [fileUrl, setFileUrl] = useState<string | null>(null);
+    const [checkingStatus, setCheckingStatus] = useState(false);
 
     // Replies State
     const [replies, setReplies] = useState<any[]>([]);
     const [loading, setLoading] = useState(false);
     const [currentPage, setCurrentPage] = useState(1);
     const [hasMore, setHasMore] = useState(true);
+
+    const handleExportAll = async () => {
+        if (exportStatus === 'processing') {
+            ToastAndroid.show("Export is already in process.", ToastAndroid.SHORT);
+            return;
+        }
+        try {
+            const res = await exportRegistrationReplies(eventId);
+            if (res && res.success) {
+                setExportStatus('processing');
+                const msg = res.message || "Export started.";
+                 if (Platform.OS === 'android') ToastAndroid.show(msg, ToastAndroid.SHORT);
+            } else {
+                 if (Platform.OS === 'android') ToastAndroid.show("Export failed to start.", ToastAndroid.SHORT);
+            }
+        } catch (error) {
+            console.error("Export error:", error);
+        }
+    };
+
+    const handleCheckStatus = async () => {
+        if(checkingStatus) return;
+        setCheckingStatus(true);
+        try {
+            const res = await getExportStatus(eventId);
+            if (res && res.success) {
+                if (res.status === 'completed') {
+                    setExportStatus('completed');
+                    setFileUrl(res.file_url);
+                    if (Platform.OS === 'android') ToastAndroid.show("Export completed!", ToastAndroid.SHORT);
+                } else if (res.status === 'processing') {
+                    setExportStatus('processing'); // Keep processing
+                    if (Platform.OS === 'android') ToastAndroid.show("Still processing...", ToastAndroid.SHORT);
+                } else {
+                    setExportStatus('idle'); // Reset if status is neither processing nor completed
+                    if (Platform.OS === 'android') ToastAndroid.show("Export not found or failed.", ToastAndroid.SHORT);
+                }
+            } else {
+                 if (Platform.OS === 'android') ToastAndroid.show("Failed to check status.", ToastAndroid.SHORT);
+            }
+        } catch (error) {
+            console.log("Check status error", error);
+        } finally {
+            setCheckingStatus(false);
+        }
+    }
+
+    const handleDownload = () => {
+        if (fileUrl) {
+            Linking.openURL(fileUrl).catch(err => console.error("Couldn't load page", err));
+        } else {
+            if (Platform.OS === 'android') ToastAndroid.show("No file available for download.", ToastAndroid.SHORT);
+        }
+    }
 
     // Fetch Logic
     const fetchReplies = async () => {
@@ -40,7 +100,7 @@ const RegistrationDashboard = () => {
             let fetching = true;
 
             while (fetching) {
-                console.log(`Fetching replies page ${page}...`);
+                console.log(`Fetching replies page ${ page }...`);
                 const res = await getRegistrationAnswers(eventId, page);
 
                 if (res && res.data && Array.isArray(res.data)) {
@@ -153,9 +213,12 @@ const RegistrationDashboard = () => {
                     </View>
                 ) : (
                     <View style={styles.repliesContainer}>
+                        
+
+
                         {/* Export Buttons */}
                         <View style={styles.exportRow}>
-                            <TouchableOpacity style={styles.exportButton}>
+                            <TouchableOpacity style={styles.exportButton} onPress={handleExportAll}>
                                 <Image source={require('../../assets/img/eventdashboard/export.png')} style={styles.exportIcon} resizeMode="contain" />
                                 <Text style={styles.exportButtonText}>Export All</Text>
                             </TouchableOpacity>
@@ -163,13 +226,27 @@ const RegistrationDashboard = () => {
                                 <Image source={require('../../assets/img/eventdashboard/calendar.png')} style={styles.exportIcon} resizeMode="contain" />
                                 <Text style={styles.exportButtonText}>Export By Date</Text>
                             </TouchableOpacity>
+                            
+                            {/* Dynamic 3rd Button */}
+                            {exportStatus === 'processing' ? (
+                                <TouchableOpacity style={[styles.exportButton, styles.checkStatusButton]} onPress={handleCheckStatus}>
+                                    <Image source={require('../../assets/img/eventdashboard/clock.png')} style={[styles.exportIcon, {tintColor: 'white'}]} resizeMode="contain"/> 
+                                     <Text style={[styles.exportButtonText, {color: 'white'}]}>Check Status</Text>
+                                </TouchableOpacity>
+                            ) : exportStatus === 'completed' ? (
+                                <TouchableOpacity style={[styles.exportButton, styles.downloadButton]} onPress={handleDownload}>
+                                     <Image source={require('../../assets/img/eventdashboard/export.png')} style={[styles.exportIcon, {tintColor: 'white', transform: [{rotate: '180deg'}]} ]} resizeMode="contain"/>
+                                    <Text style={[styles.exportButtonText, {color: 'white'}]}>Download File</Text>
+                                </TouchableOpacity>
+                            ) : null}
+
                         </View>
 
                         {/* List */}
                         {loading && replies.length === 0 ? (
-                            <ActivityIndicator size="large" color="#FF8A3C" style={{ marginTop: 50 }} />
+                             <ActivityIndicator size="large" color="#FF8A3C" style={{ marginTop: 50 }} />
                         ) : (
-                            <FlatList
+                            <FlatList 
                                 data={replies}
                                 keyExtractor={(item, index) => item.id?.toString() || index.toString()}
                                 renderItem={renderReplyItem}
@@ -208,7 +285,7 @@ const styles = StyleSheet.create({
     },
     title: {
         fontSize: 20,
-        fontWeight: '500',
+        fontWeight: '500', 
         color: '#111',
     },
     toggleContainer: {
@@ -264,11 +341,27 @@ const styles = StyleSheet.create({
     repliesContainer: {
         flex: 1,
     },
+    badgeContainer: {
+        alignItems: 'center',
+        marginTop: 10,
+    },
+    processingBadge: {
+        backgroundColor: '#EF6C00', // Darker orange
+        paddingHorizontal: 16,
+        paddingVertical: 6,
+        borderRadius: 20,
+    },
+    processingText: {
+        color: 'white',
+        fontWeight: '700',
+        fontSize: 12,
+    },
     exportRow: {
         flexDirection: 'row',
         justifyContent: 'center',
-        gap: 16,
+        gap: 10, // Reduced gap to fit 3 buttons if needed
         paddingVertical: 20,
+        flexWrap: 'wrap', // Allow wrapping if screen small
     },
     exportButton: {
         flexDirection: 'row',
@@ -276,19 +369,27 @@ const styles = StyleSheet.create({
         borderWidth: 1,
         borderColor: '#FF8A3C',
         borderRadius: 8,
-        paddingVertical: 10,
-        paddingHorizontal: 24,
-        gap: 8,
+        paddingVertical: 8,
+        paddingHorizontal: 16, // Reduced padding
+        gap: 6,
         backgroundColor: 'white',
+    },
+    checkStatusButton: {
+        backgroundColor: '#EF6C00', // Orange fill
+        borderColor: '#EF6C00',
+    },
+    downloadButton: {
+        backgroundColor: '#2E7D32', // Green fill
+        borderColor: '#2E7D32',
     },
     exportButtonText: {
         color: '#FF8A3C',
         fontWeight: '600',
-        fontSize: 14,
+        fontSize: 13, // Slightly smaller
     },
     exportIcon: {
-        width: 16,
-        height: 16,
+        width: 14,
+        height: 14,
         tintColor: '#FF8A3C',
     },
     listContent: {
@@ -299,21 +400,21 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         paddingVertical: 16,
-        borderBottomWidth: 0, // No separators visible in screenshot except nice spacing
+        borderBottomWidth: 0, 
     },
     avatar: {
-        width: 50,
-        height: 50,
-        borderRadius: 25,
-        marginRight: 16,
+        width: 40,
+        height: 40,
+        borderRadius: 20,
+        marginRight: 12,
     },
     avatarPlaceholder: {
-        backgroundColor: '#FFE0B2', // Light orange circle
+        backgroundColor: '#FFE0B2', 
         alignItems: 'center',
         justifyContent: 'center',
     },
     avatarPlaceholderText: {
-        fontSize: 20,
+        fontSize: 18,
         fontWeight: '600',
         color: '#FFFFFF',
     },
@@ -323,13 +424,12 @@ const styles = StyleSheet.create({
     },
     replyName: {
         fontSize: 16,
-        fontWeight: '500',
+        fontWeight: '500', 
         color: '#111',
     },
     replyDate: {
         fontSize: 13,
         color: '#666',
-        fontWeight: '400',
     },
     emptyState: {
         alignItems: 'center',

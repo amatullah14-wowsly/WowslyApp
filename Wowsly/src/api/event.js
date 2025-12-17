@@ -727,3 +727,28 @@ export const getRegistrationAnswers = async (eventId, page = 1) => {
         return { status: false, data: [] };
     }
 };
+
+export const exportRegistrationReplies = async (eventId) => {
+    try {
+        console.log(`Exporting Registration Replies for event: ${eventId}`);
+        // Endpoint: /events/:eventId/registrationform/replies/download?current_timezone=Asia%2FCalcutta
+        const response = await client.get(`/events/${eventId}/registrationform/replies/download?current_timezone=Asia%2FCalcutta`);
+        console.log("EXPORT REGISTRATION REPLIES RESPONSE:", JSON.stringify(response.data));
+        return response.data;
+    } catch (error) {
+        console.log("EXPORT REGISTRATION REPLIES ERROR:", error.response?.data || error.message);
+        return { success: false, message: "Export failed" };
+    }
+};
+
+export const getExportStatus = async (eventId) => {
+    try {
+        console.log(`Checking Export Status for event: ${eventId}`);
+        const response = await client.get(`/events/${eventId}/registrationform/replies/status?current_timezone=Asia%2FCalcutta`);
+        console.log("EXPORT STATUS RESPONSE:", JSON.stringify(response.data));
+        return response.data;
+    } catch (error) {
+        console.log("GET EXPORT STATUS ERROR:", error.response?.data || error.message);
+        return { success: false, status: "failed" };
+    }
+};
