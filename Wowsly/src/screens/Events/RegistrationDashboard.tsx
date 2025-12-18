@@ -3,7 +3,7 @@ import React, { useState, useEffect, useCallback } from 'react'
 import { useNavigation, useRoute } from '@react-navigation/native';
 import BackButton from '../../components/BackButton';
 // import GuestScreenTemplate from '../Guests/GuestScreenTemplate'; // Removed per request
-import { getRegistrationAnswers, exportRegistrationReplies, getExportStatus } from '../../api/event';
+import { getRegistrationAnswers, exportRegistrationReplies, getExportStatus, getEventDetails } from '../../api/event';
 import { ToastAndroid, Alert, Platform, Linking } from 'react-native';
 
 const RegistrationDashboard = () => {
@@ -11,7 +11,11 @@ const RegistrationDashboard = () => {
     const route = useRoute<any>();
     const { eventId } = route.params || {};
     const [activeTab, setActiveTab] = useState<'Form' | 'Replies'>('Form');
-    
+    const [hasForm, setHasForm] = useState<number | null>(null); // 0 = Created, 1 = Not Created (or vice versa per user req)
+    // User said: "if has_registration_form : 0 then form created nathi" (0 means NOT created)
+    // "and agr e 1 che to form created che" (1 means created)
+
+
     // Export State
     const [exportStatus, setExportStatus] = useState<'idle' | 'processing' | 'completed'>('idle');
     const [fileUrl, setFileUrl] = useState<string | null>(null);
@@ -33,9 +37,9 @@ const RegistrationDashboard = () => {
             if (res && res.success) {
                 setExportStatus('processing');
                 const msg = res.message || "Export started.";
-                 if (Platform.OS === 'android') ToastAndroid.show(msg, ToastAndroid.SHORT);
+                if (Platform.OS === 'android') ToastAndroid.show(msg, ToastAndroid.SHORT);
             } else {
-                 if (Platform.OS === 'android') ToastAndroid.show("Export failed to start.", ToastAndroid.SHORT);
+                if (Platform.OS === 'android') ToastAndroid.show("Export failed to start.", ToastAndroid.SHORT);
             }
         } catch (error) {
             console.error("Export error:", error);
@@ -43,7 +47,7 @@ const RegistrationDashboard = () => {
     };
 
     const handleCheckStatus = async () => {
-        if(checkingStatus) return;
+        if (checkingStatus) return;
         setCheckingStatus(true);
         try {
             const res = await getExportStatus(eventId);
@@ -60,7 +64,7 @@ const RegistrationDashboard = () => {
                     if (Platform.OS === 'android') ToastAndroid.show("Export not found or failed.", ToastAndroid.SHORT);
                 }
             } else {
-                 if (Platform.OS === 'android') ToastAndroid.show("Failed to check status.", ToastAndroid.SHORT);
+                if (Platform.OS === 'android') ToastAndroid.show("Failed to check status.", ToastAndroid.SHORT);
             }
         } catch (error) {
             console.log("Check status error", error);
@@ -80,28 +84,23 @@ const RegistrationDashboard = () => {
     // Fetch Logic
     const fetchReplies = async () => {
         if (loading || !hasMore) return;
+        if (!eventId) {
+            console.error("fetchReplies: No eventId");
+            if (Platform.OS === 'android') ToastAndroid.show("Error: No Event ID", ToastAndroid.SHORT);
+            return;
+        }
         setLoading(true);
 
         try {
-            // Loop until all pages are fetched (as requested: "fetch all the pages")
-            // Or we can implement pagination if list is huge. 
-            // Request said: "fetch all the pages for the replies"
-            // I'll implement a loop here to fetch ONE page at a time if user scrolls, 
-            // OR fetch ALL at once if that's strictly implied.
-            // "fetch all the pages for the replies" implies getting everything. 
-            // Let's try recursive fetch or loop to get everything initially if dataset isn't huge.
-            // But typical mobile pattern is infinite scroll.
-            // However, the screenshot shows a scrollbar. 
-            // Optimally, I'll fetch page 1, and if Response has more pages, I'll fetch them.
-            // BUT, strictly following "fetch all pages", I will loop.
-
+            console.log(`fetchReplies started for event ${eventId}`);
             let allData: any[] = [];
             let page = 1;
             let fetching = true;
 
             while (fetching) {
-                console.log(`Fetching replies page ${ page }...`);
+                console.log(`Fetching replies page ${page}...`);
                 const res = await getRegistrationAnswers(eventId, page);
+                console.log(`Page ${page} res:`, res ? `Found ${res.data?.length} items` : 'No res');
 
                 if (res && res.data && Array.isArray(res.data)) {
                     allData = [...allData, ...res.data];
@@ -111,18 +110,21 @@ const RegistrationDashboard = () => {
                     } else {
                         page++;
                     }
-                    // Safety break
                     if (page > 50) fetching = false;
                 } else {
                     fetching = false;
                 }
             }
 
+            console.log(`Total fetched: ${allData.length}`);
             setReplies(allData);
-            setHasMore(false); // Fetched all
+            setHasMore(false);
+
+            // if (Platform.OS === 'android') ToastAndroid.show(`Fetched ${allData.length} replies`, ToastAndroid.SHORT);
 
         } catch (error) {
             console.error("Error fetching replies:", error);
+            if (Platform.OS === 'android') ToastAndroid.show("Error fetching replies", ToastAndroid.SHORT);
         } finally {
             setLoading(false);
         }
@@ -134,6 +136,21 @@ const RegistrationDashboard = () => {
             setReplies([]);
             setHasMore(true);
             fetchReplies();
+        } else if (activeTab === 'Form' && eventId) {
+            // Fetch details to check form status
+            getEventDetails(eventId).then(res => {
+                if (res && res.data) {
+                    // The user said "has_registration_form" is in the response. 
+                    // Usually getEventDetails returns { data: { ... } } or just the object?
+                    // Let's assume safely.
+                    const val = res.data.has_registration_form; // or directly res.has_registration_form?
+                    // Based on api/event.js: return response.data;
+                    // So if API returns standard JSON resource: { data: { ... } } -> res.data.has_registration_form
+                    // If API returns direct object: { ... } -> res.has_registration_form
+                    // I will try both or check logs if I could. User said "ana response ma has_registration_form avu male che"
+                    setHasForm(val);
+                }
+            }).catch(err => console.log("Event details fetch error", err));
         }
     }, [activeTab, eventId]);
 
@@ -208,12 +225,53 @@ const RegistrationDashboard = () => {
             <View style={styles.content}>
                 {activeTab === 'Form' ? (
                     <View style={styles.placeholderContainer}>
-                        <Text style={styles.placeholderText}>Registration Form Setup</Text>
-                        <Text style={styles.placeholderSubText}>Coming Soon</Text>
+                        {hasForm === 1 ? (
+                            <View style={styles.createFormCard}>
+                                <View style={[styles.iconContainer, { backgroundColor: '#E8F5E9' }]}>
+                                    <Image
+                                        source={require('../../assets/img/eventdashboard/registration.png')}
+                                        style={[styles.mainIcon, { tintColor: '#2E7D32' }]} // Green for active
+                                        resizeMode="contain"
+                                    />
+                                </View>
+                                <Text style={styles.createFormTitle}>Active Registration Form</Text>
+                                <Text style={styles.createFormSubtitle}>
+                                    Your registration form is live. You can edit the form details and questions.
+                                </Text>
+                                <TouchableOpacity
+                                    style={[styles.createButtonPrimary, { backgroundColor: 'white', borderWidth: 1, borderColor: '#FF8A3C' }]}
+                                    activeOpacity={0.8}
+                                    onPress={() => navigation.navigate('RegistrationFormEditor', { eventId })}
+                                >
+                                    <Text style={[styles.createButtonText, { color: '#FF8A3C' }]}>Edit Form</Text>
+                                </TouchableOpacity>
+                            </View>
+                        ) : (
+                            <View style={styles.createFormCard}>
+                                <View style={styles.iconContainer}>
+                                    <Image
+                                        source={require('../../assets/img/eventdashboard/registration.png')}
+                                        style={styles.mainIcon}
+                                        resizeMode="contain"
+                                    />
+                                </View>
+                                <Text style={styles.createFormTitle}>Create Registration Form</Text>
+                                <Text style={styles.createFormSubtitle}>
+                                    Collect details from your guests by creating a custom form.
+                                </Text>
+                                <TouchableOpacity
+                                    style={styles.createButtonPrimary}
+                                    activeOpacity={0.8}
+                                    onPress={() => navigation.navigate('RegistrationFormEditor', { eventId })}
+                                >
+                                    <Text style={styles.createButtonText}>Create Form</Text>
+                                </TouchableOpacity>
+                            </View>
+                        )}
                     </View>
                 ) : (
                     <View style={styles.repliesContainer}>
-                        
+
 
 
                         {/* Export Buttons */}
@@ -226,17 +284,17 @@ const RegistrationDashboard = () => {
                                 <Image source={require('../../assets/img/eventdashboard/calendar.png')} style={styles.exportIcon} resizeMode="contain" />
                                 <Text style={styles.exportButtonText}>Export By Date</Text>
                             </TouchableOpacity>
-                            
+
                             {/* Dynamic 3rd Button */}
                             {exportStatus === 'processing' ? (
                                 <TouchableOpacity style={[styles.exportButton, styles.checkStatusButton]} onPress={handleCheckStatus}>
-                                    <Image source={require('../../assets/img/eventdashboard/clock.png')} style={[styles.exportIcon, {tintColor: 'white'}]} resizeMode="contain"/> 
-                                     <Text style={[styles.exportButtonText, {color: 'white'}]}>Check Status</Text>
+                                    <Image source={require('../../assets/img/eventdashboard/clock.png')} style={[styles.exportIcon, { tintColor: 'white' }]} resizeMode="contain" />
+                                    <Text style={[styles.exportButtonText, { color: 'white' }]}>Check Status</Text>
                                 </TouchableOpacity>
                             ) : exportStatus === 'completed' ? (
                                 <TouchableOpacity style={[styles.exportButton, styles.downloadButton]} onPress={handleDownload}>
-                                     <Image source={require('../../assets/img/eventdashboard/export.png')} style={[styles.exportIcon, {tintColor: 'white', transform: [{rotate: '180deg'}]} ]} resizeMode="contain"/>
-                                    <Text style={[styles.exportButtonText, {color: 'white'}]}>Download File</Text>
+                                    <Image source={require('../../assets/img/eventdashboard/export.png')} style={[styles.exportIcon, { tintColor: 'white', transform: [{ rotate: '180deg' }] }]} resizeMode="contain" />
+                                    <Text style={[styles.exportButtonText, { color: 'white' }]}>Download File</Text>
                                 </TouchableOpacity>
                             ) : null}
 
@@ -244,9 +302,9 @@ const RegistrationDashboard = () => {
 
                         {/* List */}
                         {loading && replies.length === 0 ? (
-                             <ActivityIndicator size="large" color="#FF8A3C" style={{ marginTop: 50 }} />
+                            <ActivityIndicator size="large" color="#FF8A3C" style={{ marginTop: 50 }} />
                         ) : (
-                            <FlatList 
+                            <FlatList
                                 data={replies}
                                 keyExtractor={(item, index) => item.id?.toString() || index.toString()}
                                 renderItem={renderReplyItem}
@@ -285,7 +343,7 @@ const styles = StyleSheet.create({
     },
     title: {
         fontSize: 20,
-        fontWeight: '500', 
+        fontWeight: '500',
         color: '#111',
     },
     toggleContainer: {
@@ -338,6 +396,59 @@ const styles = StyleSheet.create({
         fontSize: 14,
         color: '#888',
     },
+    createFormCard: {
+        alignItems: 'center',
+        padding: 30,
+        backgroundColor: 'white',
+        borderRadius: 16,
+        width: '90%',
+    },
+    iconContainer: {
+        width: 80,
+        height: 80,
+        borderRadius: 40,
+        backgroundColor: '#FFF3E0', // Light orange
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginBottom: 20,
+    },
+    mainIcon: {
+        width: 40,
+        height: 40,
+        tintColor: '#FF8A3C',
+    },
+    createFormTitle: {
+        fontSize: 20,
+        fontWeight: '700',
+        color: '#333',
+        marginBottom: 10,
+        textAlign: 'center',
+    },
+    createFormSubtitle: {
+        fontSize: 14,
+        color: '#666',
+        textAlign: 'center',
+        marginBottom: 30,
+        lineHeight: 20,
+    },
+    createButtonPrimary: {
+        backgroundColor: '#FF8A3C',
+        paddingVertical: 14,
+        paddingHorizontal: 40,
+        borderRadius: 30,
+        shadowColor: "#FF8A3C",
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.3,
+        shadowRadius: 6,
+        elevation: 6,
+        width: '100%',
+        alignItems: 'center',
+    },
+    createButtonText: {
+        color: 'white',
+        fontSize: 16,
+        fontWeight: '600',
+    },
     repliesContainer: {
         flex: 1,
     },
@@ -358,20 +469,22 @@ const styles = StyleSheet.create({
     },
     exportRow: {
         flexDirection: 'row',
-        justifyContent: 'center',
-        gap: 10, // Reduced gap to fit 3 buttons if needed
+        justifyContent: 'space-between',
+        gap: 8,
         paddingVertical: 20,
-        flexWrap: 'wrap', // Allow wrapping if screen small
+        paddingHorizontal: 16,
     },
     exportButton: {
+        flex: 1,
         flexDirection: 'row',
         alignItems: 'center',
+        justifyContent: 'center',
         borderWidth: 1,
         borderColor: '#FF8A3C',
         borderRadius: 8,
-        paddingVertical: 8,
-        paddingHorizontal: 16, // Reduced padding
-        gap: 6,
+        paddingVertical: 10,
+        paddingHorizontal: 2,
+        gap: 4,
         backgroundColor: 'white',
     },
     checkStatusButton: {
@@ -385,7 +498,8 @@ const styles = StyleSheet.create({
     exportButtonText: {
         color: '#FF8A3C',
         fontWeight: '600',
-        fontSize: 13, // Slightly smaller
+        fontSize: 11,
+        textAlign: 'center',
     },
     exportIcon: {
         width: 14,
@@ -400,7 +514,7 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         paddingVertical: 16,
-        borderBottomWidth: 0, 
+        borderBottomWidth: 0,
     },
     avatar: {
         width: 40,
@@ -409,7 +523,7 @@ const styles = StyleSheet.create({
         marginRight: 12,
     },
     avatarPlaceholder: {
-        backgroundColor: '#FFE0B2', 
+        backgroundColor: '#FFE0B2',
         alignItems: 'center',
         justifyContent: 'center',
     },
@@ -424,7 +538,7 @@ const styles = StyleSheet.create({
     },
     replyName: {
         fontSize: 16,
-        fontWeight: '500', 
+        fontWeight: '500',
         color: '#111',
     },
     replyDate: {
