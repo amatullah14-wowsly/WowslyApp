@@ -756,37 +756,7 @@ export const getExportStatus = async (eventId) => {
 export const insertOrUpdateRegistrationForm = async (eventId, formId, payload) => {
     try {
         console.log(`Insert or Update Registration Form for event: ${eventId}, form: ${formId}`);
-        let response;
-        if (!formId || formId === 0) {
-            // Create New Form
-             response = await client.post(`/events/${eventId}/eventregistrationforms`, payload);
-        } else {
-            // Update Existing Form Logic 
-            // The user didn't explicitly give the Update URL but implied the 'Save' logic uses the same. 
-            // However, the original code used `/events/${eventId}/eventregistrationformfields/${formId}/insertorupdate`.
-            // The new requirement says "niche save no option avse ne ej bdhi api call thase".
-            // If the user says "save" calls the same API, but `insertorupdate` looks like a custom endpoint.
-            // Let's assume standard REST for update if creation is REST.
-            // BUT, the function name suggests a composite action.
-            // Let's keep the original endpoint for `formId > 0` unless it fails, OR assuming the initial code I wrote was based on previous knowledge? 
-            // Wait, the user said "If has_form is 0... this API call will happen: .../eventregistrationforms".
-            // The user didn't explicitly say "Update API is different".
-            // However, `insertorupdate` path looks specific to fields maybe?
-            // Actually, the user's snippet for CREATE is `events/1798/eventregistrationforms`.
-            // Let's use THAT for creation. 
-            // For Update, I should probably stick to what I had OR use PUT/PATCH on the same endpoint? 
-            // safer to keep the old one for update if it was working or assume similar pattern?
-            // Let's check if the previously existing endpoint `eventregistrationformfields/${formId}/insertorupdate` was a hallucination or real.
-            // Given the error in the log: `Creating default object from empty value` around `InsertOrUpdateFormFields.php`
-            // It suggests that the backend MIGHT be expecting the ID to exist.
-            // If I am strictly following the user request: "agr form first time create thai che ... aa api call thase".
-            // I will implement the create path.
-            // For Update, I'll stick to the original path I had `eventregistrationformfields/${formId}/insertorupdate` as I don't have better info, 
-            // OR I can try to use the same logic but with ID?
-            // Let's strictly implement the CREATE path separately.
-            response = await client.post(`/events/${eventId}/eventregistrationformfields/${formId}/insertorupdate`, payload);
-        }
-        
+        const response = await client.post(`/events/${eventId}/eventregistrationformfields/${formId}/insertorupdate`, payload);
         console.log("INSERT/UPDATE FORM RESPONSE:", JSON.stringify(response.data));
         return response.data;
     } catch (error) {
@@ -804,6 +774,30 @@ export const deleteRegistrationFormFields = async (eventId, payload) => {
     } catch (error) {
         console.log("BULK DELETE FIELDS ERROR:", error.response?.data || error.message);
         return { success: false, message: "Delete failed" };
+    }
+};
+
+export const getRegistrationFormStatus = async (eventId) => {
+    try {
+        console.log(`Checking Registration Form Status for event: ${eventId}`);
+        const response = await client.get(`/events/${eventId}/eventregistrationforms`);
+        console.log("GET REGISTRATION FORM STATUS RESPONSE:", JSON.stringify(response.data));
+        return response.data;
+    } catch (error) {
+        console.log("GET REGISTRATION FORM STATUS ERROR:", error.response?.data || error.message);
+        return { is_filled: false, form: [] };
+    }
+};
+
+export const createRegistrationForm = async (eventId, payload) => {
+    try {
+        console.log(`Creating Registration Form for event: ${eventId}`);
+        const response = await client.post(`/events/${eventId}/eventregistrationforms`, payload);
+        console.log("CREATE REGISTRATION FORM RESPONSE:", JSON.stringify(response.data));
+        return response.data;
+    } catch (error) {
+        console.log("CREATE REGISTRATION FORM ERROR:", error.response?.data || error.message);
+        return { success: false, message: "Creation failed" };
     }
 };
 

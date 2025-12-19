@@ -4,7 +4,7 @@ import { useNavigation, useRoute } from '@react-navigation/native';
 import BackButton from '../../components/BackButton';
 import PencilIcon from '../../components/Icons/PencilIcon';
 import ChevronDownIcon from '../../components/Icons/ChevronDownIcon';
-import { insertOrUpdateRegistrationForm, deleteRegistrationFormFields, getRegistrationFormDetails, getEventDetails } from '../../api/event';
+import { insertOrUpdateRegistrationForm, deleteRegistrationFormFields, getRegistrationFormDetails, getEventDetails, getRegistrationFormStatus, createRegistrationForm } from '../../api/event';
 import Toast from 'react-native-toast-message';
 
 // Types
@@ -20,19 +20,16 @@ interface FormField {
     options?: any[];
 }
 
-const RegistrationFormEditor = () => {
+const RegistrationFormEditor = ({ isEmbedded = false, eventId: propEventId }: { isEmbedded?: boolean, eventId?: number }) => {
     const navigation = useNavigation();
     const route = useRoute<any>();
-    const { eventId } = route.params || {};
+    const { eventId: routeEventId, autoEdit } = route.params || {};
+    const eventId = propEventId || routeEventId;
 
     // Mode State
     const [isEditing, setIsEditing] = useState(false);
     const [showAddQuestionModal, setShowAddQuestionModal] = useState(false);
     const [editingFieldId, setEditingFieldId] = useState<string | null>(null);
-
-    // Option State for Multiple Choice
-    const [currentOption, setCurrentOption] = useState('');
-    const [newQuestionOptions, setNewQuestionOptions] = useState<string[]>([]);
 
     // Form Configuration State
     const [formId, setFormId] = useState<number | null>(null);
@@ -43,10 +40,10 @@ const RegistrationFormEditor = () => {
 
     // Fields State
     const [formFields, setFormFields] = useState<FormField[]>([
-        { id: '1', label: 'Name', placeholder: 'Name', type: 'text', isDefault: true, mandatory: 1, is_show: 1 },
-        { id: '2', label: 'Country Code', placeholder: 'Country Code', type: 'number', isDefault: true, mandatory: 1, is_show: 1 },
-        { id: '3', label: 'Mobile Number', placeholder: 'Mobile Number', type: 'text', isDefault: true, mandatory: 1, is_show: 1 },
-        { id: '4', label: 'Email', placeholder: 'Email', type: 'text', isDefault: true, mandatory: 1, is_show: 1 },
+        { id: 'default_1', label: 'Name', placeholder: 'Name', type: 'text', isDefault: true, mandatory: 1, is_show: 1 },
+        { id: 'default_2', label: 'Country Code', placeholder: 'Country Code', type: 'number', isDefault: true, mandatory: 1, is_show: 1 },
+        { id: 'default_3', label: 'Mobile Number', placeholder: 'Mobile Number', type: 'text', isDefault: true, mandatory: 1, is_show: 1 },
+        { id: 'default_4', label: 'Email', placeholder: 'Email', type: 'text', isDefault: true, mandatory: 1, is_show: 1 },
     ]);
 
     const [deletedFieldIds, setDeletedFieldIds] = useState<number[]>([]);
@@ -54,6 +51,9 @@ const RegistrationFormEditor = () => {
     const [newQuestionType, setNewQuestionType] = useState('Short Answer');
     const [newQuestionLabel, setNewQuestionLabel] = useState('');
     const [showTypeDropdown, setShowTypeDropdown] = useState(false);
+
+    const [newOptions, setNewOptions] = useState<string[]>([]);
+    const [newOptionText, setNewOptionText] = useState('');
 
     const questionTypes = [
         'Short Answer',
@@ -69,24 +69,83 @@ const RegistrationFormEditor = () => {
         const fetchForm = async () => {
             if (!eventId) return;
 
-            // First check if form exists in event details
-            const eventRes = await getEventDetails(eventId);
-            if (eventRes && eventRes.data) {
-                const regFormId = eventRes.data.registration_form_id;
+            // Fetch Event Details to get the active form ID
+            let activeFormId = null;
+            try {
+                const eventRes = await getEventDetails(eventId);
+                if (eventRes && eventRes.data) {
+                    activeFormId = eventRes.data.registration_form_id;
+                }
+            } catch (err) {
+                console.log("Error fetching event details:", err);
+            }
 
-                if (regFormId) {
+            const statusRes = await getRegistrationFormStatus(eventId);
+
+            // Logic to check if any form exists
+            const hasFormList = statusRes && statusRes.form && Array.isArray(statusRes.form) && statusRes.form.length > 0;
+            const singleForm = statusRes && statusRes.data && statusRes.data.id;
+            const isFilled = statusRes && statusRes.is_filled === true;
+
+            if (!isFilled && !hasFormList && !singleForm) {
+                // NEW FORM FLOW
+                setFormFields([
+                    { id: 'default_1', label: 'Name', placeholder: 'Name', type: 'text', isDefault: true, mandatory: 1, is_show: 1 },
+                    { id: 'default_2', label: 'Country Code', placeholder: 'Country Code', type: 'number', isDefault: true, mandatory: 1, is_show: 1 },
+                    { id: 'default_3', label: 'Mobile Number', placeholder: 'Mobile Number', type: 'text', isDefault: true, mandatory: 1, is_show: 1 },
+                    { id: 'default_4', label: 'Email', placeholder: 'Email', type: 'text', isDefault: true, mandatory: 1, is_show: 1 },
+                ]);
+                setFormId(null);
+                setFormTitle('Guest Registration Form');
+                setIsEditing(true);
+            } else {
+                // EXISTING FORM FLOW
+                console.log("Form exists, fetching details...");
+
+                let regFormId = activeFormId;
+                let foundForm = null;
+
+                if (hasFormList) {
+                    if (regFormId) {
+                        foundForm = statusRes.form.find((f: any) => f.id == regFormId);
+                    }
+                    if (!foundForm) {
+                        // Default to first one if undefined or not found
+                        foundForm = statusRes.form[0];
+                        regFormId = foundForm.id;
+                    }
+                } else if (singleForm) {
+                    foundForm = statusRes.data;
+                    regFormId = statusRes.data.id;
+                }
+
+                if (regFormId && foundForm) {
                     setFormId(regFormId);
-                    const formRes = await getRegistrationFormDetails(eventId, regFormId);
-                    if (formRes && formRes.data) {
-                        const data = formRes.data;
-                        setFormTitle(data.title || 'Guest Registration Form');
-                        setButtonText(data.form_button_title || 'Registration');
-                        setSuccessMessage(data.form_registration_success_message || 'You have successfully registered for this event!!');
-                        setEmailValidation(data.email_validation_required === 1);
 
-                        // Map Fields
-                        if (data.fields && Array.isArray(data.fields)) {
-                            const mappedFields = data.fields.map((f: any) => ({
+                    // Directly populate
+                    const data = foundForm;
+                    setFormTitle(data.title || formTitle);
+                    setButtonText(data.form_button_title || buttonText);
+                    setSuccessMessage(data.form_registration_success_message || successMessage);
+                    setEmailValidation(data.email_validation_required === 1);
+
+                    if (data.fields && Array.isArray(data.fields)) {
+                        const mappedFields = data.fields.map((f: any) => ({
+                            id: String(f.id),
+                            label: f.question,
+                            placeholder: f.question,
+                            type: f.type,
+                            isDefault: f.id <= 7531 || ['Name', 'Country Code', 'Mobile Number', 'Email'].includes(f.question),
+                            mandatory: f.mandatory,
+                            is_show: f.is_show,
+                            options: f.options
+                        }));
+                        setFormFields(mappedFields);
+                    } else {
+                        // Fallback
+                        const formRes = await getRegistrationFormDetails(eventId, regFormId);
+                        if (formRes && formRes.data && formRes.data.fields) {
+                            const mappedFields = formRes.data.fields.map((f: any) => ({
                                 id: String(f.id),
                                 label: f.question,
                                 placeholder: f.question,
@@ -96,14 +155,15 @@ const RegistrationFormEditor = () => {
                                 is_show: f.is_show,
                                 options: f.options
                             }));
-                            setFormFields(mappedFields.length > 0 ? mappedFields : formFields);
+                            setFormFields(mappedFields);
                         }
                     }
                 }
+                setIsEditing(autoEdit || false); // Start in PREVIEW mode unless autoEdit is requested
             }
         };
         fetchForm();
-    }, [eventId]);
+    }, [eventId, autoEdit]);
 
     const handleSave = async (fromAutosave = false, fieldsOverride: FormField[] | null = null) => {
         if (!eventId) {
@@ -151,32 +211,69 @@ const RegistrationFormEditor = () => {
             fields: validFields
         };
 
-        const currentFormId = formId || 0;
-        const response = await insertOrUpdateRegistrationForm(eventId, currentFormId, payload);
+        let response;
+        if (!formId) {
+            // CREATE NEW FORM
+            console.log("Calling createRegistrationForm...");
+            response = await createRegistrationForm(eventId, payload);
+        } else {
+            // UPDATE EXISTING FORM
+            const currentFormId = formId;
+            console.log("Calling insertOrUpdateRegistrationForm...");
+            response = await insertOrUpdateRegistrationForm(eventId, currentFormId, payload);
+        }
 
-        if (response && response.data) {
-            const successMsg = currentFormId === 0 ? "Form Created Successfully" : "Form Saved";
-            if (!fromAutosave) Toast.show({ type: 'success', text1: successMsg });
 
-            if (!formId && response.data.id) {
-                setFormId(response.data.id);
+        if (response && (response.data || response.success)) {
+            const responseData = response.data || response;
+
+            if (!fromAutosave) Toast.show({ type: 'success', text1: 'Form Saved' });
+
+            const savedFormId = formId || responseData.id;
+            if (savedFormId) {
+                setFormId(savedFormId);
+
+                // 3. Fetch Fresh Details (As per User Trace)
+                // This ensures we have the exact state from DB including any backend side-effects
+                const detailsRes = await getRegistrationFormDetails(eventId, savedFormId);
+                if (detailsRes && detailsRes.data) {
+                    const data = detailsRes.data;
+                    setFormTitle(data.title || formTitle);
+                    setButtonText(data.form_button_title || buttonText);
+                    setSuccessMessage(data.form_registration_success_message || successMessage);
+                    setEmailValidation(data.email_validation_required === 1);
+
+                    if (data.fields && Array.isArray(data.fields)) {
+                        const mappedFields = data.fields.map((f: any) => ({
+                            id: String(f.id),
+                            label: f.question,
+                            placeholder: f.question,
+                            type: f.type,
+                            isDefault: f.id <= 7531 || ['Name', 'Country Code', 'Mobile Number', 'Email'].includes(f.question),
+                            mandatory: f.mandatory,
+                            is_show: f.is_show,
+                            options: f.options
+                        }));
+                        setFormFields(mappedFields.length > 0 ? mappedFields : formFields);
+                    }
+                }
+            } else {
+                // Fallback if no ID (shouldn't happen on success)
+                if (responseData.fields) {
+                    const refreshedFields = responseData.fields.map((f: any) => ({
+                        id: String(f.id),
+                        label: f.question,
+                        placeholder: f.question,
+                        type: f.type,
+                        isDefault: f.id <= 7531 || ['Name', 'Country Code', 'Mobile Number', 'Email'].includes(f.question),
+                        mandatory: f.mandatory,
+                        is_show: f.is_show,
+                        options: f.options
+                    }));
+                    setFormFields(refreshedFields);
+                }
             }
-            // Refresh fields to get new IDs
-            if (response.data.fields) {
-                const refreshedFields = response.data.fields.map((f: any) => ({
-                    id: String(f.id),
-                    label: f.question,
-                    placeholder: f.question,
-                    type: f.type,
-                    isDefault: f.id <= 7531 || ['Name', 'Country Code', 'Mobile Number', 'Email'].includes(f.question),
-                    mandatory: f.mandatory,
-                    is_show: f.is_show,
-                    options: f.options
-                }));
-                // Only update if we are not in the middle of typing? 
-                // Wait, if we autosave on Add Question, we should update ID.
-                setFormFields(refreshedFields);
-            }
+
             if (!fromAutosave) setIsEditing(false);
         } else {
             if (!fromAutosave) Toast.show({ type: 'error', text1: 'Failed to save' });
@@ -195,48 +292,22 @@ const RegistrationFormEditor = () => {
         setShowAddQuestionModal(true);
         setNewQuestionLabel('');
         setNewQuestionType('Short Answer');
-        setNewQuestionOptions([]);
-        setCurrentOption('');
+        setNewOptions([]); // Reset options
+        setNewOptionText('');
         setShowTypeDropdown(false);
         setEditingFieldId(null);
     }
 
-    const handleAddOption = () => {
-        if (currentOption.trim()) {
-            setNewQuestionOptions([...newQuestionOptions, currentOption.trim()]);
-            setCurrentOption('');
-        }
-    };
-
-    const handleRemoveOption = (index: number) => {
-        setNewQuestionOptions(prev => prev.filter((_, i) => i !== index));
-    };
-
     const confirmAddQuestion = () => {
         if (!newQuestionLabel.trim()) return;
 
-        if (newQuestionType === 'Long Answer') apiType = 'textarea';
+        let apiType = 'text';
+        if (newQuestionType === 'Mobile Number' || newQuestionType === 'Country Code') apiType = 'number';
+        else if (newQuestionType === 'Long Answer') apiType = 'textarea';
         else if (newQuestionType === 'Yes/No Answer') apiType = 'switch';
         else if (newQuestionType === 'Multiple Choice, Single Answer') apiType = 'radio';
         else if (newQuestionType === 'Multiple Choice, Multiple Answer') apiType = 'checkbox';
         else if (newQuestionType === 'File Upload') apiType = 'file';
-        else if (newQuestionType === 'Mobile Number' || newQuestionType === 'Country Code') apiType = 'number';
-
-        // Handle Options
-        let finalOptions = newQuestionOptions;
-        // Switch doesn't strictly need options if backend handles it, but user might want to see them?
-        // Usually switch implies boolean/toggle. The log showed options: [] for switch.
-        // So we keep options empty for switch unless required.
-        if (newQuestionType === 'Yes/No Answer') {
-            finalOptions = [];
-        }
-
-        const fieldData = {
-            label: newQuestionLabel,
-            placeholder: newQuestionLabel,
-            type: apiType,
-            options: finalOptions
-        };
 
         if (editingFieldId) {
             // Update existing field
@@ -244,7 +315,10 @@ const RegistrationFormEditor = () => {
                 if (f.id === editingFieldId) {
                     return {
                         ...f,
-                        ...fieldData,
+                        label: newQuestionLabel,
+                        placeholder: newQuestionLabel,
+                        type: apiType,
+                        options: (newQuestionType.includes('Multiple Choice') && newOptions.length > 0) ? newOptions : [],
                         // Keep other props
                     };
                 }
@@ -253,25 +327,24 @@ const RegistrationFormEditor = () => {
             setFormFields(updatedFields);
             setEditingFieldId(null);
             setNewQuestionLabel('');
-            setNewQuestionOptions([]);
-            setCurrentOption('');
             setShowAddQuestionModal(false);
             handleSave(true, updatedFields);
         } else {
             // Add new field
             const newField: FormField = {
                 id: Date.now().toString(),
-                ...fieldData,
+                label: newQuestionLabel,
+                placeholder: newQuestionLabel,
+                type: apiType,
                 isDefault: false,
                 mandatory: 0,
                 is_show: 1,
+                options: (newQuestionType.includes('Multiple Choice') && newOptions.length > 0) ? newOptions : []
             };
 
             const updatedFields = [...formFields, newField];
             setFormFields(updatedFields);
             setNewQuestionLabel('');
-            setNewQuestionOptions([]);
-            setCurrentOption('');
             setShowAddQuestionModal(false);
 
             // Trigger Autosave with new fields
@@ -283,18 +356,33 @@ const RegistrationFormEditor = () => {
         setEditingFieldId(field.id);
         setNewQuestionLabel(field.label);
 
-        // Reverse Map API type to UI type
         let uiType = 'Short Answer';
         if (field.type === 'textarea') uiType = 'Long Answer';
         else if (field.type === 'switch') uiType = 'Yes/No Answer';
         else if (field.type === 'radio') uiType = 'Multiple Choice, Single Answer';
         else if (field.type === 'checkbox') uiType = 'Multiple Choice, Multiple Answer';
         else if (field.type === 'file') uiType = 'File Upload';
-        else if (field.type === 'number') uiType = 'Mobile Number';
 
         setNewQuestionType(uiType);
-        setNewQuestionOptions(field.options || []);
+
+        // Load existing options
+        setNewOptions(field.options && field.options.length > 0 ? field.options : []);
+        setNewOptionText('');
+
         setShowAddQuestionModal(true);
+    };
+
+    const handleAddOption = () => {
+        if (newOptionText.trim()) {
+            setNewOptions([...newOptions, newOptionText.trim()]);
+            setNewOptionText('');
+        }
+    };
+
+    const handleRemoveOption = (index: number) => {
+        const updatedOptions = [...newOptions];
+        updatedOptions.splice(index, 1);
+        setNewOptions(updatedOptions);
     };
 
     const handleToggleVisibility = (id: string) => {
@@ -347,33 +435,137 @@ const RegistrationFormEditor = () => {
 
     // --- RENDER HELPERS ---
 
+    const renderFieldPreview = (field: FormField) => {
+        // Common Label
+        const Label = () => <Text style={{ fontSize: 15, color: '#333', marginBottom: 8 }}>{field.label}</Text>;
+
+        switch (field.type) {
+            case 'switch':
+                return (
+                    <View style={styles.switchRow}>
+                        <Text style={{ fontSize: 16, color: '#333' }}>{field.label}</Text>
+                        <Switch
+                            trackColor={{ false: "#767577", true: "#d3d3d3" }} // Greyish for read-only preview or match screenshot
+                            thumbColor={Platform.OS === 'ios' ? '#fff' : '#f4f3f4'}
+                            value={false} // Default off for preview or mock
+                            disabled={true}
+                        />
+                    </View>
+                );
+            case 'radio':
+                return (
+                    <View style={styles.fieldContainer}>
+                        <Label />
+                        <View style={styles.optionsRow}>
+                            {field.options && field.options.map((opt, idx) => (
+                                <View key={idx} style={styles.optionItem}>
+                                    <View style={styles.radioCircle} />
+                                    <Text style={styles.optionText}>{opt}</Text>
+                                </View>
+                            ))}
+                        </View>
+                    </View>
+                );
+            case 'checkbox':
+                return (
+                    <View style={styles.fieldContainer}>
+                        <Label />
+                        <View style={styles.optionsRow}>
+                            {field.options && field.options.map((opt, idx) => (
+                                <View key={idx} style={styles.optionItem}>
+                                    <View style={styles.checkboxSquare} />
+                                    <Text style={styles.optionText}>{opt}</Text>
+                                </View>
+                            ))}
+                        </View>
+                    </View>
+                );
+            case 'file':
+                return (
+                    <View style={styles.fieldContainer}>
+                        <Label />
+                        <View style={styles.fileUploadBox}>
+                            <Text style={{ color: '#666', marginBottom: 5 }}>{field.label}</Text>
+                            {/* Replaced missing image with text placeholder */}
+                            <View style={{ width: 40, height: 40, borderWidth: 1, borderColor: '#999', justifyContent: 'center', alignItems: 'center', borderRadius: 4 }}>
+                                <Text style={{ fontSize: 24, color: '#999', lineHeight: 28 }}>↑</Text>
+                            </View>
+                            <Text style={{ fontSize: 10, color: '#999', marginTop: 4 }}>Upload File</Text>
+                        </View>
+                    </View>
+                );
+            case 'textarea':
+                return (
+                    <View style={styles.inputWrapper}>
+                        <TextInput
+                            style={[styles.input, { height: 80, textAlignVertical: 'top' }]}
+                            value={field.label === "Address" ? "" : field.label} // Don't show label as value for address if empty 
+                            placeholder={field.placeholder}
+                            placeholderTextColor="#999"
+                            editable={false}
+                            multiline={true}
+                        />
+                    </View>
+                );
+            case 'text':
+            case 'number':
+            case 'email':
+            default:
+                return (
+                    <View style={styles.inputWrapper}>
+                        <TextInput
+                            style={styles.input}
+                            value={""} // Preview inputs are usually empty except placeholders
+                            placeholder={field.label + (field.mandatory ? " *" : "")}
+                            placeholderTextColor="#666" // Darker placeholder for preview readability
+                            editable={false}
+                        />
+                    </View>
+                );
+        }
+    };
+
     const renderPreviewMode = () => (
         <View style={{ flex: 1 }}>
-            <View style={styles.header}>
-                <BackButton onPress={() => navigation.goBack()} />
-                <Text style={styles.headerTitle}>{formTitle}</Text>
-                <TouchableOpacity style={styles.editIconContainer} onPress={() => setIsEditing(true)}>
-                    <PencilIcon width={22} height={22} color="#1a237e" />
-                </TouchableOpacity>
-            </View>
+            {!isEmbedded && (
+                <View style={styles.header}>
+                    <BackButton onPress={() => navigation.goBack()} />
+                    <Text style={styles.headerTitle}>{!formId ? "Create Registration Form" : formTitle}</Text>
+                    <View style={{ width: 22 }} />
+                </View>
+            )}
             <ScrollView contentContainerStyle={styles.content}>
                 <View style={styles.card}>
                     <View style={styles.cardHeader}>
-                        <Text style={styles.cardTitle}>{formTitle}</Text>
+                        <Text style={styles.cardTitle}>Form Details</Text>
+                        <TouchableOpacity
+                            style={styles.editIconContainer}
+                            onPress={() => {
+                                if (isEmbedded) {
+                                    navigation.navigate('RegistrationFormEditor', { eventId, autoEdit: true });
+                                } else {
+                                    setIsEditing(true);
+                                }
+                            }}
+                        >
+                            <PencilIcon width={20} height={20} color="#1a237e" />
+                        </TouchableOpacity>
                     </View>
                     <View style={styles.fieldsContainer}>
                         {formFields.map((field) => (
-                            <View key={field.id} style={styles.inputWrapper}>
-                                <TextInput
-                                    style={styles.input}
-                                    value={field.label}
-                                    onChangeText={(text) => handleFieldChange(text, field.id)}
-                                    placeholder={field.placeholder || field.label}
-                                    placeholderTextColor="#999"
-                                    editable={false} // Preview is read-only for structure
-                                />
+                            <View key={field.id}>
+                                {renderFieldPreview(field)}
                             </View>
                         ))}
+                    </View>
+
+                    {/* Summary Section */}
+                    <View style={styles.summarySection}>
+                        <Text style={styles.summaryLabel}>Button Text : <Text style={styles.summaryValue}>{buttonText}</Text></Text>
+                        <View style={styles.summaryRow}>
+                            <Text style={styles.summaryLabel}>Registration success message : </Text>
+                            <Text style={[styles.summaryValue, { flex: 1 }]}>{successMessage}</Text>
+                        </View>
                     </View>
                 </View>
             </ScrollView>
@@ -382,12 +574,14 @@ const RegistrationFormEditor = () => {
 
     const renderEditMode = () => (
         <View style={{ flex: 1 }}>
-            <View style={styles.header}>
-                <BackButton onPress={() => setIsEditing(false)} />
-                {/* Back acts as Cancel/Back to Preview? Or explicit Cancel button? User said 'Cancel' button exists. */}
-                <Text style={styles.headerTitle}>Edit Form</Text>
-                <View style={{ width: 40 }} />
-            </View>
+            {!isEmbedded && (
+                <View style={styles.header}>
+                    <BackButton onPress={() => setIsEditing(false)} />
+                    {/* Back acts as Cancel/Back to Preview? Or explicit Cancel button? User said 'Cancel' button exists. */}
+                    <Text style={styles.headerTitle}>Edit Form</Text>
+                    <View style={{ width: 40 }} />
+                </View>
+            )}
             <ScrollView contentContainerStyle={styles.content}>
                 <View style={styles.sectionContainer}>
                     <View style={styles.inputContainer}>
@@ -431,55 +625,13 @@ const RegistrationFormEditor = () => {
                     <View style={styles.fieldsList}>
                         {formFields.map((field) => (
                             <View key={field.id} style={[styles.readOnlyField, !field.isDefault && styles.customFieldRow]}>
-                                <View style={{ flex: 1 }}>
-                                    {isEditing && !field.isDefault ? (
-                                        <TextInput
-                                            style={[styles.readOnlyInput, { borderWidth: 1, borderColor: '#E0E0E0', borderRadius: 8, color: '#333' }]}
-                                            value={field.label}
-                                            editable={false}
-                                        />
-                                    ) : (
-                                        <>
-                                            {/* Question Label */}
-                                            <View style={{ marginBottom: 5 }}>
-                                                <Text style={{ fontSize: 13, color: '#666' }}>{field.label}</Text>
-                                            </View>
-
-                                            {/* Render Input based on Type */}
-                                            {field.type === 'textarea' ? (
-                                                <TextInput
-                                                    style={[styles.readOnlyInput, { height: 80, textAlignVertical: 'top' }, !field.isDefault && { borderWidth: 1, borderColor: '#E0E0E0', borderRadius: 8 }]}
-                                                    editable={false}
-                                                    multiline
-                                                />
-                                            ) : field.type === 'switch' ? (
-                                                <View style={{ flexDirection: 'row', alignItems: 'center', height: 40 }}>
-                                                    <Switch value={false} disabled={true} trackColor={{ false: "#767577", true: "#FF8A3C" }} />
-                                                </View>
-                                            ) : (field.type === 'radio' || field.type === 'checkbox') ? (
-                                                <View style={{ gap: 5 }}>
-                                                    {field.options && field.options.map((opt: string, idx: number) => (
-                                                        <View key={idx} style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                                                            <View style={{
-                                                                width: 16, height: 16,
-                                                                borderRadius: field.type === 'radio' ? 8 : 4,
-                                                                borderWidth: 1, borderColor: '#999'
-                                                            }} />
-                                                            <Text style={{ color: '#333' }}>{opt}</Text>
-                                                        </View>
-                                                    ))}
-                                                    {(!field.options || field.options.length === 0) && <Text style={{ color: '#999', fontStyle: 'italic' }}>No options added</Text>}
-                                                </View>
-                                            ) : (
-                                                <TextInput
-                                                    style={[styles.readOnlyInput, !field.isDefault && { borderWidth: 1, borderColor: '#E0E0E0', borderRadius: 8 }]}
-                                                    editable={false}
-                                                />
-                                            )}
-                                        </>
-                                    )}
-                                </View>
-                                {!field.isDefault && isEditing && (
+                                <TextInput
+                                    style={[styles.readOnlyInput, !field.isDefault && { flex: 1, borderWidth: 1, borderColor: '#E0E0E0', borderRadius: 8 }]}
+                                    value={field.label}
+                                    placeholder={field.placeholder}
+                                    editable={false}
+                                />
+                                {!field.isDefault && (
                                     <View style={styles.actionIconsRow}>
                                         <TouchableOpacity style={styles.actionIcon} onPress={() => handleEditQuestion(field)}>
                                             <Image source={require('../../assets/img/form/edit.png')} style={{ width: 20, height: 20, resizeMode: 'contain' }} />
@@ -541,26 +693,38 @@ const RegistrationFormEditor = () => {
                                 </View>
 
                                 {/* Options Input for Multiple Choice */}
-                                {(newQuestionType.includes('Multiple Choice')) && (
-                                    <View style={[styles.inputContainer, { zIndex: 100 }]}>
-                                        <Text style={{ fontSize: 13, color: '#666', marginBottom: 5, fontWeight: '500' }}>Add option</Text>
-                                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                                {(newQuestionType === 'Multiple Choice, Single Answer' || newQuestionType === 'Multiple Choice, Multiple Answer') && (
+                                    <View>
+                                        <View style={[styles.inputContainer, { flexDirection: 'row', alignItems: 'center', gap: 10 }]}>
                                             <TextInput
-                                                style={[styles.textInput, { flex: 1, borderColor: '#FF8A3C', borderWidth: 1.5 }]}
-                                                value={currentOption}
-                                                onChangeText={setCurrentOption}
-                                                placeholder=""
+                                                style={[styles.textInput, { flex: 1 }]}
+                                                placeholder="Add option"
+                                                placeholderTextColor="#999"
+                                                value={newOptionText}
+                                                onChangeText={setNewOptionText}
                                             />
                                             <TouchableOpacity onPress={handleAddOption}>
-                                                <Text style={{ fontSize: 30, color: '#FF8A3C', fontWeight: '400' }}>+</Text>
+                                                <Text style={{ fontSize: 30, color: '#FF8A3C', fontWeight: '500' }}>+</Text>
                                             </TouchableOpacity>
                                         </View>
-                                        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 10 }}>
-                                            {newQuestionOptions.map((opt, index) => (
-                                                <TouchableOpacity key={index} style={styles.optionPill} onPress={() => handleRemoveOption(index)}>
-                                                    <Text style={styles.optionPillText}>{opt}</Text>
-                                                    <View style={styles.optionPillClose}><Text style={{ color: '#FF8A3C', fontSize: 10, fontWeight: 'bold' }}>✕</Text></View>
-                                                </TouchableOpacity>
+
+                                        {/* Chips */}
+                                        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginTop: 5, marginBottom: 15 }}>
+                                            {newOptions.map((opt, idx) => (
+                                                <View key={idx} style={{
+                                                    flexDirection: 'row',
+                                                    alignItems: 'center',
+                                                    backgroundColor: '#FF8A3C',
+                                                    borderRadius: 20,
+                                                    paddingHorizontal: 15,
+                                                    paddingVertical: 8,
+                                                    gap: 8
+                                                }}>
+                                                    <Text style={{ color: 'white', fontSize: 14 }}>{opt}</Text>
+                                                    <TouchableOpacity onPress={() => handleRemoveOption(idx)}>
+                                                        <Text style={{ color: 'white', fontWeight: 'bold' }}>×</Text>
+                                                    </TouchableOpacity>
+                                                </View>
                                             ))}
                                         </View>
                                     </View>
@@ -585,24 +749,26 @@ const RegistrationFormEditor = () => {
             </ScrollView >
 
             <View style={styles.footerButtons}>
-                <TouchableOpacity style={styles.cancelButton} onPress={handleCancel}>
+                <TouchableOpacity style={styles.cancelButton} onPress={() => setIsEditing(false)}>
                     <Text style={styles.cancelButtonText}>Cancel</Text>
                 </TouchableOpacity>
                 <TouchableOpacity style={styles.saveFooterButton} onPress={() => handleSave(false)}>
-                    <Text style={styles.saveFooterButtonText}>{formId ? 'Save' : 'Create Form'}</Text>
+                    <Text style={styles.saveFooterButtonText}>Save</Text>
                 </TouchableOpacity>
             </View>
         </View >
     );
 
+    // Wrapper Logic for Embedded Mode
+    const Wrapper = isEmbedded ? View : SafeAreaView;
+    const wrapperStyle = isEmbedded ? { flex: 1, backgroundColor: '#fff' } : styles.container;
+
     return (
-        <SafeAreaView style={styles.container}>
+        <Wrapper style={wrapperStyle}>
             <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
                 {isEditing ? renderEditMode() : renderPreviewMode()}
             </KeyboardAvoidingView>
-
-
-        </SafeAreaView>
+        </Wrapper>
     )
 }
 
@@ -648,6 +814,9 @@ const styles = StyleSheet.create({
         marginBottom: 20,
     },
     cardHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
         marginBottom: 20,
     },
     cardTitle: {
@@ -861,26 +1030,82 @@ const styles = StyleSheet.create({
         fontWeight: '600',
         fontSize: 15,
     },
-    optionPill: {
+    summarySection: {
+        marginTop: 25,
+        gap: 15,
+    },
+    summaryRow: {
+        flexDirection: 'row',
+        alignItems: 'flex-start',
+    },
+    summaryLabel: {
+        fontSize: 15,
+        fontWeight: '700', // bold label
+        color: '#000',
+    },
+    summaryValue: {
+        fontWeight: '400',
+        color: '#333',
+    },
+    // New Styles for Rich Preview
+    switchRow: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        paddingVertical: 10,
+        marginBottom: 10,
+    },
+    fieldContainer: {
+        marginBottom: 20,
+    },
+    optionsRow: {
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        gap: 15,
+        marginTop: 5,
+    },
+    optionItem: {
         flexDirection: 'row',
         alignItems: 'center',
-        backgroundColor: '#FF8A3C',
-        paddingVertical: 6,
-        paddingHorizontal: 12,
-        borderRadius: 20,
-        gap: 8,
+        marginBottom: 5,
     },
-    optionPillText: {
-        color: 'white',
-        fontSize: 14,
-        fontWeight: '600',
+    radioCircle: {
+        height: 20,
+        width: 20,
+        borderRadius: 10,
+        borderWidth: 2,
+        borderColor: '#666',
+        marginRight: 8,
     },
-    optionPillClose: {
-        backgroundColor: 'white',
-        width: 16,
-        height: 16,
+    checkboxSquare: {
+        height: 20,
+        width: 20,
+        borderWidth: 2,
+        borderColor: '#666',
+        borderRadius: 4,
+        marginRight: 8,
+    },
+    optionText: {
+        fontSize: 15,
+        color: '#333',
+    },
+    fileUploadBox: {
+        height: 120,
+        backgroundColor: '#fff',
+        borderWidth: 1,
+        borderColor: '#ddd',
         borderRadius: 8,
-        alignItems: 'center',
         justifyContent: 'center',
-    }
+        alignItems: 'center',
+        marginTop: 5,
+        // Minimal shadow
+        shadowColor: "#000",
+        shadowOffset: {
+            width: 0,
+            height: 1,
+        },
+        shadowOpacity: 0.1,
+        shadowRadius: 2,
+        elevation: 2,
+    },
 })

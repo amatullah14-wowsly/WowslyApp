@@ -5,6 +5,7 @@ import BackButton from '../../components/BackButton';
 // import GuestScreenTemplate from '../Guests/GuestScreenTemplate'; // Removed per request
 import { getRegistrationAnswers, exportRegistrationReplies, getExportStatus, getEventDetails } from '../../api/event';
 import { ToastAndroid, Alert, Platform, Linking } from 'react-native';
+import RegistrationFormEditor from './RegistrationFormEditor';
 
 const RegistrationDashboard = () => {
     const navigation = useNavigation();
@@ -224,29 +225,10 @@ const RegistrationDashboard = () => {
             {/* Content */}
             <View style={styles.content}>
                 {activeTab === 'Form' ? (
-                    <View style={styles.placeholderContainer}>
-                        {hasForm === 1 ? (
-                            <View style={styles.createFormCard}>
-                                <View style={[styles.iconContainer, { backgroundColor: '#E8F5E9' }]}>
-                                    <Image
-                                        source={require('../../assets/img/eventdashboard/registration.png')}
-                                        style={[styles.mainIcon, { tintColor: '#2E7D32' }]} // Green for active
-                                        resizeMode="contain"
-                                    />
-                                </View>
-                                <Text style={styles.createFormTitle}>Active Registration Form</Text>
-                                <Text style={styles.createFormSubtitle}>
-                                    Your registration form is live. You can edit the form details and questions.
-                                </Text>
-                                <TouchableOpacity
-                                    style={[styles.createButtonPrimary, { backgroundColor: 'white', borderWidth: 1, borderColor: '#FF8A3C' }]}
-                                    activeOpacity={0.8}
-                                    onPress={() => navigation.navigate('RegistrationFormEditor', { eventId })}
-                                >
-                                    <Text style={[styles.createButtonText, { color: '#FF8A3C' }]}>Edit Form</Text>
-                                </TouchableOpacity>
-                            </View>
-                        ) : (
+                    hasForm === 1 ? (
+                        <RegistrationFormEditor eventId={eventId} isEmbedded={true} />
+                    ) : (
+                        <View style={styles.placeholderContainer}>
                             <View style={styles.createFormCard}>
                                 <View style={styles.iconContainer}>
                                     <Image
@@ -267,8 +249,8 @@ const RegistrationDashboard = () => {
                                     <Text style={styles.createButtonText}>Create Form</Text>
                                 </TouchableOpacity>
                             </View>
-                        )}
-                    </View>
+                        </View>
+                    )
                 ) : (
                     <View style={styles.repliesContainer}>
 
