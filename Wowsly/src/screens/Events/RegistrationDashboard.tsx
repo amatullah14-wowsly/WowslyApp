@@ -224,7 +224,11 @@ const RegistrationDashboard = () => {
 
             {/* Content */}
             <View style={styles.content}>
-                {activeTab === 'Form' ? (
+                {activeTab === 'Form' && hasForm === null ? (
+                    <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+                        <ActivityIndicator size="large" color="#FF8A3C" />
+                    </View>
+                ) : activeTab === 'Form' ? (
                     hasForm === 1 ? (
                         <RegistrationFormEditor eventId={eventId} isEmbedded={true} />
                     ) : (

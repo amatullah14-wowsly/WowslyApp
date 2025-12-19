@@ -506,11 +506,12 @@ const RegistrationFormEditor = ({ isEmbedded = false, eventId: propEventId }: { 
                 return (
                     <View style={styles.inputWrapper}>
                         <TextInput
-                            style={styles.input}
-                            value={""} // Preview inputs are usually empty except placeholders
+                            style={[styles.input, field.isDefault && { borderBottomWidth: 1, borderBottomColor: '#FF8A3C' }]}
+                            value={field.isDefault ? field.label : ""}
+                            onChangeText={field.isDefault ? (text) => handleFieldChange(text, field.id) : undefined}
                             placeholder={field.label + (field.mandatory ? " *" : "")}
-                            placeholderTextColor="#666" // Darker placeholder for preview readability
-                            editable={false}
+                            placeholderTextColor={field.isDefault ? "#333" : "#666"}
+                            editable={field.isDefault}
                         />
                     </View>
                 );
