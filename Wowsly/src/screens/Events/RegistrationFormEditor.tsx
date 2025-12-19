@@ -233,34 +233,9 @@ const RegistrationFormEditor = ({ isEmbedded = false, eventId: propEventId }: { 
             if (savedFormId) {
                 setFormId(savedFormId);
 
-                // 3. Fetch Fresh Details (As per User Trace)
-                // This ensures we have the exact state from DB including any backend side-effects
-                const detailsRes = await getRegistrationFormDetails(eventId, savedFormId);
-                if (detailsRes && detailsRes.data) {
-                    const data = detailsRes.data;
-                    setFormTitle(data.title || formTitle);
-                    setButtonText(data.form_button_title || buttonText);
-                    setSuccessMessage(data.form_registration_success_message || successMessage);
-                    setEmailValidation(data.email_validation_required === 1);
-
-                    if (data.fields && Array.isArray(data.fields)) {
-                        const mappedFields = data.fields.map((f: any) => ({
-                            id: String(f.id),
-                            label: f.question,
-                            placeholder: f.question,
-                            type: f.type,
-                            isDefault: f.id <= 7531 || ['Name', 'Country Code', 'Mobile Number', 'Email'].includes(f.question),
-                            mandatory: f.mandatory,
-                            is_show: f.is_show,
-                            options: f.options
-                        }));
-                        setFormFields(mappedFields.length > 0 ? mappedFields : formFields);
-                    }
-                }
-            } else {
-                // Fallback if no ID (shouldn't happen on success)
-                if (responseData.fields) {
-                    const refreshedFields = responseData.fields.map((f: any) => ({
+                // OPTIMIZATION: Use fields from response if available to avoid race conditions with checking details immediately
+                if (responseData.fields && Array.isArray(responseData.fields)) {
+                    const mappedFields = responseData.fields.map((f: any) => ({
                         id: String(f.id),
                         label: f.question,
                         placeholder: f.question,
@@ -270,7 +245,31 @@ const RegistrationFormEditor = ({ isEmbedded = false, eventId: propEventId }: { 
                         is_show: f.is_show,
                         options: f.options
                     }));
-                    setFormFields(refreshedFields);
+                    setFormFields(mappedFields.length > 0 ? mappedFields : formFields);
+                } else {
+                    // Fallback: Fetch Fresh Details if fields missing in response
+                    const detailsRes = await getRegistrationFormDetails(eventId, savedFormId);
+                    if (detailsRes && detailsRes.data) {
+                        const data = detailsRes.data;
+                        setFormTitle(data.title || formTitle);
+                        setButtonText(data.form_button_title || buttonText);
+                        setSuccessMessage(data.form_registration_success_message || successMessage);
+                        setEmailValidation(data.email_validation_required === 1);
+
+                        if (data.fields && Array.isArray(data.fields)) {
+                            const mappedFields = data.fields.map((f: any) => ({
+                                id: String(f.id),
+                                label: f.question,
+                                placeholder: f.question,
+                                type: f.type,
+                                isDefault: f.id <= 7531 || ['Name', 'Country Code', 'Mobile Number', 'Email'].includes(f.question),
+                                mandatory: f.mandatory,
+                                is_show: f.is_show,
+                                options: f.options
+                            }));
+                            setFormFields(mappedFields.length > 0 ? mappedFields : formFields);
+                        }
+                    }
                 }
             }
 
