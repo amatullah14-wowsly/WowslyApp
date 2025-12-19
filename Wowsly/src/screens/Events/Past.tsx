@@ -25,12 +25,13 @@ const Past = () => {
   const [page, setPage] = useState(1);
   const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const [activeTab, setActiveTab] = useState<'joined' | 'created'>('joined');
 
   const EVENTS_PER_PAGE = 8;
 
   useEffect(() => {
     fetchEvents();
-  }, []);
+  }, [activeTab]);
 
   const fetchEvents = async (force = false) => {
     if (!force) setLoading(true);
@@ -38,7 +39,8 @@ const Past = () => {
     try {
       // ⚡⚡⚡ INCREMENTAL LOADING (COPIED FROM EVENTLISTING) ⚡⚡⚡
       // 1. Fetch Page 1 immediately
-      const res = await getEventsPage(1, 'created');
+      const type = activeTab === 'joined' ? 'join' : 'created';
+      const res = await getEventsPage(1, type);
       const initialEvents = res?.data || [];
 
       setAllEvents(initialEvents);
@@ -55,7 +57,7 @@ const Past = () => {
         setFetchingMore(true);
         while (hasMore) {
           currentPage++;
-          const nextRes = await getEventsPage(currentPage, 'created');
+          const nextRes = await getEventsPage(currentPage, type);
           const nextEvents = nextRes?.data || [];
 
           if (nextEvents.length > 0) {
@@ -188,6 +190,25 @@ const Past = () => {
         </View>
       </View>
 
+
+      {/* Tab Selectors */}
+      <View style={styles.tabContainer}>
+        <TouchableOpacity
+          style={[styles.tabButton, activeTab === 'joined' && styles.activeTabButton]}
+          onPress={() => setActiveTab('joined')}
+          activeOpacity={0.8}
+        >
+          <Text style={[styles.tabText, activeTab === 'joined' && styles.activeTabText]}>Joined Events</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.tabButton, activeTab === 'created' && styles.activeTabButton]}
+          onPress={() => setActiveTab('created')}
+          activeOpacity={0.8}
+        >
+          <Text style={[styles.tabText, activeTab === 'created' && styles.activeTabText]}>Created Events</Text>
+        </TouchableOpacity>
+      </View>
+
       <View style={styles.searchWrapper}>
         <View style={styles.searchField}>
           <Image
@@ -239,7 +260,7 @@ const Past = () => {
           />
         </TouchableOpacity>
       </View>
-    </View>
+    </View >
   );
 };
 
@@ -344,5 +365,36 @@ const styles = StyleSheet.create({
   emptyImage: {
     width: 220,
     height: 220,
+  },
+  tabContainer: {
+    flexDirection: 'row',
+    marginTop: 15,
+    marginHorizontal: 20,
+    backgroundColor: '#F5F5F5',
+    borderRadius: 25,
+    padding: 4,
+  },
+  tabButton: {
+    flex: 1,
+    paddingVertical: 10,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  activeTabButton: {
+    backgroundColor: '#FFFFFF',
+    shadowColor: '#000',
+    shadowOpacity: 0.1,
+    shadowOffset: { width: 0, height: 2 },
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  tabText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#9E9E9E',
+  },
+  activeTabText: {
+    color: '#FF8A3C',
   },
 });

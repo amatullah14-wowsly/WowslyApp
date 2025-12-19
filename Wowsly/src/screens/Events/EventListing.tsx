@@ -32,13 +32,14 @@ const EventListing = () => {
   const [selectedEventId, setSelectedEventId] = useState(null);
   const [logoutModalVisible, setLogoutModalVisible] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [activeTab, setActiveTab] = useState<'joined' | 'created'>('joined');
 
   const EVENTS_PER_PAGE = 8;
 
   // 🔥 Fetch Events from Backend
   useEffect(() => {
     fetchEvents();
-  }, []);
+  }, [activeTab]);
 
   // 🔙 Handle Hardware Back Button
   useFocusEffect(
@@ -61,9 +62,10 @@ const EventListing = () => {
     try {
       // ⚡⚡⚡ INCREMENTAL LOADING STRATEGY ⚡⚡⚡
       // 1. Fetch Page 1 immediately
-      const res = await getEventsPage(1, 'created');
+      const type = activeTab === 'joined' ? 'join' : 'created';
+      const res = await getEventsPage(1, type);
       const initialEvents = res?.data || [];
-      console.log('Fetched Page 1 events:', initialEvents.length);
+      console.log(`Fetched Page 1 ${type} events:`, initialEvents.length);
 
       setAllEvents(initialEvents);
       // Ensure we run filter immediately
@@ -80,7 +82,7 @@ const EventListing = () => {
         setFetchingMore(true);
         while (hasMore) {
           currentPage++;
-          const nextRes = await getEventsPage(currentPage, 'created');
+          const nextRes = await getEventsPage(currentPage, type);
           const nextEvents = nextRes?.data || [];
 
           // Check for next page info immediately
@@ -267,6 +269,24 @@ const EventListing = () => {
           </View>
         </View>
       </Modal>
+
+      {/* Tab Selectors */}
+      <View style={styles.tabContainer}>
+        <TouchableOpacity
+          style={[styles.tabButton, activeTab === 'joined' && styles.activeTabButton]}
+          onPress={() => setActiveTab('joined')}
+          activeOpacity={0.8}
+        >
+          <Text style={[styles.tabText, activeTab === 'joined' && styles.activeTabText]}>Joined Events</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.tabButton, activeTab === 'created' && styles.activeTabButton]}
+          onPress={() => setActiveTab('created')}
+          activeOpacity={0.8}
+        >
+          <Text style={[styles.tabText, activeTab === 'created' && styles.activeTabText]}>Created Events</Text>
+        </TouchableOpacity>
+      </View>
 
       {/* Search Bar */}
       <View style={styles.searchWrapper}>
@@ -499,6 +519,37 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     color: '#FFFFFF',
+  },
+  tabContainer: {
+    flexDirection: 'row',
+    marginTop: 15,
+    marginHorizontal: 20,
+    backgroundColor: '#F5F5F5',
+    borderRadius: 25,
+    padding: 4,
+  },
+  tabButton: {
+    flex: 1,
+    paddingVertical: 10,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  activeTabButton: {
+    backgroundColor: '#FFFFFF',
+    shadowColor: '#000',
+    shadowOpacity: 0.1,
+    shadowOffset: { width: 0, height: 2 },
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  tabText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#9E9E9E',
+  },
+  activeTabText: {
+    color: '#FF8A3C',
   },
 })
 
