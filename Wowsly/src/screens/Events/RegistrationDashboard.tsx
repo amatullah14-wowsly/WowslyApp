@@ -1,4 +1,4 @@
-import { StyleSheet, Text, View, TouchableOpacity, SafeAreaView, FlatList, ActivityIndicator, Image } from 'react-native'
+import { StyleSheet, Text, View, TouchableOpacity, SafeAreaView, FlatList, ActivityIndicator, Image, Modal, ScrollView } from 'react-native'
 import React, { useState, useEffect, useCallback } from 'react'
 import { useNavigation, useRoute } from '@react-navigation/native';
 import BackButton from '../../components/BackButton';
@@ -21,6 +21,10 @@ const RegistrationDashboard = () => {
     const [exportStatus, setExportStatus] = useState<'idle' | 'processing' | 'completed'>('idle');
     const [fileUrl, setFileUrl] = useState<string | null>(null);
     const [checkingStatus, setCheckingStatus] = useState(false);
+
+    // Modal State
+    const [selectedReply, setSelectedReply] = useState<any>(null);
+    const [showReplyModal, setShowReplyModal] = useState(false);
 
     // Replies State
     const [replies, setReplies] = useState<any[]>([]);
@@ -131,6 +135,15 @@ const RegistrationDashboard = () => {
         }
     };
 
+    // Auto-fetch logic currently fetches all pages in loops, so loadMore is effectively no-op or re-fetch check
+    const loadMoreReplies = () => {
+        if (!loading && hasMore) {
+            // Since fetchReplies fetches ALL pages in the while loop, we essentially don't need a per-page loadMore 
+            // unless we refactor fetchReplies. For now, leave empty or log.
+            // console.log("End reached");
+        }
+    };
+
     useEffect(() => {
         if (activeTab === 'Replies' && eventId) {
             // Reset and fetch
@@ -181,7 +194,13 @@ const RegistrationDashboard = () => {
         }
 
         return (
-            <View style={styles.replyRow}>
+            <TouchableOpacity
+                style={styles.replyRow}
+                onPress={() => {
+                    setSelectedReply(item);
+                    setShowReplyModal(true);
+                }}
+            >
                 <View style={[styles.avatar, styles.avatarPlaceholder]}>
                     <Text style={styles.avatarPlaceholderText}>
                         {name.charAt(0).toUpperCase()}
@@ -191,7 +210,11 @@ const RegistrationDashboard = () => {
                     <Text style={styles.replyName}>{name}</Text>
                     <Text style={styles.replyDate}>{formatDate(item.timestamp)}</Text>
                 </View>
-            </View>
+                {/* Arrow Icon for affordance */}
+                <View style={styles.arrowContainer}>
+                    <Image source={require('../../assets/img/common/next.png')} style={styles.arrowIcon} resizeMode="contain" />
+                </View>
+            </TouchableOpacity>
         );
     };
 
@@ -292,19 +315,44 @@ const RegistrationDashboard = () => {
                         ) : (
                             <FlatList
                                 data={replies}
-                                keyExtractor={(item, index) => item.id?.toString() || index.toString()}
                                 renderItem={renderReplyItem}
-                                contentContainerStyle={styles.listContent}
-                                ListEmptyComponent={
-                                    <View style={styles.emptyState}>
-                                        <Text>No replies found.</Text>
-                                    </View>
-                                }
+                                keyExtractor={(item, index) => item.id?.toString() || index.toString()}
+                                onEndReached={loadMoreReplies}
+                                onEndReachedThreshold={0.5}
+                                ListFooterComponent={loading && replies.length > 0 ? <ActivityIndicator color="#FF8A3C" style={{ margin: 20 }} /> : null}
+                                ListEmptyComponent={!loading ? <Text style={styles.emptyText}>No replies found</Text> : null}
                             />
                         )}
                     </View>
                 )}
             </View>
+
+            {/* Reply Details Modal */}
+            <Modal
+                visible={showReplyModal}
+                transparent={true}
+                animationType="slide"
+                onRequestClose={() => setShowReplyModal(false)}
+            >
+                <View style={styles.modalOverlay}>
+                    <View style={styles.modalContainer}>
+                        <View style={styles.modalHeader}>
+                            <Text style={styles.modalTitle}>Guest Details</Text>
+                            <TouchableOpacity onPress={() => setShowReplyModal(false)} style={styles.closeButton}>
+                                <Text style={styles.closeButtonText}>✕</Text>
+                            </TouchableOpacity>
+                        </View>
+                        <ScrollView contentContainerStyle={styles.modalContent}>
+                            {selectedReply?.form_replies?.map((reply: any, index: number) => (
+                                <View key={index} style={styles.detailRow}>
+                                    <Text style={styles.detailLabel}>{reply.question}</Text>
+                                    <Text style={styles.detailValue}>{reply.answer || "-"}</Text>
+                                </View>
+                            ))}
+                        </ScrollView>
+                    </View>
+                </View>
+            </Modal>
         </SafeAreaView>
     )
 }
@@ -509,14 +557,24 @@ const styles = StyleSheet.create({
         marginRight: 12,
     },
     avatarPlaceholder: {
-        backgroundColor: '#FFE0B2',
+        backgroundColor: '#FFF8E1', // Minimal: Very light yellowish/orange
         alignItems: 'center',
         justifyContent: 'center',
+        borderWidth: 1,
+        borderColor: '#FFE0B2',
     },
     avatarPlaceholderText: {
-        fontSize: 18,
+        fontSize: 16,
         fontWeight: '600',
-        color: '#FFFFFF',
+        color: '#FF8A3C', // Brand color text
+    },
+    arrowContainer: {
+        padding: 4,
+    },
+    arrowIcon: {
+        width: 14,
+        height: 14,
+        tintColor: '#999',
     },
     replyInfo: {
         flex: 1,
@@ -534,5 +592,68 @@ const styles = StyleSheet.create({
     emptyState: {
         alignItems: 'center',
         marginTop: 50,
+    },
+    // Modal Styles
+    modalOverlay: {
+        flex: 1,
+        backgroundColor: 'rgba(0,0,0,0.5)',
+        justifyContent: 'flex-end',
+    },
+    modalContainer: {
+        backgroundColor: 'white',
+        borderTopLeftRadius: 20,
+        borderTopRightRadius: 20,
+        height: '70%',
+        paddingTop: 20,
+        paddingHorizontal: 20,
+    },
+    modalHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        paddingBottom: 20,
+        borderBottomWidth: 1,
+        borderBottomColor: '#eee',
+    },
+    modalTitle: {
+        fontSize: 18,
+        fontWeight: 'bold',
+        color: '#111',
+    },
+    closeButton: {
+        padding: 5,
+    },
+    closeButtonText: {
+        fontSize: 18,
+        color: '#666',
+        fontWeight: 'bold',
+    },
+    modalContent: {
+        paddingTop: 20,
+        paddingBottom: 40,
+    },
+    detailRow: {
+        marginBottom: 16,
+        paddingBottom: 12,
+        borderBottomWidth: 1,
+        borderBottomColor: '#f5f5f5',
+    },
+    detailLabel: {
+        fontSize: 12,
+        color: '#888',
+        marginBottom: 4,
+        textTransform: 'uppercase',
+        letterSpacing: 0.5,
+    },
+    detailValue: {
+        fontSize: 16,
+        color: '#111',
+        fontWeight: '500',
+    },
+    emptyText: {
+        textAlign: 'center',
+        marginTop: 20,
+        color: '#666',
+        fontSize: 14,
     }
 })
