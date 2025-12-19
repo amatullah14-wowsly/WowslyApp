@@ -27,7 +27,7 @@ const RegistrationFormEditor = ({ isEmbedded = false, eventId: propEventId }: { 
     const eventId = propEventId || routeEventId;
 
     // Mode State
-    const [isEditing, setIsEditing] = useState(false);
+    const [isEditing, setIsEditing] = useState(route.params?.autoEdit || false);
     const [showAddQuestionModal, setShowAddQuestionModal] = useState(false);
     const [editingFieldId, setEditingFieldId] = useState<string | null>(null);
 
@@ -188,7 +188,7 @@ const RegistrationFormEditor = ({ isEmbedded = false, eventId: propEventId }: { 
             question: f.label || f.placeholder || "Question",
             type: f.type,
             mandatory: f.mandatory ? 1 : 0,
-            is_show: 1,
+            is_show: (f.is_show === 0 || f.is_show === false) ? 0 : 1,
             options: f.options || [],
             exists: !isNaN(Number(f.id)) && Number(f.id) < 10000000000 // Simple heuristic: 13-digit timestamp vs 4-digit ID
         }));
@@ -408,18 +408,11 @@ const RegistrationFormEditor = ({ isEmbedded = false, eventId: propEventId }: { 
                     onPress: async () => {
                         if (!isNaN(Number(id)) && id.length < 10) {
                             setDeletedFieldIds(prev => [...prev, Number(id)]);
-                            // User said: "delete thai che to toast api devanu" -> Call API NOW?
-                            // Payload: {form_field_ids: [id]}
-                            const deletePayload = { form_field_ids: [Number(id)] };
-                            const deleteRes = await deleteRegistrationFormFields(eventId, deletePayload);
-                            if (deleteRes && deleteRes.data) {
-                                Toast.show({ type: 'success', text1: 'Question deleted' });
-                            }
                         }
 
                         setFormFields(prev => prev.filter(f => f.id !== id));
-                        // Autosave to update 'fields' list (remove from list)
-                        setTimeout(() => handleSave(true), 100);
+                        // Removed autosave to prevent "undelete" race condition. 
+                        // Deletion will be synced when user clicks "Save" via deletedFieldIds.
                     }
                 }
             ]
@@ -551,7 +544,7 @@ const RegistrationFormEditor = ({ isEmbedded = false, eventId: propEventId }: { 
                         </TouchableOpacity>
                     </View>
                     <View style={styles.fieldsContainer}>
-                        {formFields.map((field) => (
+                        {formFields.filter(f => f.is_show !== 0 && f.is_show !== false).map((field) => (
                             <View key={field.id}>
                                 {renderFieldPreview(field)}
                             </View>
@@ -636,7 +629,10 @@ const RegistrationFormEditor = ({ isEmbedded = false, eventId: propEventId }: { 
                                             <Image source={require('../../assets/img/form/edit.png')} style={{ width: 20, height: 20, resizeMode: 'contain' }} />
                                         </TouchableOpacity>
                                         <TouchableOpacity style={styles.actionIcon} onPress={() => handleToggleVisibility(field.id)}>
-                                            <Image source={require('../../assets/img/form/visible.png')} style={{ width: 22, height: 22, resizeMode: 'contain', opacity: field.is_show ? 1 : 0.3 }} />
+                                            <Image
+                                                source={field.is_show ? require('../../assets/img/form/visible.png') : require('../../assets/img/form/hide.png')}
+                                                style={{ width: 22, height: 22, resizeMode: 'contain', opacity: field.is_show ? 1 : 0.6 }}
+                                            />
                                         </TouchableOpacity>
                                         <TouchableOpacity style={styles.actionIcon} onPress={() => handleDeleteField(field.id)}>
                                             <Image source={require('../../assets/img/form/trash.png')} style={{ width: 20, height: 20, resizeMode: 'contain' }} />

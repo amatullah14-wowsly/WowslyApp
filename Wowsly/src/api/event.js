@@ -812,3 +812,15 @@ export const getRegistrationFormDetails = async (eventId, formId) => {
         return { success: false, message: "Fetch failed" };
     }
 };
+
+export const getEventWebLink = async (guestUuid) => {
+    try {
+        console.log(`Getting Event Link via guest UUID: ${guestUuid}`);
+        const response = await client.get(`/event/weblink?guest_uuid=${guestUuid}`);
+        // console.log("GET EVENT WEBLINK RESPONSE:", JSON.stringify(response.data));
+        return response.data;
+    } catch (error) {
+        console.log("GET EVENT WEBLINK ERROR:", error.response?.data || error.message);
+        return { status: false, message: "Fetch failed" };
+    }
+};

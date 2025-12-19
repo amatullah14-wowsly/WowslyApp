@@ -13,7 +13,11 @@ import {
 import { useNavigation } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import EventCard from '../../components/EventCard';
-import { getEvents, getEventsPage } from '../../api/event';
+import {
+  getEvents,
+  getEventsPage,
+  getEventWebLink
+} from '../../api/event';
 
 const Past = () => {
   const navigation = useNavigation<any>();
@@ -131,8 +135,26 @@ const Past = () => {
         location={item.address || item.city || "—"}
         image={imageSource}
         selected={isSelected}
-        onPress={() => {
+        onPress={async () => {
           setSelectedEventId(item.id);
+
+          if (activeTab === 'joined') {
+            try {
+              if (item.guest_uuid) {
+                const res = await getEventWebLink(item.guest_uuid);
+                if (res && res.data && res.data.current_user_role === 'manager') {
+                  navigation.navigate('ModeSelection' as never, {
+                    eventTitle: res.data.title || item.title,
+                    eventId: res.data.id || item.id
+                  } as never);
+                  return;
+                }
+              }
+            } catch (e) {
+              console.log('Error checking manager role in Past:', e);
+            }
+          }
+
           navigation.navigate('EventDashboard' as never, { eventData: item } as never);
         }}
       />
