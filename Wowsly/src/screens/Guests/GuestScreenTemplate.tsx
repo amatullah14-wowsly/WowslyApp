@@ -257,7 +257,7 @@ const GuestScreenTemplate: React.FC<GuestScreenTemplateProps> = ({
   useFocusEffect(
     React.useCallback(() => {
       if (eventId) {
-        console.log('GuestScreenTemplate focused - refreshing guest data');
+        // console.log('GuestScreenTemplate focused - refreshing guest data');
         fetchGuests(currentPage);
         setLastUpdate(Date.now());
       }
@@ -267,12 +267,12 @@ const GuestScreenTemplate: React.FC<GuestScreenTemplateProps> = ({
   // REAL-TIME UPDATE LISTENERS
   useEffect(() => {
     const subscription = (DeviceEventEmitter as any).addListener('BROADCAST_SCAN_TO_CLIENTS', (data: any) => {
-      console.log("GuestScreenTemplate received broadcast:", data);
+      // console.log("GuestScreenTemplate received broadcast:", data);
       setLastUpdate(Date.now());
     });
 
     const manualCheckInSub = (DeviceEventEmitter as any).addListener('GUEST_CHECKED_IN_MANUALLY', ({ guestId, count, fullGuestData }: { guestId: number, count: number, fullGuestData?: any }) => {
-      console.log('GuestScreenTemplate received GUEST_CHECKED_IN_MANUALLY:', { guestId, count });
+      // console.log('GuestScreenTemplate received GUEST_CHECKED_IN_MANUALLY:', { guestId, count });
       setGuests(prevGuests => prevGuests.map(g => {
         if ((g.id || '').toString() === guestId.toString() || (g.guest_id || '').toString() === guestId.toString()) {
           if (fullGuestData) {

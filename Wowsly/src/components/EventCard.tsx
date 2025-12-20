@@ -9,21 +9,22 @@ export type EventCardProps = {
   image: any // Changed to any to support both { uri: string } and require('...')
   selected?: boolean
   onPress?: () => void
+  isPlaceholder?: boolean
 }
 
 import FastImage from 'react-native-fast-image'
 
-const EventCard = ({ title, date, location, image, selected, onPress }: EventCardProps) => {
+const EventCard = ({ title, date, location, image, selected, onPress, isPlaceholder = false }: EventCardProps) => {
 
-  console.log("image:", image)
+
   return (
     <TouchableOpacity activeOpacity={0.9} onPress={onPress}>
       <View style={[styles.card, selected && styles.cardSelected]}>
         {/* FastImage acting as Background */}
         <FastImage
           source={image}
-          style={StyleSheet.absoluteFill}
-          resizeMode={FastImage.resizeMode.cover}
+          style={[StyleSheet.absoluteFill, isPlaceholder && { backgroundColor: '#F0F0F0', padding: scale(50) }]}
+          resizeMode={isPlaceholder ? FastImage.resizeMode.contain : FastImage.resizeMode.cover}
         />
 
         {/* Overlay Content */}

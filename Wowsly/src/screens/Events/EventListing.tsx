@@ -82,13 +82,15 @@ const EventListing = () => {
       let currentPage = 1;
       let hasMore = !!(res.next_page_url || (res.meta && res.meta.current_page < res.meta.last_page));
       let accumulatedEvents = [...initialEvents];
+      // Optimization: Track IDs to avoid O(N^2) search
+      const seenIds = new Set(initialEvents.map((e: any) => e.id));
 
       if (hasMore) {
         setFetchingMore(true);
         while (hasMore) {
           currentPage++;
           const nextRes = await getEventsPage(currentPage, type);
-          console.log("nextRes:", nextRes)
+          // console.log("nextRes:", nextRes) 
           const nextEvents = nextRes?.data || [];
 
           // Check for next page info immediately
@@ -96,8 +98,15 @@ const EventListing = () => {
           if (currentPage > 50) hasMore = false;
 
           if (nextEvents.length > 0) {
-            // Deduplicate
-            const newUnique = nextEvents.filter((n: any) => !accumulatedEvents.some((e: any) => e.id === n.id));
+            // Deduplicate efficiently (O(N))
+            const newUnique = [];
+            for (const event of nextEvents) {
+              if (!seenIds.has(event.id)) {
+                seenIds.add(event.id);
+                newUnique.push(event);
+              }
+            }
+
             accumulatedEvents = [...accumulatedEvents, ...newUnique];
 
             // ⚡⚡⚡ BATCH UPDATE UI ⚡⚡⚡
@@ -180,6 +189,7 @@ const EventListing = () => {
         date={item.start_date_display || "No Date"}
         location={item.address || item.city || "—"}
         image={imageSource}
+        isPlaceholder={!item.event_main_photo || item.event_main_photo === ""}
         selected={isSelected}
         onPress={async () => {
           setSelectedEventId(item.id);
@@ -348,10 +358,14 @@ const EventListing = () => {
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#FF8A3C']} />
         }
         // Optimization Props
-        initialNumToRender={10}
-        maxToRenderPerBatch={10}
+        // Optimization Props
+        initialNumToRender={8}
+        maxToRenderPerBatch={8}
         windowSize={5}
         removeClippedSubviews={true}
+        getItemLayout={(data, index) => (
+          { length: verticalScale(218), offset: verticalScale(218) * index, index }
+        )}
       />
 
       {/* Pagination */}
