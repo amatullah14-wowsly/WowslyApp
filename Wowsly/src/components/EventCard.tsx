@@ -14,6 +14,7 @@ import FastImage from 'react-native-fast-image'
 
 const EventCard = ({ title, date, location, image, selected, onPress }: EventCardProps) => {
 
+  console.log("image:", image)
   return (
     <TouchableOpacity activeOpacity={0.9} onPress={onPress}>
       <View style={[styles.card, selected && styles.cardSelected]}>

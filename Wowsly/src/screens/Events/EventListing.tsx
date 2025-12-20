@@ -87,6 +87,7 @@ const EventListing = () => {
         while (hasMore) {
           currentPage++;
           const nextRes = await getEventsPage(currentPage, type);
+          console.log("nextRes:",nextRes)
           const nextEvents = nextRes?.data || [];
 
           // Check for next page info immediately
@@ -168,7 +169,7 @@ const EventListing = () => {
     const imageSource =
       item.event_main_photo &&
         item.event_main_photo !== "" &&
-        item.event_main_photo !== "null"
+        item.event_main_photo !== null
         ? { uri: item.event_main_photo, priority: FastImage.priority.normal }
         : require('../../assets/img/common/noimage.png');
 

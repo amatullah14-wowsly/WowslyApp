@@ -3,7 +3,7 @@ import React, { useState, useEffect, useCallback } from 'react'
 import { useNavigation, useRoute } from '@react-navigation/native';
 import BackButton from '../../components/BackButton';
 // import GuestScreenTemplate from '../Guests/GuestScreenTemplate'; // Removed per request
-import { getRegistrationAnswers, exportRegistrationReplies, getExportStatus, getEventDetails } from '../../api/event';
+import { getRegistrationAnswers, exportRegistrationReplies, getExportStatus, getEventDetails, updateGuestStatus } from '../../api/event';
 import { ToastAndroid, Alert, Platform, Linking } from 'react-native';
 import RegistrationFormEditor from './RegistrationFormEditor';
 
@@ -13,6 +13,7 @@ const RegistrationDashboard = () => {
     const { eventId } = route.params || {};
     const [activeTab, setActiveTab] = useState<'Form' | 'Replies'>('Form');
     const [hasForm, setHasForm] = useState<number | null>(null); // 0 = Created, 1 = Not Created (or vice versa per user req)
+    const [isApprovalBasis, setIsApprovalBasis] = useState(false);
     // User said: "if has_registration_form : 0 then form created nathi" (0 means NOT created)
     // "and agr e 1 che to form created che" (1 means created)
 
@@ -25,6 +26,7 @@ const RegistrationDashboard = () => {
     // Modal State
     const [selectedReply, setSelectedReply] = useState<any>(null);
     const [showReplyModal, setShowReplyModal] = useState(false);
+    const [showActionMenu, setShowActionMenu] = useState(false);
 
     // Replies State
     const [replies, setReplies] = useState<any[]>([]);
@@ -144,6 +146,43 @@ const RegistrationDashboard = () => {
         }
     };
 
+    const handleUpdateStatus = async (status: 'accepted' | 'rejected' | 'blocked') => {
+        // Enforce strict Guest ID usage.
+        // Based on API JSON: 'event_user_id' holds the correct Guest ID (e.g., 1247897) matching the URL.
+        const guestId = selectedReply?.event_user_id;
+
+        if (!guestId) {
+            Alert.alert("Error", "Guest ID missing. Please contact support.");
+            return;
+        }
+
+        setShowActionMenu(false);
+
+        try {
+            console.log(`Sending Update for GuestId: ${guestId} (ReplyId: ${selectedReply.id})`);
+            const res = await updateGuestStatus(eventId, guestId, status);
+
+            if (res && res.success) {
+                // User requirement: "user should get the notification"
+                // Using Alert for explicit confirmation as Toast might be missed or "unselectable" context implying UX friction.
+                Alert.alert("Success", `Guest status updated to ${status}.`, [
+                    {
+                        text: "OK", onPress: () => {
+                            setShowReplyModal(false);
+                            // Refresh list to reflect changes if needed (though list currently doesn't show status, it's good practice)
+                            fetchReplies();
+                        }
+                    }
+                ]);
+            } else {
+                Alert.alert("Error", res.message || "Update failed");
+            }
+        } catch (error) {
+            console.error("Status update error", error);
+            Alert.alert("Error", "Something went wrong.");
+        }
+    };
+
     useEffect(() => {
         if (activeTab === 'Replies' && eventId) {
             // Reset and fetch
@@ -154,15 +193,8 @@ const RegistrationDashboard = () => {
             // Fetch details to check form status
             getEventDetails(eventId).then(res => {
                 if (res && res.data) {
-                    // The user said "has_registration_form" is in the response. 
-                    // Usually getEventDetails returns { data: { ... } } or just the object?
-                    // Let's assume safely.
-                    const val = res.data.has_registration_form; // or directly res.has_registration_form?
-                    // Based on api/event.js: return response.data;
-                    // So if API returns standard JSON resource: { data: { ... } } -> res.data.has_registration_form
-                    // If API returns direct object: { ... } -> res.has_registration_form
-                    // I will try both or check logs if I could. User said "ana response ma has_registration_form avu male che"
-                    setHasForm(val);
+                    setHasForm(res.data.has_registration_form);
+                    setIsApprovalBasis(res.data.registration_on_approval_basis === 1);
                 }
             }).catch(err => console.log("Event details fetch error", err));
         }
@@ -201,18 +233,13 @@ const RegistrationDashboard = () => {
                     setShowReplyModal(true);
                 }}
             >
-                <View style={[styles.avatar, styles.avatarPlaceholder]}>
-                    <Text style={styles.avatarPlaceholderText}>
-                        {name.charAt(0).toUpperCase()}
-                    </Text>
-                </View>
                 <View style={styles.replyInfo}>
                     <Text style={styles.replyName}>{name}</Text>
                     <Text style={styles.replyDate}>{formatDate(item.timestamp)}</Text>
                 </View>
-                {/* Arrow Icon for affordance */}
+                {/* Custom Arrow Icon */}
                 <View style={styles.arrowContainer}>
-                    <Image source={require('../../assets/img/common/next.png')} style={styles.arrowIcon} resizeMode="contain" />
+                    <Image source={require('../../assets/img/common/forwardarrow.png')} style={styles.arrowIcon} resizeMode="contain" />
                 </View>
             </TouchableOpacity>
         );
@@ -338,11 +365,19 @@ const RegistrationDashboard = () => {
                     <View style={styles.modalContainer}>
                         <View style={styles.modalHeader}>
                             <Text style={styles.modalTitle}>Guest Details</Text>
-                            <TouchableOpacity onPress={() => setShowReplyModal(false)} style={styles.closeButton}>
-                                <Text style={styles.closeButtonText}>✕</Text>
-                            </TouchableOpacity>
+                            <View style={styles.headerActions}>
+                                {isApprovalBasis && (
+                                    <TouchableOpacity style={styles.infoButton} onPress={() => setShowActionMenu(!showActionMenu)}>
+                                        <Image source={require('../../assets/img/common/info.png')} style={styles.infoIcon} resizeMode="contain" />
+                                    </TouchableOpacity>
+                                )}
+                                <TouchableOpacity onPress={() => { setShowReplyModal(false); setShowActionMenu(false); }} style={styles.closeButton}>
+                                    <Text style={styles.closeButtonText}>✕</Text>
+                                </TouchableOpacity>
+                            </View>
                         </View>
-                        <ScrollView contentContainerStyle={styles.modalContent}>
+
+                        <ScrollView contentContainerStyle={styles.modalContent} scrollEnabled={true}>
                             {selectedReply?.form_replies?.map((reply: any, index: number) => (
                                 <View key={index} style={styles.detailRow}>
                                     <Text style={styles.detailLabel}>{reply.question}</Text>
@@ -350,6 +385,23 @@ const RegistrationDashboard = () => {
                                 </View>
                             ))}
                         </ScrollView>
+
+                        {/* Popup Menu - Moved to end to ensure Z-Index priority over ScrollView */}
+                        {showActionMenu && (
+                            <View style={styles.popupMenu}>
+                                <TouchableOpacity style={styles.menuItem} onPress={() => handleUpdateStatus('accepted')}>
+                                    <Text style={styles.menuText}>Accept</Text>
+                                </TouchableOpacity>
+                                <View style={styles.menuSeparator} />
+                                <TouchableOpacity style={styles.menuItem} onPress={() => handleUpdateStatus('rejected')}>
+                                    <Text style={styles.menuText}>Reject</Text>
+                                </TouchableOpacity>
+                                <View style={styles.menuSeparator} />
+                                <TouchableOpacity style={[styles.menuItem, styles.menuItemDestructive]} onPress={() => handleUpdateStatus('blocked')}>
+                                    <Text style={[styles.menuText, { color: '#D32F2F' }]}>Reject & Block</Text>
+                                </TouchableOpacity>
+                            </View>
+                        )}
                     </View>
                 </View>
             </Modal>
@@ -544,50 +596,37 @@ const styles = StyleSheet.create({
         paddingHorizontal: 20,
         paddingBottom: 20,
     },
-    replyRow: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        paddingVertical: 16,
-        borderBottomWidth: 0,
-    },
-    avatar: {
-        width: 40,
-        height: 40,
-        borderRadius: 20,
-        marginRight: 12,
-    },
-    avatarPlaceholder: {
-        backgroundColor: '#FFF8E1', // Minimal: Very light yellowish/orange
-        alignItems: 'center',
-        justifyContent: 'center',
-        borderWidth: 1,
-        borderColor: '#FFE0B2',
-    },
-    avatarPlaceholderText: {
-        fontSize: 16,
-        fontWeight: '600',
-        color: '#FF8A3C', // Brand color text
-    },
     arrowContainer: {
         padding: 4,
     },
     arrowIcon: {
-        width: 14,
-        height: 14,
-        tintColor: '#999',
+        width: 24,
+        height: 24,
+        // No tintColor to keep original orange gradient from asset
+    },
+    replyRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingVertical: 16,
+        borderBottomWidth: 1,
+        borderBottomColor: '#f0f0f0',
     },
     replyInfo: {
         flex: 1,
-        gap: 4,
+        justifyContent: 'center',
+        paddingLeft: 20, // Slight nudge from edge per user feedback
     },
     replyName: {
         fontSize: 16,
-        fontWeight: '500',
+        fontWeight: 'bold',
         color: '#111',
+        textTransform: 'capitalize', // Make it proper
+        marginBottom: 4,
     },
     replyDate: {
-        fontSize: 13,
-        color: '#666',
+        fontSize: 12,
+        color: '#888',
+        fontWeight: '500',
     },
     emptyState: {
         alignItems: 'center',
@@ -655,5 +694,50 @@ const styles = StyleSheet.create({
         marginTop: 20,
         color: '#666',
         fontSize: 14,
+    },
+    // Menu Styles
+    headerActions: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 16,
+    },
+    infoButton: {
+        padding: 4,
+    },
+    infoIcon: {
+        width: 24,
+        height: 24,
+        tintColor: '#666',
+    },
+    popupMenu: {
+        position: 'absolute',
+        top: 60, // Below header
+        right: 20,
+        backgroundColor: 'white',
+        borderRadius: 12, // Smoother corners for "App UI" feel
+        elevation: 10, // Higher elevation
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.3,
+        shadowRadius: 6,
+        width: 180, // Slightly wider
+        zIndex: 1000, // Ensure top
+        paddingVertical: 8,
+    },
+    menuItem: {
+        paddingVertical: 14,
+        paddingHorizontal: 16,
+    },
+    menuItemDestructive: {
+        // backgroundColor: '#FFEBEE', // Removed per user request ("nothing selected")
+    },
+    menuText: {
+        fontSize: 14,
+        color: '#333',
+        fontWeight: '500',
+    },
+    menuSeparator: {
+        height: 1,
+        backgroundColor: '#eee',
     }
 })
