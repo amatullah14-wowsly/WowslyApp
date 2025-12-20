@@ -98,7 +98,7 @@ const RegistrationFormEditor = ({ isEmbedded = false, eventId: propEventId }: { 
                 ]);
                 setFormId(null);
                 setFormTitle('Guest Registration Form');
-                setIsEditing(true);
+                setIsEditing(false);
             } else {
                 // EXISTING FORM FLOW
                 console.log("Form exists, fetching details...");
@@ -556,9 +556,9 @@ const RegistrationFormEditor = ({ isEmbedded = false, eventId: propEventId }: { 
                     {/* Summary Section */}
                     <View style={styles.summarySection}>
                         <Text style={styles.summaryLabel}>Button Text : <Text style={styles.summaryValue}>{buttonText}</Text></Text>
-                        <View style={styles.summaryRow}>
-                            <Text style={styles.summaryLabel}>Registration success message : </Text>
-                            <Text style={[styles.summaryValue, { flex: 1 }]}>{successMessage}</Text>
+                        <View style={{ marginTop: verticalScale(10) }}>
+                            <Text style={styles.summaryLabel}>Registration success message :</Text>
+                            <Text style={[styles.summaryValue, { marginTop: verticalScale(5) }]}>{successMessage}</Text>
                         </View>
                     </View>
                 </View>
