@@ -13,6 +13,7 @@ import {
 } from "react-native";
 import FastImage from 'react-native-fast-image';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { scale, verticalScale, moderateScale } from '../../utils/scaling';
 import React, { useEffect, useMemo, useState, useCallback } from "react";
 import EventCard from "../../components/EventCard";
 import { useNavigation, useFocusEffect } from "@react-navigation/native";
@@ -87,7 +88,7 @@ const EventListing = () => {
         while (hasMore) {
           currentPage++;
           const nextRes = await getEventsPage(currentPage, type);
-          console.log("nextRes:",nextRes)
+          console.log("nextRes:", nextRes)
           const nextEvents = nextRes?.data || [];
 
           // Check for next page info immediately
@@ -168,8 +169,8 @@ const EventListing = () => {
     // Note: FastImage helps with caching
     const imageSource =
       item.event_main_photo &&
-      item.event_main_photo !== "" &&
-      item.event_main_photo !== null
+        item.event_main_photo !== "" &&
+        item.event_main_photo !== null
         ? { uri: item.event_main_photo }
         : require('../../assets/img/common/noimage.png');
 
@@ -213,7 +214,7 @@ const EventListing = () => {
   if (loading) {
     return (
       <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
-        <Text style={{ fontSize: 18, fontWeight: "600" }}>
+        <Text style={{ fontSize: moderateScale(18), fontWeight: "600" }}>
           Loading events...
         </Text>
       </View>
@@ -341,7 +342,7 @@ const EventListing = () => {
         renderItem={renderCard}
         contentContainerStyle={[styles.listContent, paginatedEvents.length === 0 && { flexGrow: 1 }]}
         ListEmptyComponent={renderEmptyComponent}
-        style={{ marginTop: 15 }}
+        style={{ marginTop: verticalScale(15) }}
         showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#FF8A3C']} />
@@ -394,45 +395,45 @@ const styles = StyleSheet.create({
     backgroundColor: '#FF8A3C',
     width: '100%',
     height: '10%',
-    borderBottomLeftRadius: 15,
-    borderBottomRightRadius: 15,
+    borderBottomLeftRadius: scale(15),
+    borderBottomRightRadius: scale(15),
     shadowColor: '#FF8A3C',
     shadowOpacity: 0.2,
-    shadowOffset: { width: 0, height: 6 },
-    shadowRadius: 8,
+    shadowOffset: { width: 0, height: verticalScale(6) },
+    shadowRadius: scale(8),
     elevation: 6,
   },
   headingRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 20,
+    paddingHorizontal: scale(20),
   },
   headingtxt: {
     color: 'white',
-    fontSize: 20,
+    fontSize: moderateScale(20),
     fontWeight: '700',
   },
   logoutIcon: {
-    width: 23,
-    height: 23,
-    top: 5,
+    width: scale(23),
+    height: scale(23),
+    top: verticalScale(5),
   },
   searchWrapper: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: 'white',
-    marginHorizontal: 20,
-    marginTop: 20,
-    borderRadius: 20,
-    paddingHorizontal: 20,
-    height: 55,
+    marginHorizontal: scale(20),
+    marginTop: verticalScale(20),
+    borderRadius: scale(20),
+    paddingHorizontal: scale(20),
+    height: verticalScale(55),
     shadowColor: '#999',
     shadowOpacity: 0.1,
-    shadowOffset: { width: 0, height: 4 },
-    shadowRadius: 6,
+    shadowOffset: { width: 0, height: verticalScale(4) },
+    shadowRadius: scale(6),
     elevation: 3,
-    gap: 12,
+    gap: scale(12),
   },
   searchField: {
     flexDirection: 'row',
@@ -441,31 +442,31 @@ const styles = StyleSheet.create({
   },
   searchInput: {
     flex: 1,
-    fontSize: 15,
+    fontSize: moderateScale(15),
     color: '#333',
-    paddingLeft: 8,
+    paddingLeft: scale(8),
   },
   searchIcon: {
-    width: 18,
-    height: 18,
+    width: scale(18),
+    height: scale(18),
   },
   listContent: {
-    paddingHorizontal: 20,
-    paddingTop: 18,
-    paddingBottom: 90,
+    paddingHorizontal: scale(20),
+    paddingTop: verticalScale(18),
+    paddingBottom: verticalScale(90),
   },
   pagination: {
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
-    gap: 16,
-    paddingBottom: 2,
+    gap: scale(16),
+    paddingBottom: verticalScale(2),
     backgroundColor: 'white',
-    height: 40,
+    height: verticalScale(40),
   },
   pageIcon: {
-    width: 28,
-    height: 28,
+    width: scale(28),
+    height: scale(28),
     tintColor: '#FF8A3C',
   },
   disabledIcon: {
@@ -482,50 +483,50 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   emptyImage: {
-    width: 220,
-    height: 220,
+    width: scale(220),
+    height: scale(220),
   },
   modalBackdrop: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 20,
+    padding: scale(20),
   },
   modalCard: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 20,
-    padding: 24,
+    borderRadius: scale(20),
+    padding: scale(24),
     width: '100%',
-    maxWidth: 340,
+    maxWidth: scale(340),
     shadowColor: '#000',
     shadowOpacity: 0.25,
-    shadowRadius: 12,
-    shadowOffset: { width: 0, height: 4 },
+    shadowRadius: scale(12),
+    shadowOffset: { width: 0, height: verticalScale(4) },
     elevation: 8,
   },
   modalTitle: {
-    fontSize: 22,
+    fontSize: moderateScale(22),
     fontWeight: '700',
     color: '#1C1C1C',
-    marginBottom: 12,
+    marginBottom: verticalScale(12),
     textAlign: 'center',
   },
   modalMessage: {
-    fontSize: 15,
+    fontSize: moderateScale(15),
     color: '#6F6F6F',
     textAlign: 'center',
-    marginBottom: 24,
-    lineHeight: 22,
+    marginBottom: verticalScale(24),
+    lineHeight: moderateScale(22),
   },
   modalButtons: {
     flexDirection: 'row',
-    gap: 12,
+    gap: scale(12),
   },
   modalButton: {
     flex: 1,
-    paddingVertical: 14,
-    borderRadius: 12,
+    paddingVertical: verticalScale(14),
+    borderRadius: scale(12),
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -538,27 +539,27 @@ const styles = StyleSheet.create({
     backgroundColor: '#FF8A3C',
   },
   modalButtonTextCancel: {
-    fontSize: 16,
+    fontSize: moderateScale(16),
     fontWeight: '600',
     color: '#6F6F6F',
   },
   modalButtonTextConfirm: {
-    fontSize: 16,
+    fontSize: moderateScale(16),
     fontWeight: '600',
     color: '#FFFFFF',
   },
   tabContainer: {
     flexDirection: 'row',
-    marginTop: 15,
-    marginHorizontal: 20,
+    marginTop: verticalScale(15),
+    marginHorizontal: scale(20),
     backgroundColor: '#F5F5F5',
-    borderRadius: 25,
-    padding: 4,
+    borderRadius: scale(25),
+    padding: scale(4),
   },
   tabButton: {
     flex: 1,
-    paddingVertical: 10,
-    borderRadius: 20,
+    paddingVertical: verticalScale(10),
+    borderRadius: scale(20),
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -566,12 +567,12 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     shadowColor: '#000',
     shadowOpacity: 0.1,
-    shadowOffset: { width: 0, height: 2 },
-    shadowRadius: 4,
+    shadowOffset: { width: 0, height: verticalScale(2) },
+    shadowRadius: scale(4),
     elevation: 2,
   },
   tabText: {
-    fontSize: 14,
+    fontSize: moderateScale(14),
     fontWeight: '600',
     color: '#9E9E9E',
   },

@@ -2,6 +2,7 @@ import React, { useEffect, useRef } from 'react';
 import { View, Image, ImageBackground, StyleSheet, Animated } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { initDB } from '../../db';
+import { scale } from '../../utils/scaling';
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
@@ -63,8 +64,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   logo: {
-    width: 200,
-    height: 200,
+    width: scale(200),
+    height: scale(200),
   },
 });
 

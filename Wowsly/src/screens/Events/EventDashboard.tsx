@@ -1,4 +1,5 @@
 import { StyleSheet, Text, View, Image, TouchableOpacity, ImageBackground, ScrollView } from 'react-native'
+import { scale, verticalScale, moderateScale } from '../../utils/scaling';
 import React, { useState, useEffect, useCallback } from 'react'
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import Grid from '../../components/Grid';
@@ -445,7 +446,7 @@ const styles = StyleSheet.create({
         backgroundColor: 'white',
         // justifyContent: 'center',
         alignContent: 'center',
-        padding: 5,
+        padding: scale(5),
     },
     header: {
         width: '100%',
@@ -454,41 +455,41 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         flexDirection: 'row',
         justifyContent: 'space-between',
-        paddingHorizontal: 20,
+        paddingHorizontal: scale(20),
         position: 'relative',
     },
 
     title: {
-        fontSize: 20,
+        fontSize: moderateScale(20),
         fontWeight: '600',
         flex: 1,
         textAlign: 'center',
-        paddingHorizontal: 12,
+        paddingHorizontal: scale(12),
         color: 'black',
     },
     menuIcon: {
-        width: 20,
-        height: 20,
+        width: scale(20),
+        height: scale(20),
     },
     dropdown: {
         position: 'absolute',
         top: '70%',
-        right: 20,
+        right: scale(20),
         backgroundColor: 'white',
-        borderRadius: 10,
-        paddingVertical: 8,
-        paddingHorizontal: 12,
+        borderRadius: scale(10),
+        paddingVertical: verticalScale(8),
+        paddingHorizontal: scale(12),
         shadowColor: '#000',
         shadowOpacity: 0.15,
-        shadowOffset: { width: 0, height: 4 },
-        shadowRadius: 6,
+        shadowOffset: { width: 0, height: verticalScale(4) },
+        shadowRadius: scale(6),
         elevation: 4,
     },
     dropdownItem: {
-        paddingVertical: 6,
+        paddingVertical: verticalScale(6),
     },
     dropdownText: {
-        fontSize: 14,
+        fontSize: moderateScale(14),
         color: '#333',
         fontWeight: '600',
     },
@@ -497,17 +498,17 @@ const styles = StyleSheet.create({
         backgroundColor: 'rgba(0,0,0,0.4)',
         justifyContent: 'center',
         alignItems: 'center',
-        padding: 20,
+        padding: scale(20),
     },
     modalCard: {
         width: '100%',
         backgroundColor: 'white',
-        borderRadius: 16,
-        padding: 24,
-        gap: 20,
+        borderRadius: scale(16),
+        padding: scale(24),
+        gap: verticalScale(20),
     },
     modalTitle: {
-        fontSize: 16,
+        fontSize: moderateScale(16),
         fontWeight: '700',
         color: '#111',
         textAlign: 'center',
@@ -515,14 +516,14 @@ const styles = StyleSheet.create({
     modalActions: {
         flexDirection: 'row',
         justifyContent: 'space-between',
-        gap: 12,
+        gap: scale(12),
     },
     modalButtonSecondary: {
         flex: 1,
-        borderRadius: 12,
+        borderRadius: scale(12),
         borderWidth: 1,
         borderColor: '#CCC',
-        paddingVertical: 12,
+        paddingVertical: verticalScale(12),
         alignItems: 'center',
     },
     modalSecondaryText: {
@@ -531,9 +532,9 @@ const styles = StyleSheet.create({
     },
     modalButtonPrimary: {
         flex: 1,
-        borderRadius: 12,
+        borderRadius: scale(12),
         backgroundColor: '#FF8A3C',
-        paddingVertical: 12,
+        paddingVertical: verticalScale(12),
         alignItems: 'center',
     },
     modalPrimaryText: {
@@ -543,11 +544,11 @@ const styles = StyleSheet.create({
 
     eventCard: {
         width: '95%',
-        height: 200,
+        height: verticalScale(200),
         alignSelf: 'center',
-        marginTop: 5,
+        marginTop: verticalScale(5),
         backgroundColor: '#fff',
-        borderRadius: 20,
+        borderRadius: scale(20),
         overflow: 'hidden',
         borderWidth: 1,
         borderColor: '#EDEDED',
@@ -566,19 +567,19 @@ const styles = StyleSheet.create({
     },
 
     eventCardContent: {
-        padding: 20,
+        padding: scale(20),
     },
 
     eventCardTitle: {
-        fontSize: 22,
+        fontSize: moderateScale(22),
         fontWeight: '700',
         color: '#FFFFFF',
     },
 
     eventCardMeta: {
-        fontSize: 14,
+        fontSize: moderateScale(14),
         color: '#E0E0E0',
-        marginTop: 5,
+        marginTop: verticalScale(5),
         fontWeight: '500',
     },
     grid: {
@@ -589,48 +590,48 @@ const styles = StyleSheet.create({
         alignSelf: 'center',
         justifyContent: 'space-between',
         // paddingLeft: 2, // Removing this as it offsets center
-        gap: 12,
-        marginTop: 15,
-        marginBottom: 20
+        gap: scale(12),
+        marginTop: verticalScale(15),
+        marginBottom: verticalScale(20)
     },
     // rowone removed
     button: {
-        height: 50, // Fixed height often better than %
+        height: verticalScale(50), // Fixed height often better than %
         width: '90%',
         backgroundColor: '#FF8A3C',
         alignSelf: "center",
         justifyContent: 'center',
         alignItems: 'center',
-        borderRadius: 10,
+        borderRadius: scale(10),
         flexDirection: 'row',
-        gap: 10,
-        marginBottom: 20, // ensure space at bottom
+        gap: scale(10),
+        marginBottom: verticalScale(20), // ensure space at bottom
     },
     scanicon: {
-        height: 25,
-        width: 25,
+        height: scale(25),
+        width: scale(25),
         // padding:10,
     },
     start: {
         color: 'white',
         fontWeight: '500',
-        fontSize: 15,
+        fontSize: moderateScale(15),
     },
     ticketSection: {
         width: '90%',
         alignSelf: 'center',
-        marginTop: 20,
+        marginTop: verticalScale(20),
         backgroundColor: 'white',
-        borderRadius: 20,
-        padding: 20,
+        borderRadius: scale(20),
+        padding: scale(20),
         borderWidth: 1,
         borderColor: '#EDEDED',
     },
     sectionTitle: {
-        fontSize: 18,
+        fontSize: moderateScale(18),
         fontWeight: '700',
         color: '#111',
-        marginBottom: 20,
+        marginBottom: verticalScale(20),
     },
     chartContainer: {
         flexDirection: 'row',
@@ -643,21 +644,21 @@ const styles = StyleSheet.create({
     },
     legendContainer: {
         flex: 1,
-        marginLeft: 20,
-        gap: 12,
+        marginLeft: scale(20),
+        gap: verticalScale(12),
     },
     legendItem: {
         flexDirection: 'row',
         alignItems: 'center',
     },
     legendDot: {
-        width: 12,
-        height: 12,
-        borderRadius: 6,
-        marginRight: 10,
+        width: scale(12),
+        height: scale(12),
+        borderRadius: scale(6),
+        marginRight: scale(10),
     },
     legendTitle: {
-        fontSize: 14,
+        fontSize: moderateScale(14),
         color: '#333',
         fontWeight: '500',
     },
@@ -668,49 +669,49 @@ const styles = StyleSheet.create({
     emptyChartContainer: {
         alignItems: 'center',
         justifyContent: 'center',
-        height: 100,
+        height: verticalScale(100),
     },
     emptyChartText: {
         color: '#999',
-        fontSize: 14,
+        fontSize: moderateScale(14),
         fontStyle: 'italic',
     },
     detailsCard: {
         width: '95%',
         alignSelf: 'center',
         backgroundColor: 'white',
-        borderRadius: 16,
-        padding: 20,
-        marginTop: 15,
+        borderRadius: scale(16),
+        padding: scale(20),
+        marginTop: verticalScale(15),
         shadowColor: '#000',
-        shadowOffset: { width: 0, height: 1 },
+        shadowOffset: { width: 0, height: verticalScale(1) },
         shadowOpacity: 0.1,
         // shadowRadius: 8,
         elevation: 2,
         borderWidth: 1,
         borderColor: '#F0F0F0',
-        gap: 12,
+        gap: verticalScale(12),
     },
     detailRow: {
         flexDirection: 'row',
         alignItems: 'flex-start',
-        gap: 12,
+        gap: scale(12),
     },
     detailIconImage: {
-        width: 20,
-        height: 20,
-        marginTop: 2,
+        width: scale(20),
+        height: scale(20),
+        marginTop: verticalScale(2),
     },
     detailText: {
-        fontSize: 15,
+        fontSize: moderateScale(15),
         color: '#333',
         fontWeight: '500',
         flex: 1,
-        lineHeight: 22,
+        lineHeight: moderateScale(22),
     },
     subDetailText: {
-        fontSize: 13,
+        fontSize: moderateScale(13),
         color: '#888',
-        marginTop: 2,
+        marginTop: verticalScale(2),
     },
 })

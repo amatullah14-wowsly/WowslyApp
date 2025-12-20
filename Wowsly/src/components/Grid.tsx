@@ -7,6 +7,7 @@ import {
   StyleSheet,
   ImageSourcePropType,
 } from "react-native";
+import { scale, verticalScale, moderateScale } from "../utils/scaling";
 
 type GridProps = {
   icon: ImageSourcePropType;
@@ -39,44 +40,44 @@ export default Grid;
 
 const styles = StyleSheet.create({
   card: {
-    height: 80,
+    height: verticalScale(80),
     backgroundColor: "white",
-    width: 145,
-    borderRadius: 8,
+    width: scale(145),
+    borderRadius: scale(8),
     borderColor: "#EDEDED",
     borderWidth: 1,
-    padding: 8,
+    padding: scale(8),
     shadowColor: "#000",
     shadowOffset: {
       width: 0,
-      height: 4,
+      height: verticalScale(4),
     },
     shadowOpacity: 0.3,
-    shadowRadius: 4.65,
+    shadowRadius: scale(4.65),
     elevation: 3,
   },
   row: {
     flexDirection: "row",
-    gap: 5,
+    gap: scale(5),
   },
   icon: {
-    height: 20,
-    width: 20,
+    height: scale(20),
+    width: scale(20),
   },
   title: {
-    fontSize: 12,
+    fontSize: moderateScale(12),
     fontWeight: "500",
   },
   value: {
-    fontSize: 25,
+    fontSize: moderateScale(25),
     fontWeight: "700",
-    marginLeft: 5,
+    marginLeft: scale(5),
     color: "black",
   },
   arrow: {
-    height: 30,
-    width: 30,
+    height: scale(30),
+    width: scale(30),
     alignSelf: "flex-end",
-    bottom: 14,
+    bottom: verticalScale(14),
   },
 });

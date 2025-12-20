@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react'
 import { OtpInput } from 'react-native-otp-entry'
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native'
 import { verifyOTP, sendOTP } from '../../api/api'
+import { scale, verticalScale, moderateScale } from '../../utils/scaling';
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
@@ -159,85 +160,85 @@ const styles = StyleSheet.create({
         flexGrow: 1,
         justifyContent: 'center',
         alignItems: 'center',
-        paddingBottom: 20,
-        paddingTop: 50,
+        paddingBottom: verticalScale(20),
+        paddingTop: verticalScale(50),
     },
     wowsly: {
         flexDirection: 'column',
-        gap: 6,
+        gap: verticalScale(6),
         marginBottom: '6%',
-     
-        
+
+
     },
     logo: {
-        width: 80,
-        height: 55,
+        width: scale(80),
+        height: scale(55),
         alignSelf: 'center',
     },
     heading: {
-        fontSize: 25,
+        fontSize: moderateScale(25),
         fontWeight: '600',
-      color: '#000'
+        color: '#000'
     },
     box: {
         backgroundColor: 'white',
         // height: '40%', // Removed fixed height
         width: '85%',
-        borderRadius: 25,
-        padding: 20,
+        borderRadius: scale(25),
+        padding: scale(20),
         alignItems: 'center',
     },
     title: {
-        fontSize: 18,
+        fontSize: moderateScale(18),
         fontWeight: '700',
         color: '#000',
-        marginTop: 6,
+        marginTop: verticalScale(6),
         textAlign: 'center',
     },
     instructionText: {
-        fontSize: 14,
+        fontSize: moderateScale(14),
         color: '#7E7E7E',
-        marginTop: 10,
+        marginTop: verticalScale(10),
         textAlign: 'center',
     },
     phoneNumber: {
-        fontSize: 14,
+        fontSize: moderateScale(14),
         color: '#7E7E7E',
-        marginTop: 4,
+        marginTop: verticalScale(4),
         textAlign: 'center',
     },
     otpContainer: {
         width: '100%',
-        marginTop: 25,
+        marginTop: verticalScale(25),
         alignItems: 'center',
     },
     otpInputContainer: {
-        gap: 6,
+        gap: scale(6),
         alignSelf: 'center',
     },
     otpBox: {
-        width: 35,
-        height: 40,
+        width: scale(35),
+        height: verticalScale(40),
         borderWidth: 1,
         borderColor: '#E0E0E0',
-        borderRadius: 8,
+        borderRadius: scale(8),
     },
     otpText: {
-        fontSize: 18,
+        fontSize: moderateScale(18),
         fontWeight: '600',
         color: '#000',
     },
     resendContainer: {
         flexDirection: 'row',
         alignItems: 'center',
-        marginTop: 20,
+        marginTop: verticalScale(20),
     },
     resendText: {
-        fontSize: 12,
+        fontSize: moderateScale(12),
         color: '#7E7E7E',
     },
     resendLink: {
-        fontSize: 12,
+        fontSize: moderateScale(12),
         color: '#FF8A3C',
         fontWeight: '600',
     },
@@ -246,22 +247,22 @@ const styles = StyleSheet.create({
         color: '#FFF3E0',
     },
     timerText: {
-        fontSize: 12,
+        fontSize: moderateScale(12),
         color: '#7E7E7E',
-        marginTop: 4,
+        marginTop: verticalScale(4),
     },
     verifyButton: {
         width: '100%',
-        height: 45,
+        height: verticalScale(45),
         backgroundColor: '#FF8A3C',
-        borderRadius: 15,
+        borderRadius: scale(15),
         alignItems: 'center',
         justifyContent: 'center',
-        marginTop: 25,
+        marginTop: verticalScale(25),
     },
     verifyButtonText: {
         color: '#fff',
-        fontSize: 16,
+        fontSize: moderateScale(16),
         fontWeight: '700',
     },
 })

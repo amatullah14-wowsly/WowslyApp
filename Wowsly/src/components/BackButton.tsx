@@ -1,5 +1,6 @@
 import React from 'react';
 import { TouchableOpacity, Image, StyleSheet, TouchableOpacityProps, StyleProp, ViewStyle, ImageStyle } from 'react-native';
+import { scale, verticalScale } from '../utils/scaling';
 
 const BACK_ICON = require('../assets/img/common/back.png');
 
@@ -22,9 +23,9 @@ const BackButton: React.FC<BackButtonProps> = ({ style, iconStyle, ...props }) =
 
 const styles = StyleSheet.create({
     button: {
-        width: 40,
-        height: 40,
-        borderRadius: 20,
+        width: scale(40),
+        height: scale(40), // scale height same as width to keep circle
+        borderRadius: scale(20),
         backgroundColor: '#FFFFFF',
         borderWidth: 1,
         borderColor: '#EFE8DE',
@@ -32,8 +33,8 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
     },
     icon: {
-        width: 14,
-        height: 22,
+        width: scale(14),
+        height: verticalScale(22),
         resizeMode: 'contain',
         tintColor: '#1F1F1F',
     },

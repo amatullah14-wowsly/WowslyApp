@@ -17,6 +17,7 @@ import { getEventTicketCheckins, downloadTicketCsv } from '../../api/event';
 import RNFS from 'react-native-fs';
 import Toast from 'react-native-toast-message';
 import { PermissionsAndroid } from 'react-native';
+import { scale, verticalScale, moderateScale } from '../../utils/scaling';
 
 const { width } = Dimensions.get('window');
 
@@ -40,13 +41,14 @@ const INFO_ICON = require('../../assets/img/common/info.png');
 // Using a generic download icon if specific asset isn't available, or keep existing url
 const DOWNLOAD_ICON = { uri: 'https://img.icons8.com/ios-glyphs/30/000000/download.png' };
 
-const CustomProgressBar = ({ current, total, color = '#FF8A3C', height = 6 }: { current: number, total: number, color?: string, height?: number }) => {
+const CustomProgressBar = ({ current, total, color = '#FF8A3C', height }: { current: number, total: number, color?: string, height?: number }) => {
+    const barHeight = height || verticalScale(6);
     const percentage = total > 0 ? (current / total) * 100 : 0;
     const clampedPercentage = Math.min(100, Math.max(0, percentage));
 
     return (
-        <View style={[styles.progressBarBackground, { height }]}>
-            <View style={[styles.progressBarFill, { width: `${clampedPercentage}%`, backgroundColor: color, height }]} />
+        <View style={[styles.progressBarBackground, { height: barHeight }]}>
+            <View style={[styles.progressBarFill, { width: `${clampedPercentage}%`, backgroundColor: color, height: barHeight }]} />
         </View>
     );
 };
@@ -164,7 +166,7 @@ const CheckInRecords = () => {
                         </TouchableOpacity>
 
                         <TouchableOpacity
-                            style={[styles.iconButton, { marginLeft: 8 }]}
+                            style={[styles.iconButton, { marginLeft: scale(8) }]}
                             onPress={() => handleDownload(item)}
                         >
                             <Image source={DOWNLOAD_ICON} style={styles.icon} resizeMode="contain" />
@@ -181,7 +183,7 @@ const CheckInRecords = () => {
                             <Text style={styles.totalValue}> / {total}</Text>
                         </Text>
                     </View>
-                    <CustomProgressBar current={checkedIn} total={total} height={8} />
+                    <CustomProgressBar current={checkedIn} total={total} height={verticalScale(8)} />
                 </View>
 
                 {/* Separator if facilities exist */}
@@ -200,7 +202,7 @@ const CheckInRecords = () => {
                                         <Text style={styles.facilityName} numberOfLines={1}>{facility.facility_name}</Text>
                                         <Text style={styles.facilityCount}>{fCheckedIn}/{fTotal}</Text>
                                     </View>
-                                    <CustomProgressBar current={fCheckedIn} total={fTotal} height={4} color="#4CAF50" />
+                                    <CustomProgressBar current={fCheckedIn} total={fTotal} height={verticalScale(4)} color="#4CAF50" />
                                 </View>
                             );
                         })}
@@ -215,7 +217,7 @@ const CheckInRecords = () => {
             <View style={styles.header}>
                 <BackButton onPress={() => navigation.goBack()} />
                 <Text style={styles.title}>Event Check-In Records</Text>
-                <View style={{ width: 32 }} />
+                <View style={{ width: scale(32) }} />
             </View>
 
             {loading ? (
@@ -249,21 +251,21 @@ const styles = StyleSheet.create({
     },
     header: {
         width: '100%',
-        height: 90,
-        paddingTop: 20,
+        height: verticalScale(90),
+        paddingTop: verticalScale(20),
         backgroundColor: 'white',
         alignItems: 'center',
         flexDirection: 'row',
         justifyContent: 'space-between',
-        paddingHorizontal: 20,
+        paddingHorizontal: scale(20),
         elevation: 2,
         shadowColor: '#000',
         shadowOpacity: 0.05,
-        shadowRadius: 5,
+        shadowRadius: scale(5),
         zIndex: 10,
     },
     title: {
-        fontSize: 18,
+        fontSize: moderateScale(18),
         fontWeight: '600',
         color: '#111',
     },
@@ -273,19 +275,19 @@ const styles = StyleSheet.create({
         alignItems: 'center',
     },
     listContent: {
-        padding: 16,
-        paddingBottom: 40,
+        padding: scale(16),
+        paddingBottom: verticalScale(40),
     },
     card: {
         backgroundColor: 'white',
-        borderRadius: 16,
-        padding: 16, // More padding
-        marginBottom: 16,
+        borderRadius: scale(16),
+        padding: scale(16), // More padding
+        marginBottom: verticalScale(16),
         width: '100%', // Full width cards look better for detailed info like this
         shadowColor: '#000',
         shadowOpacity: 0.08,
-        shadowOffset: { width: 0, height: 4 },
-        shadowRadius: 8,
+        shadowOffset: { width: 0, height: verticalScale(4) },
+        shadowRadius: scale(8),
         elevation: 3,
         borderWidth: 1,
         borderColor: '#EAEAEA',
@@ -294,27 +296,27 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'flex-start',
-        marginBottom: 16,
+        marginBottom: verticalScale(16),
     },
     titleContainer: {
         flex: 1,
-        marginRight: 10,
+        marginRight: scale(10),
     },
     ticketName: {
-        fontSize: 18,
+        fontSize: moderateScale(18),
         fontWeight: '700',
         color: '#222',
-        marginBottom: 4,
+        marginBottom: verticalScale(4),
     },
     ticketPercentage: {
-        fontSize: 12,
+        fontSize: moderateScale(12),
         color: '#888',
         fontWeight: '600',
         backgroundColor: '#F0F0F0',
         alignSelf: 'flex-start',
-        paddingHorizontal: 8,
-        paddingVertical: 2,
-        borderRadius: 6,
+        paddingHorizontal: scale(8),
+        paddingVertical: verticalScale(2),
+        borderRadius: scale(6),
         overflow: 'hidden',
     },
     iconsRow: {
@@ -322,31 +324,31 @@ const styles = StyleSheet.create({
         alignItems: 'center',
     },
     iconButton: {
-        padding: 6,
+        padding: scale(6),
         backgroundColor: '#F5F5F5',
-        borderRadius: 8,
+        borderRadius: scale(8),
     },
     icon: {
-        width: 18,
-        height: 18,
+        width: scale(18),
+        height: scale(18),
         tintColor: '#333',
     },
     mainProgressContainer: {
-        marginBottom: 8,
+        marginBottom: verticalScale(8),
     },
     progressLabelRow: {
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
-        marginBottom: 6,
+        marginBottom: verticalScale(6),
     },
     progressLabel: {
-        fontSize: 14,
+        fontSize: moderateScale(14),
         color: '#555',
         fontWeight: '500',
     },
     progressValue: {
-        fontSize: 14,
+        fontSize: moderateScale(14),
         fontWeight: '600',
     },
     highlightValue: {
@@ -355,58 +357,58 @@ const styles = StyleSheet.create({
     },
     totalValue: {
         color: '#999',
-        fontSize: 12,
+        fontSize: moderateScale(12),
     },
     progressBarBackground: {
         width: '100%',
         backgroundColor: '#F0F0F0',
-        borderRadius: 4,
+        borderRadius: scale(4),
         overflow: 'hidden',
     },
     progressBarFill: {
-        borderRadius: 4,
+        borderRadius: scale(4),
     },
     separator: {
-        height: 1,
+        height: verticalScale(1),
         backgroundColor: '#F0F0F0',
-        marginVertical: 12,
+        marginVertical: verticalScale(12),
     },
     facilitiesContainer: {
-        gap: 10,
+        gap: verticalScale(10),
     },
     facilitiesHeader: {
-        fontSize: 13,
+        fontSize: moderateScale(13),
         fontWeight: '700',
         color: '#444',
-        marginBottom: 4,
+        marginBottom: verticalScale(4),
         letterSpacing: 0.5,
         textTransform: 'uppercase',
     },
     facilityRow: {
-        marginBottom: 4,
+        marginBottom: verticalScale(4),
     },
     facilityInfo: {
         flexDirection: 'row',
         justifyContent: 'space-between',
-        marginBottom: 4,
+        marginBottom: verticalScale(4),
     },
     facilityName: {
-        fontSize: 13,
+        fontSize: moderateScale(13),
         color: '#555',
         flex: 1,
     },
     facilityCount: {
-        fontSize: 12,
+        fontSize: moderateScale(12),
         color: '#777',
         fontWeight: '500',
     },
     emptyContainer: {
-        padding: 40,
+        padding: scale(40),
         alignItems: 'center',
     },
     emptyText: {
         color: '#888',
-        fontSize: 16,
+        fontSize: moderateScale(16),
     }
 });
 

@@ -15,6 +15,7 @@ import {
   DeviceEventEmitter,
   ScrollView,
 } from 'react-native'
+import { scale, verticalScale, moderateScale } from '../../utils/scaling';
 
 import { initDB, findTicketByQr, updateTicketStatusLocal, getTicketsForEvent, insertOrReplaceGuests, getFacilitiesForGuest, updateFacilityCheckInLocal, insertFacilityForGuest } from '../../db'
 import { RouteProp, useRoute, useNavigation, useFocusEffect } from '@react-navigation/native'
@@ -105,7 +106,7 @@ const QrCode = () => {
   // Animation State
   const SCREEN_HEIGHT = Dimensions.get('window').height;
   const SHEET_MAX_HEIGHT = SCREEN_HEIGHT * 0.6; // Occupy 60% of screen when open
-  const SHEET_MIN_HEIGHT = 220; // Visible part when collapsed
+  const SHEET_MIN_HEIGHT = verticalScale(220); // Visible part when collapsed
   const MAX_UPWARD_TRANSLATE = -(SHEET_MAX_HEIGHT - SHEET_MIN_HEIGHT); // Negative value to move up
 
   const panY = useRef(new Animated.Value(0)).current;
@@ -1500,13 +1501,13 @@ const styles = StyleSheet.create({
   },
   eventName: {
     color: '#B0B0B0',
-    fontSize: 12,
-    marginTop: 2,
+    fontSize: moderateScale(12),
+    marginTop: verticalScale(2),
   },
   flashButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 12,
+    width: scale(40),
+    height: scale(40),
+    borderRadius: scale(12),
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.3)',
     alignItems: 'center',
@@ -1517,8 +1518,8 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(255,255,255,0.6)',
   },
   flashIcon: {
-    width: 20,
-    height: 20,
+    width: scale(20),
+    height: scale(20),
     tintColor: '#FFFFFF',
   },
   scannerWrapper: {
@@ -1533,55 +1534,55 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.2)',
     borderStyle: 'dashed',
-    borderRadius: 24,
+    borderRadius: scale(24),
     justifyContent: 'center',
     alignItems: 'center',
   },
   corner: {
     position: 'absolute',
-    width: 48,
-    height: 48,
-    borderRadius: 12,
+    width: scale(48),
+    height: scale(48),
+    borderRadius: scale(12),
     borderColor: '#FF8A3C',
     borderWidth: 5,
   },
   cornerTopLeft: {
-    top: -5,
-    left: -5,
+    top: verticalScale(-5),
+    left: scale(-5),
     borderRightWidth: 0,
     borderBottomWidth: 0,
   },
   cornerTopRight: {
-    top: -5,
-    right: -5,
+    top: verticalScale(-5),
+    right: scale(-5),
     borderLeftWidth: 0,
     borderBottomWidth: 0,
   },
   cornerBottomLeft: {
-    bottom: -5,
-    left: -5,
+    bottom: verticalScale(-5),
+    left: scale(-5),
     borderRightWidth: 0,
     borderTopWidth: 0,
   },
   cornerBottomRight: {
-    bottom: -5,
-    right: -5,
+    bottom: verticalScale(-5),
+    right: scale(-5),
     borderLeftWidth: 0,
     borderTopWidth: 0,
   },
   scanHint: {
     color: '#FFFFFF',
-    fontSize: 14,
-    marginTop: 24,
+    fontSize: moderateScale(14),
+    marginTop: verticalScale(24),
   },
   sheet: {
     backgroundColor: '#121212',
-    borderTopLeftRadius: 32,
-    borderTopRightRadius: 32,
-    paddingHorizontal: 24,
-    paddingTop: 24,
-    paddingBottom: 32,
-    gap: 16,
+    borderTopLeftRadius: scale(32),
+    borderTopRightRadius: scale(32),
+    paddingHorizontal: scale(24),
+    paddingTop: verticalScale(24),
+    paddingBottom: verticalScale(32),
+    gap: verticalScale(16),
     zIndex: 10,
     position: 'absolute',
     left: 0,
@@ -1589,11 +1590,11 @@ const styles = StyleSheet.create({
   },
   sheetHandle: {
     alignSelf: 'center',
-    width: 60,
-    height: 4,
-    borderRadius: 2,
+    width: scale(60),
+    height: verticalScale(4),
+    borderRadius: scale(2),
     backgroundColor: '#2A2A2A',
-    marginBottom: 8,
+    marginBottom: verticalScale(8),
   },
   guestRow: {
     flexDirection: 'row',
@@ -1602,20 +1603,20 @@ const styles = StyleSheet.create({
   },
   guestName: {
     color: '#FFFFFF',
-    fontSize: 20,
+    fontSize: moderateScale(20),
     fontWeight: '700',
   },
   ticketId: {
     color: '#9C9C9C',
-    marginTop: 4,
+    marginTop: verticalScale(4),
   },
   statusPill: {
     backgroundColor: '#1FC566',
-    borderRadius: 20,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    marginLeft: 10,
-    maxWidth: 120, // Prevent overflow
+    borderRadius: scale(20),
+    paddingHorizontal: scale(12),
+    paddingVertical: verticalScale(6),
+    marginLeft: scale(10),
+    maxWidth: scale(120), // Prevent overflow
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -1625,92 +1626,92 @@ const styles = StyleSheet.create({
   statusPillText: {
     color: '#FFFFFF',
     fontWeight: '700',
-    fontSize: 10, // Slightly smaller text
+    fontSize: moderateScale(10), // Slightly smaller text
     textAlign: 'center',
   },
   primaryButton: {
-    marginTop: 8,
+    marginTop: verticalScale(8),
     backgroundColor: '#FF8A3C',
-    borderRadius: 18,
+    borderRadius: scale(18),
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 14,
+    paddingVertical: verticalScale(14),
   },
   primaryButtonDisabled: {
     backgroundColor: '#CCCCCC',
   },
   primaryButtonText: {
     color: '#FFFFFF',
-    fontSize: 16,
+    fontSize: moderateScale(16),
     fontWeight: '700',
   },
   entriesText: {
     color: '#9C9C9C',
-    marginTop: 4,
-    fontSize: 14,
+    marginTop: verticalScale(4),
+    fontSize: moderateScale(14),
   },
   facilitiesContainer: {
-    marginTop: 8,
+    marginTop: verticalScale(8),
   },
   facilitiesTitle: {
     color: '#FFFFFF',
-    fontSize: 14,
+    fontSize: moderateScale(14),
     fontWeight: '700',
-    marginBottom: 8,
+    marginBottom: verticalScale(8),
   },
   facilitiesList: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 8,
+    gap: scale(8),
   },
   facilityBadge: {
     backgroundColor: 'rgba(255, 255, 255, 0.1)',
-    borderRadius: 8,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
+    borderRadius: scale(8),
+    paddingHorizontal: scale(10),
+    paddingVertical: verticalScale(4),
   },
   facilityText: {
     color: '#FFFFFF',
-    fontSize: 12,
+    fontSize: moderateScale(12),
   },
   statsContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 8,
+    marginTop: verticalScale(8),
     backgroundColor: 'rgba(255,255,255,0.1)',
-    borderRadius: 12,
-    padding: 8,
+    borderRadius: scale(12),
+    padding: scale(8),
   },
   statItem: {
     alignItems: 'center',
-    paddingHorizontal: 12,
+    paddingHorizontal: scale(12),
   },
   statLabel: {
     color: '#9C9C9C',
-    fontSize: 10,
+    fontSize: moderateScale(10),
     textTransform: 'uppercase',
-    marginBottom: 2,
+    marginBottom: verticalScale(2),
   },
   statValue: {
     color: '#FFFFFF',
-    fontSize: 16,
+    fontSize: moderateScale(16),
     fontWeight: '700',
   },
   statDivider: {
     width: 1,
-    height: 24,
+    height: verticalScale(24),
     backgroundColor: 'rgba(255,255,255,0.2)',
   },
   quantityContainer: {
-    marginTop: 16,
+    marginTop: verticalScale(16),
     backgroundColor: 'rgba(255,255,255,0.05)',
-    borderRadius: 12,
-    padding: 12,
+    borderRadius: scale(12),
+    padding: scale(12),
   },
   quantityLabel: {
     color: '#9C9C9C',
-    fontSize: 12,
-    marginBottom: 8,
+    fontSize: moderateScale(12),
+    marginBottom: verticalScale(8),
   },
   quantityControls: {
     flexDirection: 'row',
@@ -1718,40 +1719,40 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   qtyButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: scale(40),
+    height: scale(40),
+    borderRadius: scale(20),
     backgroundColor: 'rgba(255,255,255,0.1)',
     alignItems: 'center',
     justifyContent: 'center',
   },
   qtyButtonText: {
     color: '#FFFFFF',
-    fontSize: 24,
+    fontSize: moderateScale(24),
     fontWeight: '700',
-    lineHeight: 28,
+    lineHeight: moderateScale(28),
   },
   qtyValue: {
     color: '#FFFFFF',
-    fontSize: 24,
+    fontSize: moderateScale(24),
     fontWeight: '700',
   },
   statusBanner: {
     position: 'absolute',
-    top: 120,
+    top: verticalScale(120),
     alignSelf: 'center',
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    paddingVertical: 12,
-    paddingHorizontal: 24,
-    borderRadius: 30,
+    gap: scale(8),
+    paddingVertical: verticalScale(12),
+    paddingHorizontal: scale(24),
+    borderRadius: scale(30),
     zIndex: 999,
     elevation: 6,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
+    shadowOffset: { width: 0, height: verticalScale(4) },
     shadowOpacity: 0.3,
-    shadowRadius: 6,
+    shadowRadius: scale(6),
     maxWidth: '90%',
   },
   statusBannerSuccess: {
@@ -1765,10 +1766,10 @@ const styles = StyleSheet.create({
   },
   statusBannerText: {
     color: '#FFFFFF',
-    fontSize: 14,
+    fontSize: moderateScale(14),
     fontWeight: '700',
     textAlign: 'left',
-    lineHeight: 20,
+    lineHeight: moderateScale(20),
     flex: 1,
     flexWrap: 'wrap',
     flexShrink: 1,
@@ -1777,59 +1778,59 @@ const styles = StyleSheet.create({
     textShadowRadius: 2,
   },
   statusIconWrapper: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
+    width: scale(28),
+    height: scale(28),
+    borderRadius: scale(14),
     backgroundColor: 'rgba(255,255,255,0.2)',
     alignItems: 'center',
     justifyContent: 'center',
   },
   statusIconText: {
     color: '#FFFFFF',
-    fontSize: 16,
+    fontSize: moderateScale(16),
     fontWeight: '900',
   },
   // ⚡⚡⚡ NEW STYLES FOR FACILITY UI ⚡⚡⚡
   scanningOptionsContainer: {
-    marginTop: 16,
+    marginTop: verticalScale(16),
   },
   scanningForTitle: {
     color: '#9C9C9C',
-    fontSize: 12,
-    marginBottom: 10,
+    fontSize: moderateScale(12),
+    marginBottom: verticalScale(10),
     textTransform: 'uppercase'
   },
   radioGroup: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 16,
-    marginBottom: 10
+    gap: scale(16),
+    marginBottom: verticalScale(10)
   },
   radioItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 10,
-    marginRight: 10
+    marginBottom: verticalScale(10),
+    marginRight: scale(10)
   },
   radioOuter: {
-    width: 20,
-    height: 20,
-    borderRadius: 10,
+    width: scale(20),
+    height: scale(20),
+    borderRadius: scale(10),
     borderWidth: 2,
     borderColor: '#FF8A3C',
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 8
+    marginRight: scale(8)
   },
   radioInner: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
+    width: scale(10),
+    height: scale(10),
+    borderRadius: scale(5),
     backgroundColor: '#FF8A3C'
   },
   radioLabel: {
     color: '#FFFFFF',
-    fontSize: 14,
+    fontSize: moderateScale(14),
     fontWeight: '600'
   },
   disabledText: {

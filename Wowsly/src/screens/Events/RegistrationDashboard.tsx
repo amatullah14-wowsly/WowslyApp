@@ -7,6 +7,7 @@ import BackButton from '../../components/BackButton';
 import { getRegistrationAnswers, exportRegistrationReplies, getExportStatus, getEventDetails, updateGuestStatus } from '../../api/event';
 import { ToastAndroid, Alert, Platform, Linking } from 'react-native';
 import RegistrationFormEditor from './RegistrationFormEditor';
+import { scale, verticalScale, moderateScale } from '../../utils/scaling';
 
 const ActionMenu = React.memo(({ onSelect }: { onSelect: (status: 'accepted' | 'rejected' | 'blocked') => void }) => (
     <View style={styles.popupMenu}>
@@ -161,8 +162,8 @@ const RegistrationDashboard = () => {
     };
 
     const handleDateExportSubmit = async () => {
-        let apiStartDate = null;
-        let apiEndDate = null;
+        let apiStartDate: string | undefined;
+        let apiEndDate: string | undefined;
 
         if (startDate || endDate) {
             if (!startDate || !endDate) {
@@ -186,7 +187,7 @@ const RegistrationDashboard = () => {
 
         try {
             console.log(`Starting export with dates: ${apiStartDate} to ${apiEndDate}`);
-            const res = await exportRegistrationReplies(eventId, apiStartDate, apiEndDate);
+            const res = await exportRegistrationReplies(eventId, apiStartDate as any, apiEndDate as any);
             if (res && res.success) {
                 setExportStatus('processing');
                 const msg = res.message || "Export started.";
@@ -377,7 +378,7 @@ const RegistrationDashboard = () => {
                                 <TouchableOpacity
                                     style={styles.createButtonPrimary}
                                     activeOpacity={0.8}
-                                    onPress={() => navigation.navigate('RegistrationFormEditor', { eventId })}
+                                    onPress={() => (navigation as any).navigate('RegistrationFormEditor', { eventId })}
                                 >
                                     <Text style={styles.createButtonText}>Create Form</Text>
                                 </TouchableOpacity>
@@ -417,7 +418,7 @@ const RegistrationDashboard = () => {
 
                         {/* List */}
                         {loading && replies.length === 0 ? (
-                            <ActivityIndicator size="large" color="#FF8A3C" style={{ marginTop: 50 }} />
+                            <ActivityIndicator size="large" color="#FF8A3C" style={{ marginTop: verticalScale(50) }} />
                         ) : (
                             <FlatList
                                 data={replies}
@@ -425,7 +426,7 @@ const RegistrationDashboard = () => {
                                 keyExtractor={(item, index) => item.id?.toString() || index.toString()}
                                 onEndReached={loadMoreReplies}
                                 onEndReachedThreshold={0.5}
-                                ListFooterComponent={loading && replies.length > 0 ? <ActivityIndicator color="#FF8A3C" style={{ margin: 20 }} /> : null}
+                                ListFooterComponent={loading && replies.length > 0 ? <ActivityIndicator color="#FF8A3C" style={{ margin: scale(20) }} /> : null}
                                 ListEmptyComponent={!loading ? <Text style={styles.emptyText}>No replies found</Text> : null}
                             />
                         )}
@@ -579,15 +580,15 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'space-between',
-        paddingHorizontal: 20,
-        paddingTop: 30,
-        paddingBottom: 10,
+        paddingHorizontal: scale(20),
+        paddingTop: verticalScale(30),
+        paddingBottom: verticalScale(10),
         backgroundColor: 'white',
         borderBottomWidth: 1,
         borderBottomColor: '#f0f0f0',
     },
     title: {
-        fontSize: 20,
+        fontSize: moderateScale(20),
         fontWeight: '500',
         color: '#111',
     },
@@ -596,26 +597,26 @@ const styles = StyleSheet.create({
         width: '90%',
         alignSelf: 'center',
         backgroundColor: '#F5F5F5',
-        borderRadius: 12,
-        padding: 4,
-        marginBottom: 10,
-        marginTop: 20,
+        borderRadius: scale(12),
+        padding: scale(4),
+        marginBottom: verticalScale(10),
+        marginTop: verticalScale(20),
     },
     toggleButton: {
         flex: 1,
-        paddingVertical: 10,
+        paddingVertical: verticalScale(10),
         alignItems: 'center',
-        borderRadius: 10,
+        borderRadius: scale(10),
     },
     activeButton: {
         backgroundColor: 'white',
         shadowColor: '#000',
-        shadowOffset: { width: 0, height: 1 },
+        shadowOffset: { width: 0, height: verticalScale(1) },
         shadowOpacity: 0.1,
         elevation: 2,
     },
     toggleText: {
-        fontSize: 15,
+        fontSize: moderateScale(15),
         fontWeight: '600',
         color: '#888',
     },
@@ -630,68 +631,68 @@ const styles = StyleSheet.create({
         flex: 1,
         justifyContent: 'center',
         alignItems: 'center',
-        gap: 10,
+        gap: verticalScale(10),
     },
     placeholderText: {
-        fontSize: 18,
+        fontSize: moderateScale(18),
         fontWeight: '600',
         color: '#333',
     },
     placeholderSubText: {
-        fontSize: 14,
+        fontSize: moderateScale(14),
         color: '#888',
     },
     createFormCard: {
         alignItems: 'center',
-        padding: 30,
+        padding: scale(30),
         backgroundColor: 'white',
-        borderRadius: 16,
+        borderRadius: scale(16),
         width: '90%',
     },
     iconContainer: {
-        width: 80,
-        height: 80,
-        borderRadius: 40,
+        width: scale(80),
+        height: scale(80),
+        borderRadius: scale(40),
         backgroundColor: '#FFF3E0', // Light orange
         alignItems: 'center',
         justifyContent: 'center',
-        marginBottom: 20,
+        marginBottom: verticalScale(20),
     },
     mainIcon: {
-        width: 40,
-        height: 40,
+        width: scale(40),
+        height: scale(40),
         tintColor: '#FF8A3C',
     },
     createFormTitle: {
-        fontSize: 20,
+        fontSize: moderateScale(20),
         fontWeight: '700',
         color: '#333',
-        marginBottom: 10,
+        marginBottom: verticalScale(10),
         textAlign: 'center',
     },
     createFormSubtitle: {
-        fontSize: 14,
+        fontSize: moderateScale(14),
         color: '#666',
         textAlign: 'center',
-        marginBottom: 30,
-        lineHeight: 20,
+        marginBottom: verticalScale(30),
+        lineHeight: moderateScale(20),
     },
     createButtonPrimary: {
         backgroundColor: '#FF8A3C',
-        paddingVertical: 14,
-        paddingHorizontal: 40,
-        borderRadius: 30,
+        paddingVertical: verticalScale(14),
+        paddingHorizontal: scale(40),
+        borderRadius: scale(30),
         shadowColor: "#FF8A3C",
-        shadowOffset: { width: 0, height: 4 },
+        shadowOffset: { width: 0, height: verticalScale(4) },
         shadowOpacity: 0.3,
-        shadowRadius: 6,
+        shadowRadius: scale(6),
         elevation: 6,
         width: '100%',
         alignItems: 'center',
     },
     createButtonText: {
         color: 'white',
-        fontSize: 16,
+        fontSize: moderateScale(16),
         fontWeight: '600',
     },
     repliesContainer: {
@@ -699,25 +700,25 @@ const styles = StyleSheet.create({
     },
     badgeContainer: {
         alignItems: 'center',
-        marginTop: 10,
+        marginTop: verticalScale(10),
     },
     processingBadge: {
         backgroundColor: '#EF6C00', // Darker orange
-        paddingHorizontal: 16,
-        paddingVertical: 6,
-        borderRadius: 20,
+        paddingHorizontal: scale(16),
+        paddingVertical: verticalScale(6),
+        borderRadius: scale(20),
     },
     processingText: {
         color: 'white',
         fontWeight: '700',
-        fontSize: 12,
+        fontSize: moderateScale(12),
     },
     exportRow: {
         flexDirection: 'row',
         justifyContent: 'space-between',
-        gap: 8,
-        paddingVertical: 20,
-        paddingHorizontal: 16,
+        gap: scale(8),
+        paddingVertical: verticalScale(20),
+        paddingHorizontal: scale(16),
     },
     exportButton: {
         flex: 1,
@@ -726,10 +727,10 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
         borderWidth: 1,
         borderColor: '#FF8A3C',
-        borderRadius: 8,
-        paddingVertical: 10,
-        paddingHorizontal: 2,
-        gap: 4,
+        borderRadius: scale(8),
+        paddingVertical: verticalScale(10),
+        paddingHorizontal: scale(2),
+        gap: scale(4),
         backgroundColor: 'white',
     },
     checkStatusButton: {
@@ -743,53 +744,53 @@ const styles = StyleSheet.create({
     exportButtonText: {
         color: '#FF8A3C',
         fontWeight: '600',
-        fontSize: 11,
+        fontSize: moderateScale(11),
         textAlign: 'center',
     },
     exportIcon: {
-        width: 14,
-        height: 14,
+        width: scale(14),
+        height: scale(14),
         tintColor: '#FF8A3C',
     },
     listContent: {
-        paddingHorizontal: 20,
-        paddingBottom: 20,
+        paddingHorizontal: scale(20),
+        paddingBottom: verticalScale(20),
     },
     arrowContainer: {
-        padding: 4,
+        padding: scale(4),
     },
     arrowIcon: {
-        width: 24,
-        height: 24,
+        width: scale(24),
+        height: scale(24),
         // No tintColor to keep original orange gradient from asset
     },
     replyRow: {
         flexDirection: 'row',
         alignItems: 'center',
-        paddingVertical: 16,
+        paddingVertical: verticalScale(16),
         borderBottomWidth: 1,
         borderBottomColor: '#f0f0f0',
     },
     replyInfo: {
         flex: 1,
         justifyContent: 'center',
-        paddingLeft: 20, // Slight nudge from edge per user feedback
+        paddingLeft: scale(20), // Slight nudge from edge per user feedback
     },
     replyName: {
-        fontSize: 16,
+        fontSize: moderateScale(16),
         fontWeight: 'bold',
         color: '#111',
         textTransform: 'capitalize', // Make it proper
-        marginBottom: 4,
+        marginBottom: verticalScale(4),
     },
     replyDate: {
-        fontSize: 12,
+        fontSize: moderateScale(12),
         color: '#888',
         fontWeight: '500',
     },
     emptyState: {
         alignItems: 'center',
-        marginTop: 50,
+        marginTop: verticalScale(50),
     },
     // Modal Styles
     modalOverlay: {
@@ -799,111 +800,111 @@ const styles = StyleSheet.create({
     },
     modalContainer: {
         backgroundColor: 'white',
-        borderTopLeftRadius: 20,
-        borderTopRightRadius: 20,
+        borderTopLeftRadius: scale(20),
+        borderTopRightRadius: scale(20),
         height: '50%',
-        paddingTop: 20,
-        paddingHorizontal: 20,
+        paddingTop: verticalScale(20),
+        paddingHorizontal: scale(20),
     },
     modalHeader: {
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
-        paddingBottom: 20,
+        paddingBottom: verticalScale(20),
         borderBottomWidth: 1,
         borderBottomColor: '#eee',
     },
     modalTitle: {
-        fontSize: 18,
+        fontSize: moderateScale(18),
         fontWeight: 'bold',
         color: '#111',
     },
     closeButton: {
-        padding: 5,
+        padding: scale(5),
     },
     closeButtonText: {
-        fontSize: 18,
+        fontSize: moderateScale(18),
         color: '#666',
         fontWeight: 'bold',
     },
     modalContent: {
-        paddingTop: 20,
-        paddingBottom: 40,
+        paddingTop: verticalScale(20),
+        paddingBottom: verticalScale(40),
     },
     detailRow: {
-        marginBottom: 16,
-        paddingBottom: 12,
+        marginBottom: verticalScale(16),
+        paddingBottom: verticalScale(12),
         borderBottomWidth: 1,
         borderBottomColor: '#f5f5f5',
     },
     detailLabel: {
-        fontSize: 12,
+        fontSize: moderateScale(12),
         color: '#888',
-        marginBottom: 4,
+        marginBottom: verticalScale(4),
         textTransform: 'uppercase',
-        letterSpacing: 0.5,
+        letterSpacing: scale(0.5),
     },
     detailValue: {
-        fontSize: 16,
+        fontSize: moderateScale(16),
         color: '#111',
         fontWeight: '500',
     },
     emptyText: {
         textAlign: 'center',
-        marginTop: 20,
+        marginTop: verticalScale(20),
         color: '#666',
-        fontSize: 14,
+        fontSize: moderateScale(14),
     },
     // Menu Styles
     headerActions: {
         flexDirection: 'row',
         alignItems: 'center',
-        gap: 16,
+        gap: scale(16),
     },
     infoButton: {
-        padding: 4,
+        padding: scale(4),
     },
     infoIcon: {
-        width: 24,
-        height: 24,
+        width: scale(24),
+        height: scale(24),
         tintColor: '#666',
     },
     popupMenu: {
         position: 'absolute',
-        top: 60, // Below header
-        right: 20,
+        top: verticalScale(60), // Below header
+        right: scale(20),
         backgroundColor: 'white',
-        borderRadius: 12, // Smoother corners for "App UI" feel
+        borderRadius: scale(12), // Smoother corners for "App UI" feel
         elevation: 10, // Higher elevation
         shadowColor: '#000',
-        shadowOffset: { width: 0, height: 4 },
+        shadowOffset: { width: 0, height: verticalScale(4) },
         shadowOpacity: 0.3,
-        shadowRadius: 6,
-        width: 180, // Slightly wider
+        shadowRadius: scale(6),
+        width: scale(180), // Slightly wider
         zIndex: 1000, // Ensure top
-        paddingVertical: 8,
+        paddingVertical: verticalScale(8),
     },
     menuItem: {
-        paddingVertical: 14,
-        paddingHorizontal: 16,
+        paddingVertical: verticalScale(14),
+        paddingHorizontal: scale(16),
     },
     menuItemDestructive: {
         // backgroundColor: '#FFEBEE', // Removed per user request ("nothing selected")
     },
     menuText: {
-        fontSize: 14,
+        fontSize: moderateScale(14),
         color: '#333',
         fontWeight: '500',
     },
     menuSeparator: {
-        height: 1,
+        height: verticalScale(1),
         backgroundColor: '#eee',
     },
     // Date Modal Styles
     dateModalContainer: {
         backgroundColor: 'white',
-        borderRadius: 16,
-        padding: 24,
+        borderRadius: scale(16),
+        padding: scale(24),
         width: '90%',
         alignSelf: 'center',
         // Center vertically in overlay
@@ -914,25 +915,25 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
-        marginBottom: 24,
+        marginBottom: verticalScale(24),
     },
     dateModalTitle: {
-        fontSize: 18,
+        fontSize: moderateScale(18),
         fontWeight: 'bold',
         color: '#111',
     },
     dateInputContainer: {
-        marginBottom: 20,
+        marginBottom: verticalScale(20),
     },
     dateLabel: {
-        fontSize: 14,
+        fontSize: moderateScale(14),
         color: '#666',
-        marginBottom: 8,
+        marginBottom: verticalScale(8),
         position: 'absolute',
-        top: -10,
-        left: 10,
+        top: verticalScale(-10),
+        left: scale(10),
         backgroundColor: 'white',
-        paddingHorizontal: 4,
+        paddingHorizontal: scale(4),
         zIndex: 1,
     },
     inputWrapper: {
@@ -940,48 +941,48 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         borderWidth: 1,
         borderColor: '#ddd',
-        borderRadius: 8,
-        paddingHorizontal: 12,
-        height: 50,
+        borderRadius: scale(8),
+        paddingHorizontal: scale(12),
+        height: verticalScale(50),
     },
     dateInput: {
         flex: 1,
-        fontSize: 16,
+        fontSize: moderateScale(16),
         color: '#333',
     },
     inputIcon: {
-        width: 20,
-        height: 20,
+        width: scale(20),
+        height: scale(20),
         tintColor: '#333',
     },
     helperText: {
-        fontSize: 12,
+        fontSize: moderateScale(12),
         color: '#888',
-        marginBottom: 24,
+        marginBottom: verticalScale(24),
     },
     dateModalFooter: {
         flexDirection: 'row',
         justifyContent: 'flex-end',
         alignItems: 'center',
-        gap: 16,
+        gap: scale(16),
     },
     cancelButton: {
-        paddingVertical: 10,
-        paddingHorizontal: 16,
+        paddingVertical: verticalScale(10),
+        paddingHorizontal: scale(16),
     },
     cancelButtonText: {
-        fontSize: 16,
+        fontSize: moderateScale(16),
         color: '#333',
         fontWeight: '500',
     },
     startExportButton: {
         backgroundColor: '#EF6C00',
-        paddingVertical: 10,
-        paddingHorizontal: 24,
-        borderRadius: 8,
+        paddingVertical: verticalScale(10),
+        paddingHorizontal: scale(24),
+        borderRadius: scale(8),
     },
     startExportButtonText: {
-        fontSize: 16,
+        fontSize: moderateScale(16),
         color: 'white',
         fontWeight: '600',
     }

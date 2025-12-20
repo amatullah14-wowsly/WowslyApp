@@ -3,6 +3,7 @@ import Toast from 'react-native-toast-message';
 import React, { useRef, useState } from 'react'
 import { useNavigation } from '@react-navigation/native';
 import PhoneNumberInput from 'react-native-phone-number-input';
+import { scale, verticalScale, moderateScale } from '../../utils/scaling';
 import { sendOTP } from '../../api/api';  // ✅ API IMPORT
 
 const Number = () => {
@@ -207,44 +208,44 @@ const styles = StyleSheet.create({
     flexGrow: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingBottom: 20,
-    paddingTop: 50,
+    paddingBottom: verticalScale(20),
+    paddingTop: verticalScale(50),
   },
   mainbox: {
     width: '90%',
     // height: '48%', // Removed fixed height to allow content to determine size
-    paddingVertical: 10,
+    paddingVertical: verticalScale(10),
     backgroundColor: '#fff',
-    borderRadius: 25,
+    borderRadius: scale(25),
     alignSelf: 'center',
     justifyContent: 'center',
     alignItems: 'center',
-    gap: 5,
+    gap: verticalScale(5),
   },
   logo: {
-    width: 80,
-    height: 55,
+    width: scale(80),
+    height: scale(55),
   },
   heading: {
-    gap: 4,
+    gap: verticalScale(4),
     color: '#000',
     flexDirection: 'column',
     alignItems: 'center',
   },
   headingText: {
     fontWeight: '600',
-    fontSize: 25,
+    fontSize: moderateScale(25),
     top: '10%',
     color: '#000',
   },
   organizer: {
     fontWeight: '600',
-    fontSize: 25,
+    fontSize: moderateScale(25),
     color: '#000',
   },
   manage: {
     color: 'grey',
-    fontSize: 12,
+    fontSize: moderateScale(12),
     top: '12%',
   },
   number: {
@@ -257,54 +258,54 @@ const styles = StyleSheet.create({
   },
   phoneContainer: {
     width: '90%',
-    marginTop: 10,
+    marginTop: verticalScale(10),
     borderWidth: 1,
     borderColor: '#E0E0E0',
-    borderRadius: 15,
+    borderRadius: scale(15),
     backgroundColor: '#fff',
-    paddingHorizontal: 5,
+    paddingHorizontal: scale(5),
     paddingVertical: 0,
-    height: 50,
+    height: verticalScale(50),
     alignItems: 'center',
   },
   phoneTextContainer: {
     backgroundColor: '#fff',
-    borderRadius: 15,
+    borderRadius: scale(15),
     paddingVertical: 0,
     height: '100%',
     justifyContent: 'center',
   },
   phoneInput: {
-    fontSize: 15,
+    fontSize: moderateScale(15),
     color: '#000',
     paddingVertical: 0,
   },
   phoneCodeText: {
-    fontSize: 14,
+    fontSize: moderateScale(14),
     fontWeight: '600',
     color: '#000',
   },
   phoneFlagButton: {
-    marginLeft: 5,
+    marginLeft: scale(5),
   },
   phoneCountryButton: {
-    paddingRight: 10,
+    paddingRight: scale(10),
     borderRightWidth: 1,
     borderRightColor: '#E0E0E0',
   },
   smsPrompt: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
-    marginTop: 12,
+    gap: scale(6),
+    marginTop: verticalScale(12),
   },
   smsPromptLabel: {
     color: '#7E7E7E',
-    fontSize: 12,
+    fontSize: moderateScale(12),
   },
   smsPromptAction: {
     color: '#FF8A3C',
-    fontSize: 12,
+    fontSize: moderateScale(12),
     fontWeight: '700',
   },
   smsPromptDisabled: {
@@ -313,15 +314,15 @@ const styles = StyleSheet.create({
   checkboxRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: scale(8),
     alignSelf: 'flex-start',
     marginLeft: '7%',
-    marginTop: 15,
+    marginTop: verticalScale(15),
   },
   checkbox: {
-    width: 20,
-    height: 20,
-    borderRadius: 6,
+    width: scale(20),
+    height: scale(20),
+    borderRadius: scale(6),
     borderWidth: 1,
     borderColor: '#E0E0E0',
     justifyContent: 'center',
@@ -332,21 +333,21 @@ const styles = StyleSheet.create({
     borderColor: '#FF8A3C',
   },
   checkboxIndicator: {
-    width: 12,
-    height: 12,
-    borderRadius: 4,
+    width: scale(12),
+    height: scale(12),
+    borderRadius: scale(4),
     backgroundColor: '#FF8A3C',
   },
   checkboxLabel: {
     color: '#7E7E7E',
-    fontSize: 12,
-    bottom: 1,
+    fontSize: moderateScale(12),
+    bottom: verticalScale(1),
 
   },
   button: {
     width: '85%',
     height: '14%',
-    borderRadius: 15,
+    borderRadius: scale(15),
     backgroundColor: '#FF8A3C',
     alignItems: 'center',
     justifyContent: 'center',
@@ -357,24 +358,24 @@ const styles = StyleSheet.create({
   },
   buttonText: {
     color: '#fff',
-    fontSize: 16,
+    fontSize: moderateScale(16),
     fontWeight: '700'
   },
   footer: {
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
-    gap: 8,
-    marginTop: 40,
+    gap: scale(8),
+    marginTop: verticalScale(40),
   },
   footerText: {
     color: '#FF8A3C',
-    fontSize: 13
+    fontSize: moderateScale(13)
   },
   dot: {
     color: '#FF8A3C',
-    fontSize: 13,
-    marginHorizontal: 6
+    fontSize: moderateScale(13),
+    marginHorizontal: scale(6)
   }
 });
 

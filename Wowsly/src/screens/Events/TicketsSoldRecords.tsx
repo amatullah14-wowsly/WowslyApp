@@ -18,6 +18,7 @@ import {
 import { useNavigation, useRoute } from '@react-navigation/native';
 import BackButton from '../../components/BackButton';
 import { getTicketSoldUsers } from '../../api/event';
+import { scale, verticalScale, moderateScale } from '../../utils/scaling';
 
 if (
     Platform.OS === 'android' &&
@@ -188,7 +189,7 @@ const TicketsSoldRecords = () => {
                 {expanded && (
                     <View style={styles.expandedContent}>
                         {loadingUsers && !soldDataCache[item.id] ? (
-                            <ActivityIndicator size="small" color="#FF8A3C" style={{ padding: 20 }} />
+                            <ActivityIndicator size="small" color="#FF8A3C" style={{ padding: scale(20) }} />
                         ) : (
                             <View style={styles.usersGridContainer}>
                                 {users.length > 0 ? (
@@ -213,7 +214,7 @@ const TicketsSoldRecords = () => {
             <View style={styles.header}>
                 <BackButton onPress={() => navigation.goBack()} />
                 <Text style={styles.title}>Tickets Sold Records</Text>
-                <View style={{ width: 32 }} />
+                <View style={{ width: scale(32) }} />
             </View>
 
             <FlatList
@@ -295,77 +296,77 @@ const styles = StyleSheet.create({
     },
     header: {
         width: '100%',
-        height: 60,
+        height: verticalScale(60),
         alignItems: 'center',
         flexDirection: 'row',
         justifyContent: 'space-between',
-        paddingHorizontal: 20,
+        paddingHorizontal: scale(20),
         backgroundColor: 'white',
         elevation: 2,
     },
     title: {
-        fontSize: 18,
+        fontSize: moderateScale(18),
         fontWeight: '600',
         color: 'black',
     },
     listContent: {
-        padding: 16,
+        padding: scale(16),
     },
     ticketCard: {
-        borderRadius: 12,
+        borderRadius: scale(12),
         backgroundColor: 'white',
-        marginBottom: 12,
+        marginBottom: verticalScale(12),
         elevation: 2,
         shadowColor: '#000',
         shadowOpacity: 0.1,
-        shadowRadius: 4,
-        shadowOffset: { width: 0, height: 2 },
+        shadowRadius: scale(4),
+        shadowOffset: { width: 0, height: verticalScale(2) },
         overflow: 'hidden',
     },
     cardHeader: {
         flexDirection: 'row',
         alignItems: 'center',
-        padding: 16,
+        padding: scale(16),
         backgroundColor: 'white',
     },
     iconContainer: {
-        width: 44,
-        height: 44,
-        borderRadius: 22,
+        width: scale(44),
+        height: scale(44),
+        borderRadius: scale(22),
         backgroundColor: '#FFF0E0',
         justifyContent: 'center',
         alignItems: 'center',
-        marginRight: 14,
+        marginRight: scale(14),
     },
     ticketIcon: {
-        width: 22,
-        height: 22,
+        width: scale(22),
+        height: scale(22),
         tintColor: '#FF8A3C',
     },
     headerInfo: {
         flex: 1,
     },
     ticketTitle: {
-        fontSize: 16,
+        fontSize: moderateScale(16),
         fontWeight: '700',
         color: '#111',
     },
     soldText: {
-        fontSize: 14,
+        fontSize: moderateScale(14),
         color: '#666',
-        marginTop: 2,
+        marginTop: verticalScale(2),
     },
     arrowContainer: {
-        padding: 4,
+        padding: scale(4),
     },
     arrowIcon: {
-        width: 16,
-        height: 16,
+        width: scale(16),
+        height: scale(16),
         tintColor: '#999',
     },
     expandedContent: {
         backgroundColor: '#FAFAFA',
-        padding: 12,
+        padding: scale(12),
         borderTopWidth: 1,
         borderTopColor: '#F0F0F0',
     },
@@ -373,10 +374,10 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         flexWrap: 'wrap',
         justifyContent: 'space-between',
-        gap: 12,
+        gap: scale(12),
     },
     emptyState: {
-        padding: 20,
+        padding: scale(20),
         alignItems: 'center',
         justifyContent: 'center',
         width: '100%',
@@ -384,26 +385,26 @@ const styles = StyleSheet.create({
     noDataText: {
         color: '#999',
         fontStyle: 'italic',
-        fontSize: 14,
+        fontSize: moderateScale(14),
     },
 
     // REDESIGNED Compact Card Styles
     gridCard: {
         backgroundColor: 'white',
-        borderRadius: 12,
-        padding: 12,
+        borderRadius: scale(12),
+        padding: scale(12),
         elevation: 2,
         shadowColor: '#000',
-        shadowOffset: { width: 0, height: 1 },
+        shadowOffset: { width: 0, height: verticalScale(1) },
         shadowOpacity: 0.1,
-        shadowRadius: 3,
+        shadowRadius: scale(3),
         width: '48%', // 2 columns with gap
         alignItems: 'center',
         justifyContent: 'space-between',
-        minHeight: 130,
+        minHeight: verticalScale(130),
         borderWidth: 1,
         borderColor: '#EAEAEA',
-        marginBottom: 4
+        marginBottom: verticalScale(4)
     },
     cardHeaderCenter: {
         alignItems: 'center',
@@ -412,44 +413,44 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
     },
     gridGuestName: {
-        fontSize: 14,
+        fontSize: moderateScale(14),
         fontWeight: '700',
         color: '#222',
         textAlign: 'center',
-        marginBottom: 6,
-        lineHeight: 18,
+        marginBottom: verticalScale(6),
+        lineHeight: verticalScale(18),
     },
     ticketBadge: {
         backgroundColor: '#FFF0E0',
-        paddingHorizontal: 8,
-        paddingVertical: 3,
-        borderRadius: 8,
-        marginBottom: 6,
+        paddingHorizontal: scale(8),
+        paddingVertical: verticalScale(3),
+        borderRadius: scale(8),
+        marginBottom: verticalScale(6),
         borderWidth: 1,
         borderColor: '#FFD2B3',
     },
     gridTicketCount: {
-        fontSize: 12,
+        fontSize: moderateScale(12),
         color: '#E65100',
         fontWeight: '700',
     },
     gridCheckInTime: {
-        fontSize: 10,
+        fontSize: moderateScale(10),
         color: '#999',
-        marginTop: 2,
+        marginTop: verticalScale(2),
     },
     viewDetailsButton: {
-        marginTop: 10,
+        marginTop: verticalScale(10),
         width: '100%',
-        paddingVertical: 6,
+        paddingVertical: verticalScale(6),
         backgroundColor: '#fff',
-        borderRadius: 6,
+        borderRadius: scale(6),
         alignItems: 'center',
         borderWidth: 1,
         borderColor: '#DDD',
     },
     viewDetailsText: {
-        fontSize: 11,
+        fontSize: moderateScale(11),
         fontWeight: '600',
         color: '#555',
     },
@@ -464,80 +465,80 @@ const styles = StyleSheet.create({
         width: '100%',
         maxHeight: '50%',
         backgroundColor: 'white',
-        borderTopLeftRadius: 20,
-        borderTopRightRadius: 20,
+        borderTopLeftRadius: scale(20),
+        borderTopRightRadius: scale(20),
         elevation: 5,
         shadowColor: '#000',
-        shadowOffset: { width: 0, height: -2 },
+        shadowOffset: { width: 0, height: verticalScale(-2) },
         shadowOpacity: 0.2,
-        shadowRadius: 10,
+        shadowRadius: scale(10),
         overflow: 'hidden',
     },
     modalHeader: {
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
-        paddingHorizontal: 20,
-        paddingVertical: 10,
+        paddingHorizontal: scale(20),
+        paddingVertical: verticalScale(10),
         borderBottomWidth: 1,
         borderBottomColor: '#F0F0F0',
     },
     modalTitle: {
-        fontSize: 16, // Reduced font
+        fontSize: moderateScale(16), // Reduced font
         fontWeight: '700',
         color: '#222',
     },
     closeButton: {
-        padding: 5,
+        padding: scale(5),
     },
     closeButtonText: {
-        fontSize: 18,
+        fontSize: moderateScale(18),
         color: '#999',
     },
     modalBody: {
-        padding: 20,
-        paddingBottom: 30,
+        padding: scale(20),
+        paddingBottom: verticalScale(30),
     },
     modalRow: {
-        marginBottom: 8, // Reduced margin
+        marginBottom: verticalScale(8), // Reduced margin
     },
     modalLabel: {
-        fontSize: 11, // Reduced font
+        fontSize: moderateScale(11), // Reduced font
         color: '#888',
         fontWeight: '600',
         textTransform: 'uppercase',
-        marginBottom: 2,
+        marginBottom: verticalScale(2),
     },
     modalValueMain: {
-        fontSize: 16, // Reduced font
+        fontSize: moderateScale(16), // Reduced font
         fontWeight: '700',
         color: '#111',
     },
     modalValue: {
-        fontSize: 14, // Reduced font
+        fontSize: moderateScale(14), // Reduced font
         color: '#333',
         fontWeight: '500',
     },
     separator: {
-        height: 1,
+        height: verticalScale(1),
         backgroundColor: '#F0F0F0',
-        marginVertical: 8, // Reduced margin
+        marginVertical: verticalScale(8), // Reduced margin
     },
     // Footer restored
     modalFooter: {
-        padding: 16,
+        padding: scale(16),
         borderTopWidth: 1,
         borderTopColor: '#F0F0F0',
     },
     modalCloseBtn: {
         backgroundColor: '#FF8A3C',
-        borderRadius: 12,
-        paddingVertical: 12, // Slightly reduced padding
+        borderRadius: scale(12),
+        paddingVertical: verticalScale(12), // Slightly reduced padding
         alignItems: 'center',
     },
     modalCloseBtnText: {
         color: 'white',
-        fontSize: 16,
+        fontSize: moderateScale(16),
         fontWeight: '700',
     }
 });

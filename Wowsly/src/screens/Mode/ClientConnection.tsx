@@ -14,6 +14,7 @@ import {
 import { useNavigation, useRoute } from '@react-navigation/native';
 import TcpSocket from 'react-native-tcp-socket';
 import BackButton from '../../components/BackButton';
+import { scale, verticalScale, moderateScale } from '../../utils/scaling';
 import Toast from 'react-native-toast-message';
 import { updateTicketStatusLocal } from '../../db';
 
@@ -177,7 +178,7 @@ const ClientConnection = () => {
                 <View style={styles.header}>
                     <BackButton onPress={() => navigation.goBack()} />
                     <Text style={styles.headerTitle}>{eventTitle}</Text>
-                    <View style={{ width: 40 }} />
+                    <View style={{ width: scale(40) }} />
                 </View>
 
                 <View style={styles.content}>
@@ -196,7 +197,7 @@ const ClientConnection = () => {
                         autoCapitalize="none"
                     />
 
-                    <Text style={[styles.label, { marginTop: 20 }]}>Session Code</Text>
+                    <Text style={[styles.label, { marginTop: verticalScale(20) }]}>Session Code</Text>
                     <Text style={styles.subLabel}>
                         Enter the 4-digit code shown on the Host.
                     </Text>
@@ -243,82 +244,82 @@ const styles = StyleSheet.create({
     },
     container: {
         flex: 1,
-        padding: 20,
+        padding: scale(20),
     },
     header: {
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'center',
-        marginBottom: 40,
-        marginTop: 10,
+        marginBottom: verticalScale(40),
+        marginTop: verticalScale(10),
     },
     headerTitle: {
         flex: 1,
         textAlign: 'center',
-        fontSize: 18,
+        fontSize: moderateScale(18),
         fontWeight: '700',
         color: '#1F1F1F',
     },
     content: {
         flex: 1,
         justifyContent: 'center',
-        paddingBottom: 100,
+        paddingBottom: verticalScale(100),
     },
     label: {
-        fontSize: 20,
+        fontSize: moderateScale(20),
         fontWeight: '700',
         color: '#1F1F1F',
-        marginBottom: 8,
+        marginBottom: verticalScale(8),
         textAlign: 'center',
     },
     subLabel: {
-        fontSize: 14,
+        fontSize: moderateScale(14),
         color: '#888888',
-        marginBottom: 32,
+        marginBottom: verticalScale(32),
         textAlign: 'center',
-        paddingHorizontal: 20,
+        paddingHorizontal: scale(20),
     },
     input: {
         backgroundColor: '#FFFFFF',
-        borderRadius: 16,
-        padding: 16,
-        fontSize: 18,
+        borderRadius: scale(16),
+        padding: scale(16),
+        fontSize: moderateScale(18),
         color: '#1F1F1F',
         borderWidth: 1,
         borderColor: '#EFEFEF',
-        marginBottom: 24,
+        marginBottom: verticalScale(24),
         textAlign: 'center',
     },
     button: {
         backgroundColor: '#FF8A3C',
-        borderRadius: 16,
-        paddingVertical: 16,
+        borderRadius: scale(16),
+        paddingVertical: verticalScale(16),
         alignItems: 'center',
         shadowColor: '#FF8A3C',
         shadowOpacity: 0.3,
-        shadowRadius: 10,
-        shadowOffset: { width: 0, height: 4 },
+        shadowRadius: scale(10),
+        shadowOffset: { width: 0, height: verticalScale(4) },
         elevation: 4,
     },
     buttonDisabled: {
         backgroundColor: '#FFCCAA',
     },
     buttonText: {
-        fontSize: 16,
+        fontSize: moderateScale(16),
         fontWeight: '700',
         color: '#FFFFFF',
     },
     scanButton: {
         backgroundColor: '#FFFFFF',
-        borderRadius: 16,
-        paddingVertical: 16,
+        borderRadius: scale(16),
+        paddingVertical: verticalScale(16),
         alignItems: 'center',
         borderWidth: 1,
         borderColor: '#FF8A3C',
-        marginBottom: 16,
+        marginBottom: verticalScale(16),
     },
     scanButtonText: {
-        fontSize: 16,
+        fontSize: moderateScale(16),
         fontWeight: '700',
         color: '#FF8A3C',
     },

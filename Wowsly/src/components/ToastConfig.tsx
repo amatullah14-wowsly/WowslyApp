@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { BaseToast, ErrorToast, ToastConfig } from 'react-native-toast-message';
+import { scale, moderateScale } from '../utils/scaling';
 
 /*
   Custom Toast Configuration
@@ -11,15 +12,15 @@ export const toastConfig: ToastConfig = {
     success: (props) => (
         <BaseToast
             {...props}
-            style={{ borderLeftColor: '#FF8A3C', backgroundColor: '#FFF', borderLeftWidth: 6 }}
-            contentContainerStyle={{ paddingHorizontal: 15 }}
+            style={{ borderLeftColor: '#FF8A3C', backgroundColor: '#FFF', borderLeftWidth: scale(6) }}
+            contentContainerStyle={{ paddingHorizontal: scale(15) }}
             text1Style={{
-                fontSize: 16,
+                fontSize: moderateScale(16),
                 fontWeight: '700',
                 color: '#1F1F1F'
             }}
             text2Style={{
-                fontSize: 14,
+                fontSize: moderateScale(14),
                 color: '#807A74'
             }}
         />
@@ -27,15 +28,15 @@ export const toastConfig: ToastConfig = {
     error: (props) => (
         <ErrorToast
             {...props}
-            style={{ borderLeftColor: '#E74C3C', backgroundColor: '#FFF', borderLeftWidth: 6 }}
-            contentContainerStyle={{ paddingHorizontal: 15 }}
+            style={{ borderLeftColor: '#E74C3C', backgroundColor: '#FFF', borderLeftWidth: scale(6) }}
+            contentContainerStyle={{ paddingHorizontal: scale(15) }}
             text1Style={{
-                fontSize: 16,
+                fontSize: moderateScale(16),
                 fontWeight: '700',
                 color: '#1F1F1F'
             }}
             text2Style={{
-                fontSize: 14,
+                fontSize: moderateScale(14),
                 color: '#807A74'
             }}
         />
@@ -43,15 +44,15 @@ export const toastConfig: ToastConfig = {
     info: (props) => (
         <BaseToast
             {...props}
-            style={{ borderLeftColor: '#3498DB', backgroundColor: '#FFF', borderLeftWidth: 6 }}
-            contentContainerStyle={{ paddingHorizontal: 15 }}
+            style={{ borderLeftColor: '#3498DB', backgroundColor: '#FFF', borderLeftWidth: scale(6) }}
+            contentContainerStyle={{ paddingHorizontal: scale(15) }}
             text1Style={{
-                fontSize: 16,
+                fontSize: moderateScale(16),
                 fontWeight: '700',
                 color: '#1F1F1F'
             }}
             text2Style={{
-                fontSize: 14,
+                fontSize: moderateScale(14),
                 color: '#807A74'
             }}
         />

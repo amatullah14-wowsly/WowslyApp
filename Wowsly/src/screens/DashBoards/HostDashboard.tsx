@@ -18,6 +18,7 @@ import NetInfo from '@react-native-community/netinfo';
 import Toast from 'react-native-toast-message';
 import QRCode from 'react-native-qrcode-svg';
 import { findTicketByQr, updateTicketStatusLocal } from '../../db';
+import { scale, verticalScale, moderateScale } from '../../utils/scaling';
 
 type HostDashboardRoute = RouteProp<
   {
@@ -355,14 +356,14 @@ const HostDashboard = () => {
         <View style={styles.header}>
           <BackButton onPress={() => navigation.goBack()} />
           <Text style={styles.headerTitle}>{eventTitle}</Text>
-          <View style={{ width: 40 }} />
+          <View style={{ width: scale(40) }} />
         </View>
 
         <View style={styles.qrCard}>
           {hostIp && hostIp !== 'Loading...' && hostIp !== 'Unknown' ? (
             <QRCode
               value={qrValue}
-              size={200}
+              size={scale(200)}
               color="black"
               backgroundColor="white"
             />
@@ -461,137 +462,137 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    padding: 20,
-    paddingBottom: 30,
+    padding: scale(20),
+    paddingBottom: verticalScale(30),
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     // marginBottom: 15,
-    gap: 8,
-    marginTop: 15,
-    marginBottom: 20,
+    gap: scale(8),
+    marginTop: verticalScale(15),
+    marginBottom: verticalScale(20),
   },
   headerTitle: {
     flex: 1,
     textAlign: 'center',
-    fontSize: 18,
+    fontSize: moderateScale(18),
     fontWeight: '700',
     color: '#1F1F1F',
   },
   qrCard: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 28,
-    padding: 24,
+    borderRadius: scale(28),
+    padding: scale(24),
     alignItems: 'center',
     shadowColor: '#000',
     shadowOpacity: 0.05,
-    shadowRadius: 10,
-    shadowOffset: { width: 0, height: 4 },
+    shadowRadius: scale(10),
+    shadowOffset: { width: 0, height: verticalScale(4) },
     elevation: 3,
   },
   qrImage: {
     width: '100%',
     aspectRatio: 1,
-    borderRadius: 20,
+    borderRadius: scale(20),
   },
   scanHint: {
-    marginTop: 16,
+    marginTop: verticalScale(16),
     textAlign: 'center',
     color: '#8A8A8A',
-    fontSize: 14,
+    fontSize: moderateScale(14),
   },
   infoStack: {
-    marginTop: 20,
-    gap: 12,
+    marginTop: verticalScale(20),
+    gap: verticalScale(12),
   },
   infoRow: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#FFFFFF',
-    borderRadius: 20,
-    padding: 16,
-    marginBottom: 12,
+    borderRadius: scale(20),
+    padding: scale(16),
+    marginBottom: verticalScale(12),
     shadowColor: '#000',
     shadowOpacity: 0.03,
-    shadowRadius: 8,
-    shadowOffset: { width: 0, height: 2 },
+    shadowRadius: scale(8),
+    shadowOffset: { width: 0, height: verticalScale(2) },
     elevation: 2,
   },
   infoIconWrap: {
-    width: 48,
-    height: 48,
-    borderRadius: 16,
+    width: scale(48),
+    height: scale(48),
+    borderRadius: scale(16),
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 16,
+    marginRight: scale(16),
   },
   infoIcon: {
-    width: 24,
-    height: 24,
+    width: scale(24),
+    height: scale(24),
     resizeMode: 'contain',
   },
   infoLabel: {
     flex: 1,
-    fontSize: 16,
+    fontSize: moderateScale(16),
     color: '#1F1F1F',
     fontWeight: '600',
   },
   infoValue: {
-    fontSize: 16,
+    fontSize: moderateScale(16),
     color: '#666666',
     fontWeight: '500',
   },
   actionGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 12,
-    marginTop: 10,
+    gap: scale(12),
+    marginTop: verticalScale(10),
   },
   actionCard: {
     width: '48%',
     backgroundColor: '#FFFFFF',
-    borderRadius: 24,
-    padding: 16,
+    borderRadius: scale(24),
+    padding: scale(16),
     alignItems: 'center',
     shadowColor: '#000',
     shadowOpacity: 0.03,
-    shadowRadius: 8,
-    shadowOffset: { width: 0, height: 2 },
+    shadowRadius: scale(8),
+    shadowOffset: { width: 0, height: verticalScale(2) },
     elevation: 2,
     position: 'relative',
   },
   actionIconCircle: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
+    width: scale(56),
+    height: scale(56),
+    borderRadius: scale(28),
     backgroundColor: '#F5F5F5',
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 12,
+    marginBottom: verticalScale(12),
   },
   actionIcon: {
-    width: 28,
-    height: 28,
+    width: scale(28),
+    height: scale(28),
     resizeMode: 'contain',
     tintColor: '#FF5A5F',
   },
   actionLabel: {
-    fontSize: 15,
+    fontSize: moderateScale(15),
     fontWeight: '600',
     color: '#1F1F1F',
     textAlign: 'center',
   },
   infoButton: {
     position: 'absolute',
-    top: 12,
-    right: 12,
+    top: verticalScale(12),
+    right: scale(12),
     zIndex: 1,
   },
   infoIconButton: {
-    width: 20,
-    height: 20,
+    width: scale(20),
+    height: scale(20),
     tintColor: '#C0C0C0',
   },
   modalBackdrop: {
@@ -599,38 +600,38 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0,0,0,0.5)',
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 20,
+    padding: scale(20),
   },
   modalCard: {
     backgroundColor: 'white',
-    borderRadius: 24,
-    padding: 24,
+    borderRadius: scale(24),
+    padding: scale(24),
     width: '100%',
-    maxWidth: 320,
+    maxWidth: scale(320),
     alignItems: 'center',
   },
   modalTitle: {
-    fontSize: 20,
+    fontSize: moderateScale(20),
     fontWeight: '700',
     color: '#1F1F1F',
-    marginBottom: 12,
+    marginBottom: verticalScale(12),
   },
   modalBody: {
-    fontSize: 16,
+    fontSize: moderateScale(16),
     color: '#666666',
     textAlign: 'center',
-    marginBottom: 24,
-    lineHeight: 22,
+    marginBottom: verticalScale(24),
+    lineHeight: verticalScale(22),
   },
   modalButton: {
     backgroundColor: '#FF5A5F',
-    paddingVertical: 12,
-    paddingHorizontal: 32,
-    borderRadius: 16,
+    paddingVertical: verticalScale(12),
+    paddingHorizontal: scale(32),
+    borderRadius: scale(16),
   },
   modalButtonText: {
     color: 'white',
-    fontSize: 16,
+    fontSize: moderateScale(16),
     fontWeight: '600',
   },
 });

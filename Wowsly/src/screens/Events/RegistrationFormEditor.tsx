@@ -6,6 +6,7 @@ import PencilIcon from '../../components/Icons/PencilIcon';
 import ChevronDownIcon from '../../components/Icons/ChevronDownIcon';
 import { insertOrUpdateRegistrationForm, deleteRegistrationFormFields, getRegistrationFormDetails, getEventDetails, getRegistrationFormStatus, createRegistrationForm } from '../../api/event';
 import Toast from 'react-native-toast-message';
+import { scale, verticalScale, moderateScale } from '../../utils/scaling';
 
 // Types
 interface FormField {
@@ -477,12 +478,12 @@ const RegistrationFormEditor = ({ isEmbedded = false, eventId: propEventId }: { 
                     <View style={styles.fieldContainer}>
                         <Label />
                         <View style={styles.fileUploadBox}>
-                            <Text style={{ color: '#666', marginBottom: 5 }}>{field.label}</Text>
+                            <Text style={{ color: '#666', marginBottom: verticalScale(5) }}>{field.label}</Text>
                             {/* Replaced missing image with text placeholder */}
-                            <View style={{ width: 40, height: 40, borderWidth: 1, borderColor: '#999', justifyContent: 'center', alignItems: 'center', borderRadius: 4 }}>
-                                <Text style={{ fontSize: 24, color: '#999', lineHeight: 28 }}>↑</Text>
+                            <View style={{ width: scale(40), height: scale(40), borderWidth: 1, borderColor: '#999', justifyContent: 'center', alignItems: 'center', borderRadius: scale(4) }}>
+                                <Text style={{ fontSize: moderateScale(24), color: '#999', lineHeight: verticalScale(28) }}>↑</Text>
                             </View>
-                            <Text style={{ fontSize: 10, color: '#999', marginTop: 4 }}>Upload File</Text>
+                            <Text style={{ fontSize: moderateScale(10), color: '#999', marginTop: verticalScale(4) }}>Upload File</Text>
                         </View>
                     </View>
                 );
@@ -535,7 +536,7 @@ const RegistrationFormEditor = ({ isEmbedded = false, eventId: propEventId }: { 
                             style={styles.editIconContainer}
                             onPress={() => {
                                 if (isEmbedded) {
-                                    navigation.navigate('RegistrationFormEditor', { eventId, autoEdit: true });
+                                    (navigation as any).navigate('RegistrationFormEditor', { eventId, autoEdit: true });
                                 } else {
                                     setIsEditing(true);
                                 }
@@ -627,16 +628,16 @@ const RegistrationFormEditor = ({ isEmbedded = false, eventId: propEventId }: { 
                                 {!field.isDefault && (
                                     <View style={styles.actionIconsRow}>
                                         <TouchableOpacity style={styles.actionIcon} onPress={() => handleEditQuestion(field)}>
-                                            <Image source={require('../../assets/img/form/edit.png')} style={{ width: 20, height: 20, resizeMode: 'contain' }} />
+                                            <Image source={require('../../assets/img/form/edit.png')} style={{ width: scale(20), height: scale(20), resizeMode: 'contain' }} />
                                         </TouchableOpacity>
                                         <TouchableOpacity style={styles.actionIcon} onPress={() => handleToggleVisibility(field.id)}>
                                             <Image
                                                 source={field.is_show ? require('../../assets/img/form/visible.png') : require('../../assets/img/form/hide.png')}
-                                                style={{ width: 22, height: 22, resizeMode: 'contain', opacity: field.is_show ? 1 : 0.6 }}
+                                                style={{ width: scale(22), height: scale(22), resizeMode: 'contain', opacity: field.is_show ? 1 : 0.6 }}
                                             />
                                         </TouchableOpacity>
                                         <TouchableOpacity style={styles.actionIcon} onPress={() => handleDeleteField(field.id)}>
-                                            <Image source={require('../../assets/img/form/trash.png')} style={{ width: 20, height: 20, resizeMode: 'contain' }} />
+                                            <Image source={require('../../assets/img/form/trash.png')} style={{ width: scale(20), height: scale(20), resizeMode: 'contain' }} />
                                         </TouchableOpacity>
                                     </View>
                                 )}
@@ -779,167 +780,167 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'space-between',
-        paddingHorizontal: 20,
-        paddingTop: 40,
-        paddingBottom: 20,
+        paddingHorizontal: scale(20),
+        paddingTop: verticalScale(40),
+        paddingBottom: verticalScale(20),
         backgroundColor: 'white',
         borderBottomWidth: 1,
         borderBottomColor: '#F0F0F0',
     },
     headerTitle: {
-        fontSize: 18,
+        fontSize: moderateScale(18),
         fontWeight: '600',
         color: '#333',
     },
     editIconContainer: {
-        padding: 5,
+        padding: scale(5),
     },
     content: {
-        padding: 20,
-        paddingBottom: 100,
+        padding: scale(20),
+        paddingBottom: verticalScale(100),
     },
     card: {
         backgroundColor: 'white',
-        borderRadius: 12,
-        padding: 20,
+        borderRadius: scale(12),
+        padding: scale(20),
         shadowColor: "#000",
-        shadowOffset: { width: 0, height: 2 },
+        shadowOffset: { width: 0, height: verticalScale(2) },
         shadowOpacity: 0.05,
-        shadowRadius: 10,
+        shadowRadius: scale(10),
         elevation: 3,
-        marginBottom: 20,
+        marginBottom: verticalScale(20),
     },
     cardHeader: {
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
-        marginBottom: 20,
+        marginBottom: verticalScale(20),
     },
     cardTitle: {
-        fontSize: 18,
+        fontSize: moderateScale(18),
         fontWeight: '700',
         color: '#333',
     },
     fieldsContainer: {
-        gap: 15,
+        gap: verticalScale(15),
     },
     inputWrapper: {
         borderWidth: 1,
         borderColor: '#E0E0E0',
-        borderRadius: 8,
+        borderRadius: scale(8),
         backgroundColor: 'white',
     },
     input: {
-        paddingHorizontal: 15,
-        paddingVertical: 12,
-        fontSize: 15,
+        paddingHorizontal: scale(15),
+        paddingVertical: verticalScale(12),
+        fontSize: moderateScale(15),
         color: '#333',
     },
     // Settings Styles
     sectionContainer: {
-        marginBottom: 30,
+        marginBottom: verticalScale(30),
     },
     inputContainer: {
-        marginBottom: 20,
+        marginBottom: verticalScale(20),
         position: 'relative',
     },
     inputLabel: {
         position: 'absolute',
-        top: -10,
-        left: 10,
+        top: verticalScale(-10),
+        left: scale(10),
         backgroundColor: 'white',
-        paddingHorizontal: 5,
-        fontSize: 12,
+        paddingHorizontal: scale(5),
+        fontSize: moderateScale(12),
         color: '#666',
         zIndex: 1,
     },
     textInput: {
         borderWidth: 1,
         borderColor: '#E0E0E0',
-        borderRadius: 8,
-        paddingHorizontal: 15,
-        paddingVertical: 12,
-        fontSize: 16,
+        borderRadius: scale(8),
+        paddingHorizontal: scale(15),
+        paddingVertical: verticalScale(12),
+        fontSize: moderateScale(16),
         color: '#333',
         backgroundColor: 'white',
     },
     toggleRow: {
         flexDirection: 'row',
         alignItems: 'center',
-        marginBottom: 15,
-        gap: 15,
+        marginBottom: verticalScale(15),
+        gap: scale(15),
     },
     toggleLabel: {
-        fontSize: 16,
+        fontSize: moderateScale(16),
         color: '#333',
     },
     helperText: {
-        fontSize: 13,
+        fontSize: moderateScale(13),
         color: '#888',
-        marginTop: 5,
+        marginTop: verticalScale(5),
     },
     sectionHeader: {
-        fontSize: 18,
+        fontSize: moderateScale(18),
         fontWeight: '700',
         color: '#333',
-        marginBottom: 15,
+        marginBottom: verticalScale(15),
     },
     fieldsList: {
-        gap: 15,
-        marginBottom: 20,
+        gap: verticalScale(15),
+        marginBottom: verticalScale(20),
     },
     readOnlyField: {
         borderWidth: 1,
         borderColor: '#E0E0E0',
-        borderRadius: 8,
+        borderRadius: scale(8),
         backgroundColor: 'white',
     },
     readOnlyInput: {
-        paddingHorizontal: 15,
-        paddingVertical: 14,
-        fontSize: 16,
+        paddingHorizontal: scale(15),
+        paddingVertical: verticalScale(14),
+        fontSize: moderateScale(16),
         color: '#333',
     },
     addQuestionButton: {
         alignSelf: 'center',
-        paddingVertical: 10,
+        paddingVertical: verticalScale(10),
     },
     addQuestionText: {
         color: '#FF8A3C',
-        fontSize: 16,
+        fontSize: moderateScale(16),
         fontWeight: '600',
     },
     footerButtons: {
         flexDirection: 'row',
-        padding: 20,
+        padding: scale(20),
         borderTopWidth: 1,
         borderTopColor: '#f0f0f0',
-        gap: 15,
+        gap: scale(15),
         backgroundColor: 'white',
     },
     cancelButton: {
         flex: 1,
-        paddingVertical: 15,
-        borderRadius: 10,
+        paddingVertical: verticalScale(15),
+        borderRadius: scale(10),
         borderWidth: 1,
         borderColor: '#FF8A3C',
         alignItems: 'center',
     },
     cancelButtonText: {
         color: '#FF8A3C',
-        fontSize: 16,
+        fontSize: moderateScale(16),
         fontWeight: '600',
     },
     saveFooterButton: {
         flex: 1,
         backgroundColor: '#FF8A3C',
-        borderRadius: 10,
-        paddingVertical: 15,
+        borderRadius: scale(10),
+        paddingVertical: verticalScale(15),
         alignItems: 'center',
     },
     saveFooterButtonText: {
         color: 'white',
-        fontSize: 16,
+        fontSize: moderateScale(16),
         fontWeight: '600',
     },
     // Action Icons Styles
@@ -948,32 +949,32 @@ const styles = StyleSheet.create({
         backgroundColor: 'transparent',
         flexDirection: 'row',
         alignItems: 'center',
-        gap: 15,
+        gap: scale(15),
     },
     actionIconsRow: {
         flexDirection: 'row',
         alignItems: 'center',
-        gap: 15,
+        gap: scale(15),
     },
     actionIcon: {
-        padding: 5,
+        padding: scale(5),
     },
     addQuestionCard: {
         backgroundColor: 'white',
-        borderRadius: 12,
-        padding: 20,
-        marginTop: 15,
+        borderRadius: scale(12),
+        padding: scale(20),
+        marginTop: verticalScale(15),
         shadowColor: "#000",
-        shadowOffset: { width: 0, height: 2 },
+        shadowOffset: { width: 0, height: verticalScale(2) },
         shadowOpacity: 0.1,
-        shadowRadius: 4,
+        shadowRadius: scale(4),
         elevation: 3,
         borderWidth: 0,
     },
     dropdownList: {
         backgroundColor: 'white',
-        borderRadius: 8,
-        marginTop: 5,
+        borderRadius: scale(8),
+        marginTop: verticalScale(5),
         elevation: 5,
         position: 'absolute',
         top: '100%',
@@ -981,61 +982,61 @@ const styles = StyleSheet.create({
         right: 0,
         zIndex: 3000,
         shadowColor: "#000",
-        shadowOffset: { width: 0, height: 2 },
+        shadowOffset: { width: 0, height: verticalScale(2) },
         shadowOpacity: 0.1,
-        shadowRadius: 4,
+        shadowRadius: scale(4),
     },
     dropdownItem: {
-        paddingVertical: 14,
-        paddingHorizontal: 15,
+        paddingVertical: verticalScale(14),
+        paddingHorizontal: scale(15),
         borderBottomWidth: 1,
         borderBottomColor: '#F5F5F5',
     },
     dropdownText: {
-        fontSize: 15,
+        fontSize: moderateScale(15),
         color: '#333',
     },
     modalButtons: {
         flexDirection: 'row',
         justifyContent: 'flex-end',
-        marginTop: 25,
-        gap: 15,
+        marginTop: verticalScale(25),
+        gap: scale(15),
     },
     modalCancelButton: {
-        paddingVertical: 8,
-        paddingHorizontal: 15,
+        paddingVertical: verticalScale(8),
+        paddingHorizontal: scale(15),
     },
     modalCancelText: {
         color: '#888',
-        fontSize: 15,
+        fontSize: moderateScale(15),
         fontWeight: '500',
     },
     modalAddButton: {
         backgroundColor: '#FF8A3C',
-        paddingVertical: 10,
-        paddingHorizontal: 25,
-        borderRadius: 8,
+        paddingVertical: verticalScale(10),
+        paddingHorizontal: scale(25),
+        borderRadius: scale(8),
         shadowColor: "#FF8A3C",
-        shadowOffset: { width: 0, height: 2 },
+        shadowOffset: { width: 0, height: verticalScale(2) },
         shadowOpacity: 0.2,
-        shadowRadius: 3,
+        shadowRadius: scale(3),
         elevation: 2,
     },
     modalAddText: {
         color: 'white',
         fontWeight: '600',
-        fontSize: 15,
+        fontSize: moderateScale(15),
     },
     summarySection: {
-        marginTop: 25,
-        gap: 15,
+        marginTop: verticalScale(25),
+        gap: verticalScale(15),
     },
     summaryRow: {
         flexDirection: 'row',
         alignItems: 'flex-start',
     },
     summaryLabel: {
-        fontSize: 15,
+        fontSize: moderateScale(15),
         fontWeight: '700', // bold label
         color: '#000',
     },
@@ -1048,60 +1049,60 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
-        paddingVertical: 10,
-        marginBottom: 10,
+        paddingVertical: verticalScale(10),
+        marginBottom: verticalScale(10),
     },
     fieldContainer: {
-        marginBottom: 20,
+        marginBottom: verticalScale(20),
     },
     optionsRow: {
         flexDirection: 'row',
         flexWrap: 'wrap',
-        gap: 15,
-        marginTop: 5,
+        gap: scale(15),
+        marginTop: verticalScale(5),
     },
     optionItem: {
         flexDirection: 'row',
         alignItems: 'center',
-        marginBottom: 5,
+        marginBottom: verticalScale(5),
     },
     radioCircle: {
-        height: 20,
-        width: 20,
-        borderRadius: 10,
+        height: scale(20),
+        width: scale(20),
+        borderRadius: scale(10),
         borderWidth: 2,
         borderColor: '#666',
-        marginRight: 8,
+        marginRight: scale(8),
     },
     checkboxSquare: {
-        height: 20,
-        width: 20,
+        height: scale(20),
+        width: scale(20),
         borderWidth: 2,
         borderColor: '#666',
-        borderRadius: 4,
-        marginRight: 8,
+        borderRadius: scale(4),
+        marginRight: scale(8),
     },
     optionText: {
-        fontSize: 15,
+        fontSize: moderateScale(15),
         color: '#333',
     },
     fileUploadBox: {
-        height: 120,
+        height: verticalScale(120),
         backgroundColor: '#fff',
         borderWidth: 1,
         borderColor: '#ddd',
-        borderRadius: 8,
+        borderRadius: scale(8),
         justifyContent: 'center',
         alignItems: 'center',
-        marginTop: 5,
+        marginTop: verticalScale(5),
         // Minimal shadow
         shadowColor: "#000",
         shadowOffset: {
             width: 0,
-            height: 1,
+            height: verticalScale(1),
         },
         shadowOpacity: 0.1,
-        shadowRadius: 2,
+        shadowRadius: scale(2),
         elevation: 2,
     },
-})
+});

@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { scale, verticalScale, moderateScale } from '../utils/scaling';
 
 type OfflineCardProps = {
   icon: ImageSourcePropType;
@@ -77,14 +78,14 @@ export default OfflineCard;
 const styles = StyleSheet.create({
   card: {
     flex: 1,
-    borderRadius: 20,
+    borderRadius: scale(20),
     backgroundColor: '#FFFFFF',
     width: '100%',
-    height: 180,
-    padding: 16,
+    height: verticalScale(180),
+    padding: scale(16),
     shadowColor: '#000',
     elevation: 5,
-    marginBottom: 18,
+    marginBottom: verticalScale(18),
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -98,35 +99,35 @@ const styles = StyleSheet.create({
     elevation: 0,
   },
   icon: {
-    width: 25,
-    height: 25,
-    marginBottom: 12,
+    width: scale(25),
+    height: scale(25),
+    marginBottom: verticalScale(12),
     alignSelf: 'center',
   },
   textBlock: {
     width: '100%',
-    gap: 4,
+    gap: verticalScale(4),
     justifyContent: 'center',
     alignItems: 'center',
   },
   title: {
-    fontSize: 16,
+    fontSize: moderateScale(16),
     fontWeight: '700',
   },
   subtitle: {
-    fontSize: 13,
+    fontSize: moderateScale(13),
     fontWeight: '400',
   },
   meta: {
-    fontSize: 10,
-    marginTop: 12,
+    fontSize: moderateScale(10),
+    marginTop: verticalScale(12),
   },
   badge: {
     alignSelf: 'flex-start',
-    marginTop: 18,
-    borderRadius: 10,
-    height: 30,
-    width: 120,
+    marginTop: verticalScale(18),
+    borderRadius: scale(10),
+    height: verticalScale(30),
+    width: scale(120),
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: '#FFF7F1',
@@ -135,7 +136,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,0.18)',
   },
   badgeText: {
-    fontSize: 10,
+    fontSize: moderateScale(10),
     fontWeight: '400',
     color: '#FF8A3C',
   },

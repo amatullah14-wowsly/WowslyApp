@@ -16,6 +16,7 @@ import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
 import BackButton from '../../components/BackButton';
 import { getGuestCount } from '../../db';
 import Toast from 'react-native-toast-message';
+import { scale, verticalScale, moderateScale } from '../../utils/scaling';
 
 type ModeInfo = {
   id: string;
@@ -64,12 +65,12 @@ const GUEST_LIST_ICON = require('../../assets/img/eventdashboard/guests.png');
 
 const StaggeredItem = ({ children, index, duration = 600 }: any) => {
   const fadeAnim = useRef(new Animated.Value(0)).current;
-  const translateY = useRef(new Animated.Value(-20)).current;
+  const translateY = useRef(new Animated.Value(verticalScale(-20))).current;
 
   useEffect(() => {
     // Reset values immediately on mount to ensure clean state
     fadeAnim.setValue(0);
-    translateY.setValue(-20);
+    translateY.setValue(verticalScale(-20));
 
     const delay = index * 100; // 100ms delay per item
 
@@ -313,77 +314,77 @@ const styles = StyleSheet.create({
   },
   container: {
     flex: 1,
-    paddingHorizontal: 20,
-    paddingTop: 30,
-    paddingBottom: 32,
+    paddingHorizontal: scale(20),
+    paddingTop: verticalScale(30),
+    paddingBottom: verticalScale(32),
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 32,
+    marginBottom: verticalScale(32),
   },
   title: {
     flex: 1,
-    marginHorizontal: 16,
-    fontSize: 22,
+    marginHorizontal: scale(16),
+    fontSize: moderateScale(22),
     fontWeight: '700',
     color: '#1F1F1F',
     textAlign: 'center',
   },
   cardStack: {
-    gap: 16,
+    gap: verticalScale(16),
   },
   cardWrapper: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 24,
+    borderRadius: scale(24),
     overflow: 'hidden',
     shadowColor: '#000000',
     shadowOpacity: 0.05,
-    shadowRadius: 12,
-    shadowOffset: { width: 0, height: 4 },
+    shadowRadius: scale(12),
+    shadowOffset: { width: 0, height: verticalScale(4) },
     elevation: 3,
-    marginBottom: 4, // Spacing between cards
+    marginBottom: verticalScale(4), // Spacing between cards
   },
   card: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingVertical: 18,
+    paddingHorizontal: scale(20),
+    paddingVertical: verticalScale(18),
   },
   cardExpanded: {
     borderBottomWidth: 1,
     borderBottomColor: '#F5F5F5',
   },
   modeIconWrapper: {
-    width: 56,
-    height: 56,
-    borderRadius: 18,
+    width: scale(56),
+    height: scale(56),
+    borderRadius: scale(18),
     alignItems: 'center',
     justifyContent: 'center',
   },
   modeIcon: {
-    width: 32,
-    height: 32,
+    width: scale(32),
+    height: scale(32),
     resizeMode: 'contain',
   },
   cardText: {
     flex: 1,
-    marginHorizontal: 16,
+    marginHorizontal: scale(16),
   },
   cardTitle: {
-    fontSize: 17,
+    fontSize: moderateScale(17),
     fontWeight: '700',
     color: '#1F1F1F',
   },
   cardSubtitle: {
-    marginTop: 4,
-    fontSize: 13,
+    marginTop: verticalScale(4),
+    fontSize: moderateScale(13),
     color: '#807A74',
-    lineHeight: 18,
+    lineHeight: verticalScale(18),
   },
   chevron: {
-    fontSize: 24,
+    fontSize: moderateScale(24),
     color: '#B8B1AA',
     transform: [{ rotate: '0deg' }],
   },
@@ -392,33 +393,33 @@ const styles = StyleSheet.create({
   },
   subOptionsContainer: {
     backgroundColor: '#FAFAFA',
-    padding: 16,
-    gap: 12,
+    padding: scale(16),
+    gap: verticalScale(12),
   },
   subOptionCard: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#FFFFFF',
-    padding: 14,
-    borderRadius: 16,
+    padding: scale(14),
+    borderRadius: scale(16),
     borderWidth: 1,
     borderColor: '#EFEFEF',
   },
   subOptionIconWrapper: {
-    width: 40,
-    height: 40,
-    borderRadius: 12,
+    width: scale(40),
+    height: scale(40),
+    borderRadius: scale(12),
     backgroundColor: '#FFF3EB',
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 14,
+    marginRight: scale(14),
   },
   subOptionEmoji: {
-    fontSize: 20,
+    fontSize: moderateScale(20),
   },
   subOptionIcon: {
-    width: 22,
-    height: 22,
+    width: scale(22),
+    height: scale(22),
     resizeMode: 'contain',
     tintColor: '#FF8A3C',
   },
@@ -426,24 +427,24 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   subOptionTitle: {
-    fontSize: 15,
+    fontSize: moderateScale(15),
     fontWeight: '600',
     color: '#1F1F1F',
   },
   subOptionSubtitle: {
-    fontSize: 12,
+    fontSize: moderateScale(12),
     color: '#888888',
-    marginTop: 2,
+    marginTop: verticalScale(2),
   },
   subOptionArrow: {
-    fontSize: 18,
+    fontSize: moderateScale(18),
     color: '#FF8A3C',
     fontWeight: '600',
   },
   footerNote: {
     marginTop: 'auto',
     textAlign: 'center',
-    fontSize: 14,
+    fontSize: moderateScale(14),
     color: '#A8734A',
   },
 });

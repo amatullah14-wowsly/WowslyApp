@@ -22,6 +22,7 @@ import { getLocalCheckedInGuests } from '../../db';
 import { scanStore, getMergedGuest } from '../../context/ScanStore';
 import GuestDetailsModal from '../../components/GuestDetailsModal';
 import BackButton from '../../components/BackButton';
+import { scale, verticalScale, moderateScale } from '../../utils/scaling';
 
 export type GuestFilter = 'All' | GuestGroup;
 
@@ -396,12 +397,12 @@ const GuestScreenTemplate: React.FC<GuestScreenTemplateProps> = ({
   }, [handleGuestPress]);
 
   // Styles memoization
-  const headerSpacerStyle = useMemo(() => ({ width: 36 }), []);
+  const headerSpacerStyle = useMemo(() => ({ width: scale(36) }), []);
 
   // Optimization: getItemLayout
   const getItemLayout = useCallback((data: any, index: number) => ({
-    length: 86, // Approx height (GuestRow + Separator)
-    offset: 86 * index,
+    length: verticalScale(86), // Approx height (GuestRow + Separator)
+    offset: verticalScale(86) * index,
     index,
   }), []);
 
@@ -595,26 +596,26 @@ const localStyles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingVertical: 30,
+    paddingHorizontal: scale(20),
+    paddingVertical: verticalScale(30),
   },
   headerTitle: {
-    fontSize: 20,
+    fontSize: moderateScale(20),
     fontWeight: '700',
     color: '#111111',
   },
   tabRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    paddingHorizontal: 15,
-    marginTop: 20,
+    paddingHorizontal: scale(15),
+    marginTop: verticalScale(20),
   },
   tabButton: {
     flex: 1,
     alignItems: 'center',
   },
   tabLabel: {
-    fontSize: 14,
+    fontSize: moderateScale(14),
     color: '#7A7A7A',
     fontWeight: '600',
   },
@@ -622,63 +623,63 @@ const localStyles = StyleSheet.create({
     color: '#FF8A3C',
   },
   tabIndicator: {
-    marginTop: 6,
-    height: 3,
-    width: 24,
-    borderRadius: 3,
+    marginTop: verticalScale(6),
+    height: verticalScale(3),
+    width: scale(24),
+    borderRadius: scale(3),
     backgroundColor: '#FF8A3C',
   },
   searchContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#F6F6F6',
-    marginHorizontal: 20,
-    marginTop: 20,
-    borderRadius: 12,
-    paddingHorizontal: 14,
-    height: 48,
+    marginHorizontal: scale(20),
+    marginTop: verticalScale(20),
+    borderRadius: scale(12),
+    paddingHorizontal: scale(14),
+    height: verticalScale(48),
   },
   searchIcon: {
-    width: 16,
-    height: 16,
-    marginRight: 8,
+    width: scale(16),
+    height: scale(16),
+    marginRight: scale(8),
     tintColor: '#9B9B9B',
   },
   searchInput: {
     flex: 1,
-    fontSize: 14,
+    fontSize: moderateScale(14),
     color: '#111111',
   },
   listWrapper: {
     flex: 1,
-    marginTop: 12,
+    marginTop: verticalScale(12),
   },
   listContent: {
-    paddingHorizontal: 20,
-    paddingBottom: 24,
+    paddingHorizontal: scale(20),
+    paddingBottom: verticalScale(24),
   },
   separator: {
-    height: 12,
+    height: verticalScale(12),
   },
   guestRow: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#FFFFFF',
-    borderRadius: 18,
-    padding: 16,
+    borderRadius: scale(18),
+    padding: scale(16),
     borderWidth: 1,
     borderColor: '#EFEFEF',
     shadowColor: '#ffffff',
     shadowOpacity: 0.04,
-    shadowRadius: 4,
-    shadowOffset: { width: 0, height: 1 },
+    shadowRadius: scale(4),
+    shadowOffset: { width: 0, height: verticalScale(1) },
     elevation: 1,
   },
   avatar: {
-    width: 40,
-    height: 40,
-    borderRadius: 24,
-    marginRight: 16,
+    width: scale(40),
+    height: scale(40),
+    borderRadius: scale(24),
+    marginRight: scale(16),
   },
   avatarPlaceholder: {
     backgroundColor: '#FF8A3C',
@@ -686,7 +687,7 @@ const localStyles = StyleSheet.create({
     justifyContent: 'center',
   },
   avatarPlaceholderText: {
-    fontSize: 18,
+    fontSize: moderateScale(18),
     fontWeight: '600',
     color: '#FFFFFF',
   },
@@ -694,17 +695,17 @@ const localStyles = StyleSheet.create({
     flex: 1,
   },
   guestName: {
-    fontSize: 16,
+    fontSize: moderateScale(16),
     fontWeight: '700',
     color: '#111111',
   },
   statusChip: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 8,
+    paddingHorizontal: scale(12),
+    paddingVertical: verticalScale(6),
+    borderRadius: scale(8),
   },
   statusChipText: {
-    fontSize: 12,
+    fontSize: moderateScale(12),
     fontWeight: '600',
   },
   rowActions: {
@@ -713,10 +714,10 @@ const localStyles = StyleSheet.create({
     alignItems: 'center',
   },
   actionButton: {
-    width: 70,
+    width: scale(70),
     justifyContent: 'center',
     alignItems: 'center',
-    height: 50, // Matches some standard
+    height: verticalScale(50), // Matches some standard
   },
   editButton: {
     backgroundColor: '#FF8A3C',
@@ -726,22 +727,22 @@ const localStyles = StyleSheet.create({
     fontWeight: '600',
   },
   emptyState: {
-    marginTop: 80,
+    marginTop: verticalScale(80),
     alignItems: 'center',
-    gap: 12,
+    gap: scale(12),
   },
   emptyIcon: {
-    width: 120,
-    height: 120,
+    width: scale(120),
+    height: scale(120),
     resizeMode: 'contain',
   },
   emptyTitle: {
-    fontSize: 16,
+    fontSize: moderateScale(16),
     fontWeight: '600',
     color: '#111111',
   },
   emptySubtitle: {
-    fontSize: 14,
+    fontSize: moderateScale(14),
     color: '#7A7A7A',
   },
   loadingContainer: {
@@ -753,13 +754,13 @@ const localStyles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
-    gap: 16,
-    paddingTop: 16,
+    gap: scale(16),
+    paddingTop: verticalScale(16),
     backgroundColor: '#FFFFFF',
   },
   pageIcon: {
-    width: 28,
-    height: 28,
+    width: scale(28),
+    height: scale(28),
     tintColor: '#FF8A3C',
   },
   disabledIcon: {
