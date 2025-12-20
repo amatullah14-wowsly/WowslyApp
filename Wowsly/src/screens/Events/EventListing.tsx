@@ -309,6 +309,7 @@ const EventListing = () => {
       </Modal>
 
       {/* Tab Selectors */}
+      {/* Tab Selectors (Orange Pill Style) */}
       <View style={styles.tabContainer}>
         <TouchableOpacity
           style={[styles.tabButton, activeTab === 'joined' && styles.activeTabButton]}
@@ -566,32 +567,34 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     marginTop: verticalScale(15),
     marginHorizontal: scale(20),
-    backgroundColor: '#F5F5F5',
-    borderRadius: scale(25),
+    backgroundColor: '#FFFFFF',
+    borderRadius: scale(12),
     padding: scale(4),
+    borderWidth: 1,
+    borderColor: '#EEEEEE',
+    elevation: 1,
+    shadowColor: '#000',
+    shadowOpacity: 0.05,
+    shadowOffset: { width: 0, height: verticalScale(2) },
+    shadowRadius: scale(4),
   },
   tabButton: {
     flex: 1,
-    paddingVertical: verticalScale(10),
-    borderRadius: scale(20),
+    paddingVertical: verticalScale(10), // Increased padding for pill shape
+    borderRadius: scale(8),
     alignItems: 'center',
     justifyContent: 'center',
   },
   activeTabButton: {
-    backgroundColor: '#FFFFFF',
-    shadowColor: '#000',
-    shadowOpacity: 0.1,
-    shadowOffset: { width: 0, height: verticalScale(2) },
-    shadowRadius: scale(4),
-    elevation: 2,
+    backgroundColor: '#FF8A3C',
   },
   tabText: {
     fontSize: moderateScale(14),
     fontWeight: '600',
-    color: '#9E9E9E',
+    color: '#FF8A3C', // Inactive text is orange
   },
   activeTabText: {
-    color: '#FF8A3C',
+    color: '#FFFFFF', // Active text is white
   },
 })
 

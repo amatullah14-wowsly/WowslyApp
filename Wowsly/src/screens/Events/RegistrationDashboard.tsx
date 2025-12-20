@@ -25,7 +25,7 @@ const ActionMenu = React.memo(({ onSelect }: { onSelect: (status: 'accepted' | '
     </View>
 ));
 
-const ReplyRow = React.memo(({ item, onPress }: { item: any, onPress: (item: any) => void }) => {
+const ReplyRow = React.memo(({ item, onPress, onActionPress }: { item: any, onPress: (item: any) => void, onActionPress: (item: any) => void }) => {
     let name = "Guest";
     const nameQuestion = item.form_replies?.find((q: any) => q.question.toLowerCase().includes('name'));
     if (nameQuestion) {
@@ -52,6 +52,9 @@ const ReplyRow = React.memo(({ item, onPress }: { item: any, onPress: (item: any
                 <Text style={styles.replyName}>{name}</Text>
                 <Text style={styles.replyDate}>{formatDate(item.timestamp)}</Text>
             </View>
+            <TouchableOpacity onPress={() => onActionPress(item)} style={styles.actionIconContainer}>
+                <Image source={require('../../assets/img/common/info.png')} style={styles.actionIcon} resizeMode="contain" />
+            </TouchableOpacity>
             <View style={styles.arrowContainer}>
                 <Image source={require('../../assets/img/common/forwardarrow.png')} style={styles.arrowIcon} resizeMode="contain" />
             </View>
@@ -79,6 +82,7 @@ const RegistrationDashboard = () => {
     const [selectedReply, setSelectedReply] = useState<any>(null);
     const [showReplyModal, setShowReplyModal] = useState(false);
     const [showActionMenu, setShowActionMenu] = useState(false);
+    const [showQuickActionModal, setShowQuickActionModal] = useState(false); // New Quick Action Modal
 
     // Date Modal State
     const [showDateModal, setShowDateModal] = useState(false);
@@ -247,6 +251,30 @@ const RegistrationDashboard = () => {
         }
     };
 
+    const handleQuickAction = async (status: 'accepted' | 'rejected' | 'blocked') => {
+        const guestId = selectedReply?.event_user_id;
+        if (!guestId) {
+            Alert.alert("Error", "Guest ID missing.");
+            return;
+        }
+
+        setShowQuickActionModal(false);
+
+        try {
+            const res = await updateGuestStatus(eventId, guestId, status);
+            if (res && res.success) {
+                Alert.alert("Success", `Guest status updated to ${status}.`, [
+                    { text: "OK", onPress: () => fetchReplies() }
+                ]);
+            } else {
+                Alert.alert("Error", res.message || "Update failed");
+            }
+        } catch (error) {
+            console.error(error);
+            Alert.alert("Error", "Something went wrong");
+        }
+    }
+
     const handleUpdateStatus = async (status: 'accepted' | 'rejected' | 'blocked') => {
         // Enforce strict Guest ID usage.
         // Based on API JSON: 'event_user_id' holds the correct Guest ID (e.g., 1247897) matching the URL.
@@ -321,9 +349,14 @@ const RegistrationDashboard = () => {
         });
     }, []);
 
+    const handleActionPress = useCallback((item: any) => {
+        setSelectedReply(item);
+        setShowQuickActionModal(true);
+    }, []);
+
     const renderReplyItem = useCallback(({ item }: { item: any }) => {
-        return <ReplyRow item={item} onPress={handleReplyPress} />;
-    }, [handleReplyPress]);
+        return <ReplyRow item={item} onPress={handleReplyPress} onActionPress={handleActionPress} />;
+    }, [handleReplyPress, handleActionPress]);
 
     return (
         <SafeAreaView style={styles.container}>
@@ -335,20 +368,21 @@ const RegistrationDashboard = () => {
             </View>
 
             {/* Toggle */}
-            <View style={styles.toggleContainer}>
+            {/* Toggle (Orange Pill Style) */}
+            <View style={styles.tabContainer}>
                 <TouchableOpacity
-                    style={[styles.toggleButton, activeTab === 'Form' && styles.activeButton]}
+                    style={[styles.tabButton, activeTab === 'Form' && styles.activeTabButton]}
                     onPress={() => setActiveTab('Form')}
                     activeOpacity={0.8}
                 >
-                    <Text style={[styles.toggleText, activeTab === 'Form' && styles.activeText]}>Form</Text>
+                    <Text style={[styles.tabText, activeTab === 'Form' && styles.activeTabText]}>Form</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
-                    style={[styles.toggleButton, activeTab === 'Replies' && styles.activeButton]}
+                    style={[styles.tabButton, activeTab === 'Replies' && styles.activeTabButton]}
                     onPress={() => setActiveTab('Replies')}
                     activeOpacity={0.8}
                 >
-                    <Text style={[styles.toggleText, activeTab === 'Replies' && styles.activeText]}>Replies</Text>
+                    <Text style={[styles.tabText, activeTab === 'Replies' && styles.activeTabText]}>Replies</Text>
                 </TouchableOpacity>
             </View>
 
@@ -446,18 +480,6 @@ const RegistrationDashboard = () => {
                         <View style={styles.modalHeader}>
                             <Text style={styles.modalTitle}>Guest Details</Text>
                             <View style={styles.headerActions}>
-                                {isApprovalBasis && (
-                                    <TouchableOpacity
-                                        style={styles.infoButton}
-                                        onPress={() => {
-                                            requestAnimationFrame(() => {
-                                                setShowActionMenu(prev => !prev);
-                                            });
-                                        }}
-                                    >
-                                        <Image source={require('../../assets/img/common/info.png')} style={styles.infoIcon} resizeMode="contain" />
-                                    </TouchableOpacity>
-                                )}
                                 <TouchableOpacity onPress={() => { setShowReplyModal(false); setShowActionMenu(false); }} style={styles.closeButton}>
                                     <Text style={styles.closeButtonText}>✕</Text>
                                 </TouchableOpacity>
@@ -476,8 +498,39 @@ const RegistrationDashboard = () => {
                             contentContainerStyle={styles.modalContent}
                         />
 
-                        {/* Popup Menu */}
+                        {/* Popup Menu (for Details Modal) */}
                         {showActionMenu && <ActionMenu onSelect={handleUpdateStatus} />}
+                    </View>
+                </View>
+            </Modal>
+
+            {/* Quick Action Modal (Center) */}
+            <Modal
+                visible={showQuickActionModal}
+                transparent={true}
+                animationType="fade"
+                onRequestClose={() => setShowQuickActionModal(false)}
+            >
+                <View style={[styles.modalOverlay, { justifyContent: 'center', alignItems: 'center' }]}>
+                    <View style={styles.quickActionCard}>
+                        <Text style={styles.quickActionTitle}>Action for Guest</Text>
+                        {selectedReply && (
+                            <Text style={styles.quickActionsubtitle}>
+                                {selectedReply.form_replies?.find((q: any) => q.question.toLowerCase().includes('name'))?.answer || "Guest"}
+                            </Text>
+                        )}
+                        <TouchableOpacity style={styles.quickActionButton} onPress={() => handleQuickAction('accepted')}>
+                            <Text style={styles.quickActionText}>Accept</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity style={styles.quickActionButton} onPress={() => handleQuickAction('rejected')}>
+                            <Text style={styles.quickActionText}>Reject</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity style={[styles.quickActionButton, { borderBottomWidth: 0 }]} onPress={() => handleQuickAction('blocked')}>
+                            <Text style={[styles.quickActionText, { color: '#D32F2F' }]}>Reject & Block</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity style={styles.cancelActionButton} onPress={() => setShowQuickActionModal(false)}>
+                            <Text style={styles.cancelActionText}>Cancel</Text>
+                        </TouchableOpacity>
                     </View>
                 </View>
             </Modal>
@@ -592,36 +645,40 @@ const styles = StyleSheet.create({
         fontWeight: '500',
         color: '#111',
     },
-    toggleContainer: {
+    tabContainer: {
         flexDirection: 'row',
         width: '90%',
         alignSelf: 'center',
-        backgroundColor: '#F5F5F5',
+        backgroundColor: '#FFFFFF',
         borderRadius: scale(12),
         padding: scale(4),
         marginBottom: verticalScale(10),
         marginTop: verticalScale(20),
-    },
-    toggleButton: {
-        flex: 1,
-        paddingVertical: verticalScale(10),
-        alignItems: 'center',
-        borderRadius: scale(10),
-    },
-    activeButton: {
-        backgroundColor: 'white',
+        borderWidth: 1,
+        borderColor: '#EEEEEE',
+        elevation: 1,
         shadowColor: '#000',
-        shadowOffset: { width: 0, height: verticalScale(1) },
-        shadowOpacity: 0.1,
-        elevation: 2,
+        shadowOpacity: 0.05,
+        shadowOffset: { width: 0, height: verticalScale(2) },
+        shadowRadius: scale(4),
     },
-    toggleText: {
+    tabButton: {
+        flex: 1,
+        paddingVertical: verticalScale(10), // Increased padding
+        borderRadius: scale(8),
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    activeTabButton: {
+        backgroundColor: '#FF8A3C',
+    },
+    tabText: {
         fontSize: moderateScale(15),
         fontWeight: '600',
-        color: '#888',
+        color: '#FF8A3C', // Inactive is orange
     },
-    activeText: {
-        color: '#FF8A3C', // Theme Orange
+    activeTabText: {
+        color: '#FFFFFF', // Active is white
     },
     content: {
         flex: 1,
@@ -774,7 +831,16 @@ const styles = StyleSheet.create({
     replyInfo: {
         flex: 1,
         justifyContent: 'center',
-        paddingLeft: scale(20), // Slight nudge from edge per user feedback
+        paddingLeft: scale(10),
+    },
+    actionIconContainer: {
+        padding: scale(8),
+        marginHorizontal: scale(4),
+    },
+    actionIcon: {
+        width: scale(22),
+        height: scale(22),
+        tintColor: '#FF8A3C'
     },
     replyName: {
         fontSize: moderateScale(16),
@@ -984,6 +1050,45 @@ const styles = StyleSheet.create({
     startExportButtonText: {
         fontSize: moderateScale(16),
         color: 'white',
+        fontWeight: '600',
+    },
+    quickActionCard: {
+        backgroundColor: 'white',
+        width: '80%',
+        borderRadius: scale(16),
+        padding: scale(20),
+        alignItems: 'center',
+        elevation: 10,
+    },
+    quickActionTitle: {
+        fontSize: moderateScale(18),
+        fontWeight: 'bold',
+        marginBottom: verticalScale(5),
+    },
+    quickActionsubtitle: {
+        fontSize: moderateScale(14),
+        color: '#666',
+        marginBottom: verticalScale(20),
+    },
+    quickActionButton: {
+        paddingVertical: verticalScale(14),
+        width: '100%',
+        alignItems: 'center',
+        borderBottomWidth: 1,
+        borderBottomColor: '#f0f0f0',
+    },
+    quickActionText: {
+        fontSize: moderateScale(16),
+        fontWeight: '600',
+        color: '#333',
+    },
+    cancelActionButton: {
+        marginTop: verticalScale(10),
+        paddingVertical: verticalScale(10),
+    },
+    cancelActionText: {
+        fontSize: moderateScale(14),
+        color: '#999',
         fontWeight: '600',
     }
 })
