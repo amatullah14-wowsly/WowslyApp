@@ -168,9 +168,9 @@ const EventListing = () => {
     // Note: FastImage helps with caching
     const imageSource =
       item.event_main_photo &&
-        item.event_main_photo !== "" &&
-        item.event_main_photo !== null
-        ? { uri: item.event_main_photo, priority: FastImage.priority.normal }
+      item.event_main_photo !== "" &&
+      item.event_main_photo !== null
+        ? { uri: item.event_main_photo }
         : require('../../assets/img/common/noimage.png');
 
     return (

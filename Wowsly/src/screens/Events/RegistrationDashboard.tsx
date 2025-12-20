@@ -1,4 +1,5 @@
-import { StyleSheet, Text, View, TouchableOpacity, SafeAreaView, FlatList, ActivityIndicator, Image, Modal, ScrollView } from 'react-native'
+import { StyleSheet, Text, View, TouchableOpacity, SafeAreaView, FlatList, ActivityIndicator, Image, Modal, ScrollView, TextInput } from 'react-native'
+import DatePicker from 'react-native-date-picker'
 import React, { useState, useEffect, useCallback } from 'react'
 import { useNavigation, useRoute } from '@react-navigation/native';
 import BackButton from '../../components/BackButton';
@@ -6,6 +7,56 @@ import BackButton from '../../components/BackButton';
 import { getRegistrationAnswers, exportRegistrationReplies, getExportStatus, getEventDetails, updateGuestStatus } from '../../api/event';
 import { ToastAndroid, Alert, Platform, Linking } from 'react-native';
 import RegistrationFormEditor from './RegistrationFormEditor';
+
+const ActionMenu = React.memo(({ onSelect }: { onSelect: (status: 'accepted' | 'rejected' | 'blocked') => void }) => (
+    <View style={styles.popupMenu}>
+        <TouchableOpacity style={styles.menuItem} onPress={() => onSelect('accepted')}>
+            <Text style={styles.menuText}>Accept</Text>
+        </TouchableOpacity>
+        <View style={styles.menuSeparator} />
+        <TouchableOpacity style={styles.menuItem} onPress={() => onSelect('rejected')}>
+            <Text style={styles.menuText}>Reject</Text>
+        </TouchableOpacity>
+        <View style={styles.menuSeparator} />
+        <TouchableOpacity style={[styles.menuItem, styles.menuItemDestructive]} onPress={() => onSelect('blocked')}>
+            <Text style={[styles.menuText, { color: '#D32F2F' }]}>Reject & Block</Text>
+        </TouchableOpacity>
+    </View>
+));
+
+const ReplyRow = React.memo(({ item, onPress }: { item: any, onPress: (item: any) => void }) => {
+    let name = "Guest";
+    const nameQuestion = item.form_replies?.find((q: any) => q.question.toLowerCase().includes('name'));
+    if (nameQuestion) {
+        name = nameQuestion.answer;
+    }
+
+    const formatDate = (timestamp: string) => {
+        if (!timestamp) return "";
+        const date = new Date(timestamp);
+        return date.toLocaleDateString('en-GB', {
+            day: 'numeric',
+            month: 'long',
+            year: 'numeric'
+        }) + ', ' + date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true });
+    };
+
+    return (
+        <TouchableOpacity
+            style={styles.replyRow}
+            onPress={() => onPress(item)}
+            activeOpacity={0.7}
+        >
+            <View style={styles.replyInfo}>
+                <Text style={styles.replyName}>{name}</Text>
+                <Text style={styles.replyDate}>{formatDate(item.timestamp)}</Text>
+            </View>
+            <View style={styles.arrowContainer}>
+                <Image source={require('../../assets/img/common/forwardarrow.png')} style={styles.arrowIcon} resizeMode="contain" />
+            </View>
+        </TouchableOpacity>
+    );
+});
 
 const RegistrationDashboard = () => {
     const navigation = useNavigation();
@@ -27,6 +78,17 @@ const RegistrationDashboard = () => {
     const [selectedReply, setSelectedReply] = useState<any>(null);
     const [showReplyModal, setShowReplyModal] = useState(false);
     const [showActionMenu, setShowActionMenu] = useState(false);
+
+    // Date Modal State
+    const [showDateModal, setShowDateModal] = useState(false);
+
+    // Date Picker State
+    const [startDate, setStartDate] = useState<Date | null>(null);
+    const [endDate, setEndDate] = useState<Date | null>(null);
+
+    // Controls for individual pickers
+    const [isStartPickerOpen, setStartPickerOpen] = useState(false);
+    const [isEndPickerOpen, setEndPickerOpen] = useState(false);
 
     // Replies State
     const [replies, setReplies] = useState<any[]>([]);
@@ -88,9 +150,68 @@ const RegistrationDashboard = () => {
         }
     }
 
+    const handleExportByDatePress = () => {
+        if (exportStatus === 'processing') {
+            ToastAndroid.show("Export is already in process.", ToastAndroid.SHORT);
+            return;
+        }
+        setStartDate(null);
+        setEndDate(null);
+        setShowDateModal(true);
+    };
+
+    const handleDateExportSubmit = async () => {
+        let apiStartDate = null;
+        let apiEndDate = null;
+
+        if (startDate || endDate) {
+            if (!startDate || !endDate) {
+                Alert.alert("Invalid Range", "Please select both Start and End dates.");
+                return;
+            }
+
+            // Convert Date object to YYYY-MM-DD
+            const formatToYYYYMMDD = (date: Date) => {
+                const year = date.getFullYear();
+                const month = String(date.getMonth() + 1).padStart(2, '0');
+                const day = String(date.getDate()).padStart(2, '0');
+                return `${year}-${month}-${day}`;
+            };
+
+            apiStartDate = formatToYYYYMMDD(startDate);
+            apiEndDate = formatToYYYYMMDD(endDate);
+        }
+
+        setShowDateModal(false);
+
+        try {
+            console.log(`Starting export with dates: ${apiStartDate} to ${apiEndDate}`);
+            const res = await exportRegistrationReplies(eventId, apiStartDate, apiEndDate);
+            if (res && res.success) {
+                setExportStatus('processing');
+                const msg = res.message || "Export started.";
+                if (Platform.OS === 'android') ToastAndroid.show(msg, ToastAndroid.SHORT);
+            } else {
+                if (Platform.OS === 'android') ToastAndroid.show("Export failed to start.", ToastAndroid.SHORT);
+            }
+        } catch (error) {
+            console.error("Export error:", error);
+            if (Platform.OS === 'android') ToastAndroid.show("Export error", ToastAndroid.SHORT);
+        }
+    };
+
+    // Helper to display date safely
+    const getDisplayDate = (date: Date | null) => {
+        if (!date) return "dd-mm-yyyy";
+        const day = String(date.getDate()).padStart(2, '0');
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const year = date.getFullYear();
+        return `${day}-${month}-${year}`;
+    };
+
     // Fetch Logic
-    const fetchReplies = async () => {
-        if (loading || !hasMore) return;
+    const fetchReplies = async (page = 1) => {
+        if (loading) return;
         if (!eventId) {
             console.error("fetchReplies: No eventId");
             if (Platform.OS === 'android') ToastAndroid.show("Error: No Event ID", ToastAndroid.SHORT);
@@ -99,35 +220,17 @@ const RegistrationDashboard = () => {
         setLoading(true);
 
         try {
-            console.log(`fetchReplies started for event ${eventId}`);
-            let allData: any[] = [];
-            let page = 1;
-            let fetching = true;
+            console.log(`fetchReplies started for event ${eventId}, page ${page}`);
 
-            while (fetching) {
-                console.log(`Fetching replies page ${page}...`);
-                const res = await getRegistrationAnswers(eventId, page);
-                console.log(`Page ${page} res:`, res ? `Found ${res.data?.length} items` : 'No res');
+            const res = await getRegistrationAnswers(eventId, page);
 
-                if (res && res.data && Array.isArray(res.data)) {
-                    allData = [...allData, ...res.data];
-
-                    if (res.current_page >= res.last_page || res.data.length === 0) {
-                        fetching = false;
-                    } else {
-                        page++;
-                    }
-                    if (page > 50) fetching = false;
-                } else {
-                    fetching = false;
-                }
+            if (res && res.data && Array.isArray(res.data)) {
+                setReplies(prev => page === 1 ? res.data : [...prev, ...res.data]);
+                setHasMore(res.current_page < res.last_page);
+                setCurrentPage(page);
+            } else {
+                setHasMore(false);
             }
-
-            console.log(`Total fetched: ${allData.length}`);
-            setReplies(allData);
-            setHasMore(false);
-
-            // if (Platform.OS === 'android') ToastAndroid.show(`Fetched ${allData.length} replies`, ToastAndroid.SHORT);
 
         } catch (error) {
             console.error("Error fetching replies:", error);
@@ -137,12 +240,9 @@ const RegistrationDashboard = () => {
         }
     };
 
-    // Auto-fetch logic currently fetches all pages in loops, so loadMore is effectively no-op or re-fetch check
     const loadMoreReplies = () => {
         if (!loading && hasMore) {
-            // Since fetchReplies fetches ALL pages in the while loop, we essentially don't need a per-page loadMore 
-            // unless we refactor fetchReplies. For now, leave empty or log.
-            // console.log("End reached");
+            fetchReplies(currentPage + 1);
         }
     };
 
@@ -188,7 +288,8 @@ const RegistrationDashboard = () => {
             // Reset and fetch
             setReplies([]);
             setHasMore(true);
-            fetchReplies();
+            setCurrentPage(1);
+            fetchReplies(1);
         } else if (activeTab === 'Form' && eventId) {
             // Fetch details to check form status
             getEventDetails(eventId).then(res => {
@@ -212,38 +313,16 @@ const RegistrationDashboard = () => {
         }) + ', ' + date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true });
     };
 
-    const renderReplyItem = ({ item }: { item: any }) => {
-        // Find Name from form_replies if top-level structure doesn't have it directly?
-        // Payload sample had "form_replies": [{question: "Name", answer: "darshan"}]
-        // And user object might not have "name" property at top level based on sample?
-        // Sample: "id": 1883023, "timestamp": "...", "user_id": ..., "mobile": ..., "form_replies": [...]
-        // I need to extract Name.
+    const handleReplyPress = useCallback((item: any) => {
+        requestAnimationFrame(() => {
+            setSelectedReply(item);
+            setShowReplyModal(true);
+        });
+    }, []);
 
-        let name = "Guest";
-        const nameQuestion = item.form_replies?.find((q: any) => q.question.toLowerCase().includes('name'));
-        if (nameQuestion) {
-            name = nameQuestion.answer;
-        }
-
-        return (
-            <TouchableOpacity
-                style={styles.replyRow}
-                onPress={() => {
-                    setSelectedReply(item);
-                    setShowReplyModal(true);
-                }}
-            >
-                <View style={styles.replyInfo}>
-                    <Text style={styles.replyName}>{name}</Text>
-                    <Text style={styles.replyDate}>{formatDate(item.timestamp)}</Text>
-                </View>
-                {/* Custom Arrow Icon */}
-                <View style={styles.arrowContainer}>
-                    <Image source={require('../../assets/img/common/forwardarrow.png')} style={styles.arrowIcon} resizeMode="contain" />
-                </View>
-            </TouchableOpacity>
-        );
-    };
+    const renderReplyItem = useCallback(({ item }: { item: any }) => {
+        return <ReplyRow item={item} onPress={handleReplyPress} />;
+    }, [handleReplyPress]);
 
     return (
         <SafeAreaView style={styles.container}>
@@ -316,7 +395,7 @@ const RegistrationDashboard = () => {
                                 <Image source={require('../../assets/img/eventdashboard/export.png')} style={styles.exportIcon} resizeMode="contain" />
                                 <Text style={styles.exportButtonText}>Export All</Text>
                             </TouchableOpacity>
-                            <TouchableOpacity style={styles.exportButton}>
+                            <TouchableOpacity style={styles.exportButton} onPress={handleExportByDatePress}>
                                 <Image source={require('../../assets/img/eventdashboard/calendar.png')} style={styles.exportIcon} resizeMode="contain" />
                                 <Text style={styles.exportButtonText}>Export By Date</Text>
                             </TouchableOpacity>
@@ -358,7 +437,7 @@ const RegistrationDashboard = () => {
             <Modal
                 visible={showReplyModal}
                 transparent={true}
-                animationType="slide"
+                animationType="none"
                 onRequestClose={() => setShowReplyModal(false)}
             >
                 <View style={styles.modalOverlay}>
@@ -367,7 +446,14 @@ const RegistrationDashboard = () => {
                             <Text style={styles.modalTitle}>Guest Details</Text>
                             <View style={styles.headerActions}>
                                 {isApprovalBasis && (
-                                    <TouchableOpacity style={styles.infoButton} onPress={() => setShowActionMenu(!showActionMenu)}>
+                                    <TouchableOpacity
+                                        style={styles.infoButton}
+                                        onPress={() => {
+                                            requestAnimationFrame(() => {
+                                                setShowActionMenu(prev => !prev);
+                                            });
+                                        }}
+                                    >
                                         <Image source={require('../../assets/img/common/info.png')} style={styles.infoIcon} resizeMode="contain" />
                                     </TouchableOpacity>
                                 )}
@@ -377,34 +463,107 @@ const RegistrationDashboard = () => {
                             </View>
                         </View>
 
-                        <ScrollView contentContainerStyle={styles.modalContent} scrollEnabled={true}>
-                            {selectedReply?.form_replies?.map((reply: any, index: number) => (
-                                <View key={index} style={styles.detailRow}>
-                                    <Text style={styles.detailLabel}>{reply.question}</Text>
-                                    <Text style={styles.detailValue}>{reply.answer || "-"}</Text>
+                        <FlatList
+                            data={selectedReply?.form_replies}
+                            keyExtractor={(_, i) => i.toString()}
+                            renderItem={({ item }) => (
+                                <View style={styles.detailRow}>
+                                    <Text style={styles.detailLabel}>{item.question}</Text>
+                                    <Text style={styles.detailValue}>{item.answer || "-"}</Text>
                                 </View>
-                            ))}
-                        </ScrollView>
+                            )}
+                            contentContainerStyle={styles.modalContent}
+                        />
 
-                        {/* Popup Menu - Moved to end to ensure Z-Index priority over ScrollView */}
-                        {showActionMenu && (
-                            <View style={styles.popupMenu}>
-                                <TouchableOpacity style={styles.menuItem} onPress={() => handleUpdateStatus('accepted')}>
-                                    <Text style={styles.menuText}>Accept</Text>
-                                </TouchableOpacity>
-                                <View style={styles.menuSeparator} />
-                                <TouchableOpacity style={styles.menuItem} onPress={() => handleUpdateStatus('rejected')}>
-                                    <Text style={styles.menuText}>Reject</Text>
-                                </TouchableOpacity>
-                                <View style={styles.menuSeparator} />
-                                <TouchableOpacity style={[styles.menuItem, styles.menuItemDestructive]} onPress={() => handleUpdateStatus('blocked')}>
-                                    <Text style={[styles.menuText, { color: '#D32F2F' }]}>Reject & Block</Text>
-                                </TouchableOpacity>
-                            </View>
-                        )}
+                        {/* Popup Menu */}
+                        {showActionMenu && <ActionMenu onSelect={handleUpdateStatus} />}
                     </View>
                 </View>
             </Modal>
+
+            {/* Date Range Modal */}
+            <Modal
+                visible={showDateModal}
+                transparent={true}
+                animationType="fade"
+                onRequestClose={() => setShowDateModal(false)}
+            >
+                <View style={styles.modalOverlay}>
+                    <View style={styles.dateModalContainer}>
+                        <View style={styles.dateModalHeader}>
+                            <Text style={styles.dateModalTitle}>Select Date Range</Text>
+                            <TouchableOpacity onPress={() => setShowDateModal(false)}>
+                                <Text style={styles.closeButtonText}>✕</Text>
+                            </TouchableOpacity>
+                        </View>
+
+                        <View style={styles.dateInputContainer}>
+                            <Text style={styles.dateLabel}>Start Date</Text>
+                            <TouchableOpacity
+                                style={styles.inputWrapper}
+                                onPress={() => setStartPickerOpen(true)}
+                            >
+                                <Text style={[styles.dateInput, !startDate && { color: '#999' }]}>
+                                    {getDisplayDate(startDate)}
+                                </Text>
+                                <Image source={require('../../assets/img/eventdashboard/calendar.png')} style={styles.inputIcon} resizeMode="contain" />
+                            </TouchableOpacity>
+                        </View>
+
+                        <View style={styles.dateInputContainer}>
+                            <Text style={styles.dateLabel}>End Date</Text>
+                            <TouchableOpacity
+                                style={styles.inputWrapper}
+                                onPress={() => setEndPickerOpen(true)}
+                            >
+                                <Text style={[styles.dateInput, !endDate && { color: '#999' }]}>
+                                    {getDisplayDate(endDate)}
+                                </Text>
+                                <Image source={require('../../assets/img/eventdashboard/calendar.png')} style={styles.inputIcon} resizeMode="contain" />
+                            </TouchableOpacity>
+                        </View>
+
+                        <Text style={styles.helperText}>Select date range for export or leave empty for all replies</Text>
+
+                        <View style={styles.dateModalFooter}>
+                            <TouchableOpacity onPress={() => setShowDateModal(false)} style={styles.cancelButton}>
+                                <Text style={styles.cancelButtonText}>Cancel</Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity onPress={handleDateExportSubmit} style={styles.startExportButton}>
+                                <Text style={styles.startExportButtonText}>Start Export</Text>
+                            </TouchableOpacity>
+                        </View>
+                    </View>
+                </View>
+            </Modal>
+
+            <DatePicker
+                modal
+                open={isStartPickerOpen}
+                date={startDate || new Date()}
+                mode="date"
+                onConfirm={(date) => {
+                    setStartPickerOpen(false)
+                    setStartDate(date)
+                }}
+                onCancel={() => {
+                    setStartPickerOpen(false)
+                }}
+            />
+
+            <DatePicker
+                modal
+                open={isEndPickerOpen}
+                date={endDate || new Date()}
+                mode="date"
+                onConfirm={(date) => {
+                    setEndPickerOpen(false)
+                    setEndDate(date)
+                }}
+                onCancel={() => {
+                    setEndPickerOpen(false)
+                }}
+            />
         </SafeAreaView>
     )
 }
@@ -642,7 +801,7 @@ const styles = StyleSheet.create({
         backgroundColor: 'white',
         borderTopLeftRadius: 20,
         borderTopRightRadius: 20,
-        height: '70%',
+        height: '50%',
         paddingTop: 20,
         paddingHorizontal: 20,
     },
@@ -739,5 +898,91 @@ const styles = StyleSheet.create({
     menuSeparator: {
         height: 1,
         backgroundColor: '#eee',
+    },
+    // Date Modal Styles
+    dateModalContainer: {
+        backgroundColor: 'white',
+        borderRadius: 16,
+        padding: 24,
+        width: '90%',
+        alignSelf: 'center',
+        // Center vertically in overlay
+        position: 'absolute',
+        top: '30%',
+    },
+    dateModalHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: 24,
+    },
+    dateModalTitle: {
+        fontSize: 18,
+        fontWeight: 'bold',
+        color: '#111',
+    },
+    dateInputContainer: {
+        marginBottom: 20,
+    },
+    dateLabel: {
+        fontSize: 14,
+        color: '#666',
+        marginBottom: 8,
+        position: 'absolute',
+        top: -10,
+        left: 10,
+        backgroundColor: 'white',
+        paddingHorizontal: 4,
+        zIndex: 1,
+    },
+    inputWrapper: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        borderWidth: 1,
+        borderColor: '#ddd',
+        borderRadius: 8,
+        paddingHorizontal: 12,
+        height: 50,
+    },
+    dateInput: {
+        flex: 1,
+        fontSize: 16,
+        color: '#333',
+    },
+    inputIcon: {
+        width: 20,
+        height: 20,
+        tintColor: '#333',
+    },
+    helperText: {
+        fontSize: 12,
+        color: '#888',
+        marginBottom: 24,
+    },
+    dateModalFooter: {
+        flexDirection: 'row',
+        justifyContent: 'flex-end',
+        alignItems: 'center',
+        gap: 16,
+    },
+    cancelButton: {
+        paddingVertical: 10,
+        paddingHorizontal: 16,
+    },
+    cancelButtonText: {
+        fontSize: 16,
+        color: '#333',
+        fontWeight: '500',
+    },
+    startExportButton: {
+        backgroundColor: '#EF6C00',
+        paddingVertical: 10,
+        paddingHorizontal: 24,
+        borderRadius: 8,
+    },
+    startExportButtonText: {
+        fontSize: 16,
+        color: 'white',
+        fontWeight: '600',
     }
 })

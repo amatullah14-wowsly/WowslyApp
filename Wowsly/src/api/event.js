@@ -728,11 +728,21 @@ export const getRegistrationAnswers = async (eventId, page = 1) => {
     }
 };
 
-export const exportRegistrationReplies = async (eventId) => {
+export const exportRegistrationReplies = async (eventId, startDate = null, endDate = null) => {
     try {
-        console.log(`Exporting Registration Replies for event: ${eventId}`);
-        // Endpoint: /events/:eventId/registrationform/replies/download?current_timezone=Asia%2FCalcutta
-        const response = await client.get(`/events/${eventId}/registrationform/replies/download?current_timezone=Asia%2FCalcutta`);
+        console.log(`Exporting Registration Replies for event: ${eventId}, dates: ${startDate} to ${endDate}`);
+
+        let url = `/events/${eventId}/registrationform/replies/download?current_timezone=Asia%2FCalcutta`;
+
+        if (startDate && endDate) {
+            // Append date params as requested
+            // Format assumed to be YYYY-MM-DD based on user input, or we format it.
+            // User example: start_date=2025-12-06&start_time=00:00:00
+            url += `&start_date=${startDate}&start_time=00:00:00&end_date=${endDate}&end_time=23:59:59`;
+        }
+
+        console.log("Export URL:", url);
+        const response = await client.get(url);
         console.log("EXPORT REGISTRATION REPLIES RESPONSE:", JSON.stringify(response.data));
         return response.data;
     } catch (error) {
