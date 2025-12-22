@@ -174,6 +174,46 @@ const EventDashboard = ({ route }: EventDashboardProps) => {
     }));
     const validCheckinPieData = checkinChartData.filter(d => d.value > 0);
 
+    const gridItems = [
+        {
+            icon: require('../../assets/img/eventdashboard/guests.png'),
+            title: "Guests",
+            value: guestCounts.total || displayData.total_guests || displayData.total_pax || "0",
+            onPress: () => navigation.navigate("GuestList", { eventId: displayData.id })
+        },
+        {
+            icon: require('../../assets/img/eventdashboard/checkin.png'),
+            title: "Check-In",
+            value: displayData.totalCheckIns || guestCounts.checkedIn || displayData.checked_in_count || displayData.used_entries || "0",
+            onPress: handleOpenCheckInModal,
+            showArrow: true
+        },
+        {
+            icon: require('../../assets/img/eventdashboard/ticket.png'),
+            title: "Tickets",
+            value: ticketList.length > 0 ? ticketList.reduce((acc: any, t: any) => acc + (t.sold_out || 0), 0).toString() : (displayData.tickets_sold || "0"),
+            onPress: () => navigation.navigate("TicketsSoldRecords", { eventId: displayData.id, tickets: ticketList }),
+            showArrow: true
+        },
+        {
+            icon: require('../../assets/img/eventdashboard/revenue.png'),
+            title: "Revenue",
+            value: displayData.ticketRevenue || (displayData.revenue ? `₹${displayData.revenue}` : "₹0")
+        }
+    ];
+
+    if (displayData.has_registration === 1 || displayData.has_registration === '1') {
+        gridItems.push({
+            icon: require('../../assets/img/eventdashboard/registration.png'),
+            title: "Registration",
+            value: displayData.eventuserCount || "0",
+            onPress: () => navigation.navigate("RegistrationDashboard", { eventId: displayData.id }),
+            showArrow: true
+        });
+    }
+
+    const isOddGrid = gridItems.length % 2 !== 0;
+
     return (
         <View style={styles.container}>
             <View style={styles.header}>
@@ -229,47 +269,25 @@ const EventDashboard = ({ route }: EventDashboardProps) => {
                         <Text style={styles.detailText}>{details?.category || "Event"}</Text>
                     </View>
                 </View>
-                <View style={styles.grid}>
-                    <Grid
-                        icon={require('../../assets/img/eventdashboard/guests.png')}
-                        title="Guests"
-                        value={guestCounts.total || displayData.total_guests || displayData.total_pax || "0"}
-                        onPress={() => navigation.navigate("GuestList", { eventId: displayData.id })}
-                    />
-
-                    <Grid
-                        icon={require('../../assets/img/eventdashboard/checkin.png')}
-                        title="Check-In"
-                        value={displayData.totalCheckIns || guestCounts.checkedIn || displayData.checked_in_count || displayData.used_entries || "0"}
-                        onPress={handleOpenCheckInModal}
-                        showArrow={true}
-                    />
-
-                    <Grid
-                        icon={require('../../assets/img/eventdashboard/ticket.png')}
-                        title="Tickets"
-                        value={ticketList.length > 0 ? ticketList.reduce((acc, t) => acc + (t.sold_out || 0), 0).toString() : (displayData.tickets_sold || "0")}
-                        onPress={() => navigation.navigate("TicketsSoldRecords", { eventId: displayData.id, tickets: ticketList })}
-                        showArrow={true}
-                    />
-
-                    <Grid
-                        icon={require('../../assets/img/eventdashboard/revenue.png')}
-                        title="Revenue"
-                        value={displayData.ticketRevenue || (displayData.revenue ? `₹${displayData.revenue}` : "₹0")}
-                    //   onPress={() => navigation.navigate("RevenueScreen")}
-                    />
-
-                    {(displayData.has_registration === 1 || displayData.has_registration === '1') && (
-                        <Grid
-                            icon={require('../../assets/img/eventdashboard/registration.png')}
-                            title="Registration"
-                            value={displayData.eventuserCount || "0"}
-                            onPress={() => navigation.navigate("RegistrationDashboard", { eventId: displayData.id })}
-                            showArrow={true}
-                        />
-                    )}
-                </View>
+                {isOddGrid ? (
+                    <>
+                        <View style={styles.grid}>
+                            {gridItems.slice(0, gridItems.length - 1).map((item, index) => (
+                                <Grid key={index} {...item} />
+                            ))}
+                        </View>
+                        {/* Render last item centered in a new row */}
+                        <View style={[styles.grid, { marginTop: verticalScale(12), justifyContent: 'center', marginBottom: verticalScale(20) }]}>
+                            <Grid {...gridItems[gridItems.length - 1]} />
+                        </View>
+                    </>
+                ) : (
+                    <View style={styles.grid}>
+                        {gridItems.map((item, index) => (
+                            <Grid key={index} {...item} />
+                        ))}
+                    </View>
+                )}
                 <TouchableOpacity style={styles.button}
 
                     onPress={() => navigation.navigate("ModeSelection", { eventTitle: displayData.title, eventId: displayData.id })}>

@@ -196,18 +196,24 @@ const EventListing = () => {
 
           if (activeTab === 'joined') {
             try {
-              if (item.guest_uuid) {
+              const guestUuid = item.guest_uuid || item.uuid; // Defensive check
+              if (guestUuid) {
                 // Show simple loading feedback if desired later, for now proceeding.
-                const res = await getEventWebLink(item.guest_uuid);
+                console.log(`Checking role for guest UUID: ${guestUuid}`);
+                const res = await getEventWebLink(guestUuid);
+                console.log("Role check response:", res);
 
                 // ⚡⚡⚡ MANAGER REDIRECT LOGIC ⚡⚡⚡
-                if (res && res.data && res.data.current_user_role === 'manager') {
+                const role = res?.data?.current_user_role?.toLowerCase();
+                if (role === 'manager') {
                   navigation.navigate('ModeSelection' as never, {
                     eventTitle: res.data.title || item.title,
                     eventId: res.data.id || item.id
                   } as never);
                   return;
                 }
+              } else {
+                // console.warn("No guest UUID found for joined event:", item);
               }
             } catch (e) {
               console.log('Error checking manager role:', e);
