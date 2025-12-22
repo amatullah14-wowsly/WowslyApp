@@ -45,6 +45,7 @@ const StackNavigation = () => {
       <Stack.Screen name='CheckInRecords' component={CheckInRecords} />
       <Stack.Screen name='TicketCheckInDetails' component={TicketCheckInDetails} />
       <Stack.Screen name='TicketsSoldRecords' component={TicketsSoldRecords} />
+      <Stack.Screen name='Settings' component={require('../screens/Settings/Settings').default} />
       <Stack.Screen name='RegistrationDashboard' component={require('../screens/Events/RegistrationDashboard').default} />
       <Stack.Screen name='RegistrationFormEditor' component={require('../screens/Events/RegistrationFormEditor').default} />
 

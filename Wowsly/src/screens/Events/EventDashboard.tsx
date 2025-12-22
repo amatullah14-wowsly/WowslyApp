@@ -1,4 +1,4 @@
-import { StyleSheet, Text, View, Image, TouchableOpacity, ImageBackground, ScrollView } from 'react-native'
+import { StyleSheet, Text, View, Image, TouchableOpacity, ImageBackground, ScrollView, Animated, Easing } from 'react-native'
 import { scale, verticalScale, moderateScale } from '../../utils/scaling';
 import React, { useState, useEffect, useCallback } from 'react'
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
@@ -36,6 +36,25 @@ const EventDashboard = ({ route }: EventDashboardProps) => {
     const [guestCounts, setGuestCounts] = useState({ total: 0, checkedIn: 0 });
     const [ticketList, setTicketList] = useState<any[]>([]);
     const [checkinData, setCheckinData] = useState<any[]>([]);
+
+    // Animation value for settings button
+    const scaleAnim = React.useRef(new Animated.Value(1)).current;
+
+    const onSettingsPressIn = () => {
+        Animated.spring(scaleAnim, {
+            toValue: 0.9,
+            useNativeDriver: true,
+        }).start();
+    };
+
+    const onSettingsPressOut = () => {
+        Animated.spring(scaleAnim, {
+            toValue: 1,
+            friction: 3,
+            tension: 40,
+            useNativeDriver: true,
+        }).start();
+    };
 
 
 
@@ -216,11 +235,30 @@ const EventDashboard = ({ route }: EventDashboardProps) => {
 
     return (
         <View style={styles.container}>
+
             <View style={styles.header}>
                 <BackButton onPress={() => navigation.goBack()} />
                 <Text style={styles.title} numberOfLines={1}>
                     {displayData.title}
                 </Text>
+
+                <Animated.View style={{ transform: [{ scale: scaleAnim }] }}>
+                    <TouchableOpacity
+                        activeOpacity={1}
+                        onPressIn={onSettingsPressIn}
+                        onPressOut={onSettingsPressOut}
+                        onPress={() => {
+                            setTimeout(() => navigation.navigate('Settings', { eventData: displayData }), 50);
+                        }}
+                        style={styles.settingsButton}
+                    >
+                        <Image
+                            source={require('../../assets/img/eventdashboard/setting.png')}
+                            style={styles.settingsIcon}
+                            resizeMode="contain"
+                        />
+                    </TouchableOpacity>
+                </Animated.View>
             </View>
 
             <ScrollView contentContainerStyle={{ paddingBottom: 100 }}>
@@ -484,6 +522,14 @@ const styles = StyleSheet.create({
         textAlign: 'center',
         paddingHorizontal: scale(12),
         color: 'black',
+    },
+    settingsButton: {
+        padding: scale(8),
+    },
+    settingsIcon: {
+        width: scale(24),
+        height: scale(24),
+        tintColor: '#FF8A3C',
     },
     menuIcon: {
         width: scale(20),
