@@ -799,6 +799,18 @@ export const getRegistrationFormStatus = async (eventId) => {
     }
 };
 
+export const generateEventToken = async (eventId, payload) => {
+    try {
+        console.log(`Generating Token for event: ${eventId} with payload:`, payload);
+        const response = await client.post(`/events/${eventId}/generated-token`, payload);
+        console.log("GENERATE TOKEN RESPONSE:", JSON.stringify(response.data));
+        return response.data;
+    } catch (error) {
+        console.log("GENERATE TOKEN ERROR:", error.response?.data || error.message);
+        return { success: false, message: "Token generation failed" };
+    }
+};
+
 export const createRegistrationForm = async (eventId, payload) => {
     try {
         console.log(`Creating Registration Form for event: ${eventId}`);
@@ -844,5 +856,17 @@ export const getEventWebLink = async (guestUuid) => {
     } catch (error) {
         console.log("GET EVENT WEBLINK ERROR:", error.response?.data || error.message);
         return { status: false, message: "Fetch failed" };
+    }
+};
+
+export const updateEventSettings = async (eventId, payload) => {
+    try {
+        console.log(`Updating Event Settings for event: ${eventId} with payload:`, payload);
+        const response = await client.post(`/events/${eventId}`, payload);
+        console.log("UPDATE EVENT SETTINGS RESPONSE:", JSON.stringify(response.data));
+        return response.data;
+    } catch (error) {
+        console.log("UPDATE EVENT SETTINGS ERROR:", error.response?.data || error.message);
+        return { success: false, message: "Failed to update settings" };
     }
 };
