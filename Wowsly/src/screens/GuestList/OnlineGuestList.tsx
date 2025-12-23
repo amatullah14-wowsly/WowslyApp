@@ -22,6 +22,7 @@ import { getLocalCheckedInGuests } from '../../db';
 import { scanStore, getMergedGuest } from '../../context/ScanStore';
 import { useRef } from 'react'; // Added useRef
 import { scale, verticalScale, moderateScale } from '../../utils/scaling';
+import Pagination from '../../components/Pagination';
 
 type GuestListRoute = RouteProp<
     {
@@ -317,31 +318,11 @@ const OnlineGuestList = () => {
                             }
                             ListFooterComponent={
                                 displayedGuests.length > 0 && lastPage > 1 ? (
-                                    <View style={styles.paginationContainer}>
-                                        <TouchableOpacity
-                                            disabled={currentPage === 1 || loading}
-                                            onPress={() => fetchGuests(currentPage - 1)}
-                                        >
-                                            <Image
-                                                source={PREV_ICON}
-                                                style={[styles.pageIcon, currentPage === 1 && styles.disabledIcon]}
-                                                resizeMode="contain"
-                                            />
-                                        </TouchableOpacity>
-
-                                        <Text style={styles.pageInfo}>{currentPage} / {lastPage || 1}</Text>
-
-                                        <TouchableOpacity
-                                            disabled={currentPage >= lastPage || loading}
-                                            onPress={() => fetchGuests(currentPage + 1)}
-                                        >
-                                            <Image
-                                                source={NEXT_ICON}
-                                                style={[styles.pageIcon, currentPage >= lastPage && styles.disabledIcon]}
-                                                resizeMode="contain"
-                                            />
-                                        </TouchableOpacity>
-                                    </View>
+                                    <Pagination
+                                        currentPage={currentPage}
+                                        totalPages={lastPage}
+                                        onPageChange={fetchGuests}
+                                    />
                                 ) : null
                             }
                         />

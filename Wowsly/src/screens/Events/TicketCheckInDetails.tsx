@@ -15,6 +15,7 @@ import { useNavigation, useRoute } from '@react-navigation/native';
 import { getTicketCheckInRecords, getTicketCheckInCount } from '../../api/event';
 import BackButton from '../../components/BackButton';
 import { scale, verticalScale, moderateScale } from '../../utils/scaling';
+import Pagination from '../../components/Pagination';
 
 const { width } = Dimensions.get('window');
 
@@ -230,25 +231,11 @@ const TicketCheckInDetails = () => {
                     />
                 )}
 
-                <View style={styles.pagination}>
-                    <TouchableOpacity
-                        disabled={page <= 1}
-                        onPress={() => fetchRecords(page - 1)}
-                        style={[styles.pageBtn, page <= 1 && styles.disabledBtn]}
-                    >
-                        <Text style={styles.pageBtnText}>{'<'}</Text>
-                    </TouchableOpacity>
-                    <View style={styles.pageNumberContainer}>
-                        <Text style={styles.pageNumberText}>{page}</Text>
-                    </View>
-                    <TouchableOpacity
-                        disabled={page >= totalPages}
-                        onPress={() => fetchRecords(page + 1)}
-                        style={[styles.pageBtn, page >= totalPages && styles.disabledBtn]}
-                    >
-                        <Text style={styles.pageBtnText}>{'>'}</Text>
-                    </TouchableOpacity>
-                </View>
+                <Pagination
+                    currentPage={page}
+                    totalPages={totalPages}
+                    onPageChange={fetchRecords}
+                />
             </View>
 
             {/* Details Modal */}
