@@ -1,4 +1,4 @@
-import { StyleSheet, Text, View, Image, TouchableOpacity, ImageBackground, ScrollView, Animated, Easing } from 'react-native'
+import { StyleSheet, Text, View, Image, TouchableOpacity, ImageBackground, ScrollView, Animated, Easing, Modal, BackHandler } from 'react-native'
 import { scale, verticalScale, moderateScale } from '../../utils/scaling';
 import React, { useState, useEffect, useCallback } from 'react'
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
@@ -25,13 +25,14 @@ type EventDashboardProps = {
     route: {
         params?: {
             eventData?: EventData
+            userRole?: string
         }
     }
 }
 
 const EventDashboard = ({ route }: EventDashboardProps) => {
     const navigation = useNavigation<any>();
-    const { eventData } = route.params || {};
+    const { eventData, userRole } = route.params || {};
     const [details, setDetails] = useState<any>(null);
     const [guestCounts, setGuestCounts] = useState({ total: 0, checkedIn: 0 });
     const [ticketList, setTicketList] = useState<any[]>([]);
@@ -39,6 +40,9 @@ const EventDashboard = ({ route }: EventDashboardProps) => {
 
     // Animation value for settings button
     const scaleAnim = React.useRef(new Animated.Value(1)).current;
+
+    // Exit Modal State
+    const [exitModalVisible, setExitModalVisible] = useState(false);
 
     const onSettingsPressIn = () => {
         Animated.spring(scaleAnim, {
@@ -56,16 +60,25 @@ const EventDashboard = ({ route }: EventDashboardProps) => {
         }).start();
     };
 
+    // Handle Hardware Back Button
+    useFocusEffect(
+        useCallback(() => {
+            const onBackPress = () => {
+                setExitModalVisible(true);
+                return true; // Stop default behavior
+            };
 
+            BackHandler.addEventListener('hardwareBackPress', onBackPress);
 
+            return () =>
+                BackHandler.removeEventListener('hardwareBackPress', onBackPress);
+        }, [])
+    );
 
-
-    // Refresh data when screen comes into focus
     useFocusEffect(
         useCallback(() => {
             if (eventData?.id) {
                 fetchDetails(eventData.id);
-                fetchGuestCounts(eventData.id);
                 fetchTicketList(eventData.id);
                 fetchCheckinData(eventData.id);
             }
@@ -73,53 +86,21 @@ const EventDashboard = ({ route }: EventDashboardProps) => {
     );
 
     const fetchDetails = async (id: string) => {
-        const res = await getEventDetails(id);
-        if (res?.data) {
-            setDetails(res.data);
-        }
-    };
-
-    const fetchGuestCounts = async (id: string) => {
         try {
-            // Fetch all guests to get accurate counts
-            // Assuming getEventUsers returns a list of guests in res.data
-            const res = await getEventUsers(id);
+            console.log(`Fetching details for event ID: ${id}`);
+            const res = await getEventDetails(id);
+            console.log("Event details response:", res); // Check if event_top_array is present
             if (res?.data) {
-                let allGuests = res.data;
-
-                // ⚡⚡⚡ MERGE ALL LOCAL CHECK-INS (SYNCED OR NOT) ⚡⚡⚡
-                try {
-                    const localCheckins = await getLocalCheckedInGuests(Number(id));
-                    allGuests = allGuests.map((g: any) => {
-                        const local = localCheckins.find((u: any) =>
-                            (u.guest_id && u.guest_id.toString() === g.id?.toString()) ||
-                            (u.qr_code && u.qr_code === g.qr_code)
-                        );
-                        if (local) {
-                            const localUsed = local.used_entries || 0;
-                            const apiUsed = g.used_entries || 0;
-                            if (localUsed > apiUsed || local.status === 'checked_in') {
-                                return { ...g, status: 'checked_in', used_entries: Math.max(apiUsed, localUsed) };
-                            }
-                        }
-                        return g;
-                    });
-                } catch (e) {
-                    console.warn("Failed to merge local counts", e);
-                }
-
-                const total = allGuests.length;
-                // Check for checked_in status or used_entries > 0
-                const checkedIn = allGuests.filter((g: any) =>
-                    g.status === 'checked_in' || (g.used_entries && g.used_entries > 0)
-                ).length;
-
-                setGuestCounts({ total, checkedIn });
+                setDetails(res.data);
             }
-        } catch (error) {
-            console.log("Error fetching guest counts:", error);
+        } catch (e) {
+            console.error("Error fetching event details:", e);
         }
     };
+
+    // ... (other fetch functions)
+
+
 
     const fetchTicketList = async (id: string) => {
         try {
@@ -150,6 +131,7 @@ const EventDashboard = ({ route }: EventDashboardProps) => {
             console.error("Error fetching checkin data:", e);
         }
     };
+
 
     const handleOpenCheckInModal = () => {
         if (!eventData?.id) return;
@@ -197,35 +179,45 @@ const EventDashboard = ({ route }: EventDashboardProps) => {
         {
             icon: require('../../assets/img/eventdashboard/guests.png'),
             title: "Guests",
-            value: guestCounts.total || displayData.total_guests || displayData.total_pax || "0",
+            value: details?.eventuserCount ?? "0",
             onPress: () => navigation.navigate("GuestList", { eventId: displayData.id })
         },
         {
             icon: require('../../assets/img/eventdashboard/checkin.png'),
             title: "Check-In",
-            value: displayData.totalCheckIns || guestCounts.checkedIn || displayData.checked_in_count || displayData.used_entries || "0",
+            value: String(details?.totalCheckIns ?? 0),
             onPress: handleOpenCheckInModal,
             showArrow: true
         },
         {
             icon: require('../../assets/img/eventdashboard/ticket.png'),
             title: "Tickets",
-            value: ticketList.length > 0 ? ticketList.reduce((acc: any, t: any) => acc + (t.sold_out || 0), 0).toString() : (displayData.tickets_sold || "0"),
+            value: details?.totalBooked ?? "0",
             onPress: () => navigation.navigate("TicketsSoldRecords", { eventId: displayData.id, tickets: ticketList }),
             showArrow: true
         },
         {
             icon: require('../../assets/img/eventdashboard/revenue.png'),
             title: "Revenue",
-            value: displayData.ticketRevenue || (displayData.revenue ? `₹${displayData.revenue}` : "₹0")
+            value: details?.ticketRevenue ?? (displayData.revenue ? `₹${displayData.revenue}` : "₹0")
+        },
+        {
+            icon: require('../../assets/img/eventdashboard/revenue.png'), // Reusing revenue icon as placeholder
+            title: "Settlement",
+            value: "0",
+            disabled: true
         }
     ];
 
-    if (displayData.has_registration === 1 || displayData.has_registration === '1') {
+    if (
+        details?.has_registration === 1 ||
+        details?.has_registration === '1' ||
+        details?.has_registration === true
+    ) {
         gridItems.push({
             icon: require('../../assets/img/eventdashboard/registration.png'),
             title: "Registration",
-            value: displayData.eventuserCount || "0",
+            value: details?.eventuserCount ?? "0",
             onPress: () => navigation.navigate("RegistrationDashboard", { eventId: displayData.id }),
             showArrow: true
         });
@@ -237,7 +229,7 @@ const EventDashboard = ({ route }: EventDashboardProps) => {
         <View style={styles.container}>
 
             <View style={styles.header}>
-                <BackButton onPress={() => navigation.goBack()} />
+                <BackButton onPress={() => setExitModalVisible(true)} />
                 <Text style={styles.title} numberOfLines={1}>
                     {displayData.title}
                 </Text>
@@ -260,6 +252,40 @@ const EventDashboard = ({ route }: EventDashboardProps) => {
                     </TouchableOpacity>
                 </Animated.View>
             </View>
+
+            {/* Exit Confirmation Modal */}
+            <Modal
+                transparent
+                visible={exitModalVisible}
+                animationType="fade"
+                onRequestClose={() => setExitModalVisible(false)}
+            >
+                <View style={styles.modalBackdrop}>
+                    <View style={styles.modalCard}>
+                        <Text style={styles.modalTitle}>Exit Event</Text>
+                        <Text style={[styles.modalSecondaryText, { textAlign: 'center', marginBottom: verticalScale(20), fontSize: moderateScale(15) }]}>
+                            Are you sure you want to exit this event?
+                        </Text>
+                        <View style={styles.modalActions}>
+                            <TouchableOpacity
+                                style={styles.modalButtonSecondary}
+                                onPress={() => setExitModalVisible(false)}
+                            >
+                                <Text style={styles.modalSecondaryText}>Cancel</Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity
+                                style={styles.modalButtonPrimary}
+                                onPress={() => {
+                                    setExitModalVisible(false);
+                                    navigation.goBack();
+                                }}
+                            >
+                                <Text style={styles.modalPrimaryText}>Exit</Text>
+                            </TouchableOpacity>
+                        </View>
+                    </View>
+                </View>
+            </Modal>
 
             <ScrollView contentContainerStyle={{ paddingBottom: 100 }}>
                 <View style={styles.eventCard}>
@@ -285,46 +311,75 @@ const EventDashboard = ({ route }: EventDashboardProps) => {
 
                 {/* Event Details Card */}
                 <View style={styles.detailsCard}>
-                    <View style={styles.detailRow}>
-                        <Image source={require('../../assets/img/eventdashboard/calendar.png')} style={styles.detailIconImage} resizeMode="contain" />
-                        <Text style={styles.detailText}>{details?.start_date_display || ""}</Text>
-                    </View>
-                    <View style={styles.detailRow}>
-                        <Image source={require('../../assets/img/eventdashboard/clock.png')} style={styles.detailIconImage} resizeMode="contain" />
-                        <Text style={styles.detailText}>
-                            {details?.start_time ? new Date(`1970-01-01T${details.start_time}`).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true }) : "7:00 PM"}
-                        </Text>
-                    </View>
-                    <View style={styles.detailRow}>
-                        <Image source={require('../../assets/img/eventdashboard/location.png')} style={styles.detailIconImage} resizeMode="contain" />
-                        <View style={{ flex: 1 }}>
-                            <Text style={styles.detailText}>{(details?.address || details?.city) || "-"}</Text>
-                            <Text style={styles.subDetailText}>{details?.state || ""}</Text>
-                        </View>
-                    </View>
-                    <View style={styles.detailRow}>
-                        <Image source={require('../../assets/img/common/info.png')} style={styles.detailIconImage} resizeMode="contain" />
-                        <Text style={styles.detailText}>{details?.category || "Event"}</Text>
-                    </View>
+                    {(() => {
+                        // Helper to find items in event_top_array
+                        const topArray = details?.event_top_array || [];
+                        const dateItem = topArray.find((i: any) => i.type === 'date');
+                        const locationItem = topArray.find((i: any) => i.type === 'hotel');
+
+                        // Prioritize Top Array -> Details -> DisplayData (Params)
+                        // Note: displayData.date already falls back to eventData.date
+                        const displayDate = dateItem?.title || displayData.date || "";
+
+                        // Time: Top App Desc -> Formatted Start Time -> Empty
+                        const formattedStartTime = details?.start_time
+                            ? new Date(`1970-01-01T${details.start_time}`).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true })
+                            : "";
+                        const displayTime = dateItem?.desc || formattedStartTime || "";
+
+                        // Location: Top Arr Title -> Details Address -> DisplayData Location
+                        const displayAddress = locationItem?.title || displayData.location || "";
+
+                        // State: Top Arr Desc -> Details State -> EventData State
+                        const displayState = locationItem?.desc || details?.state || (eventData as any)?.state || "";
+
+                        return (
+                            <>
+                                <View style={styles.detailRow}>
+                                    <Image source={require('../../assets/img/eventdashboard/calendar.png')} style={styles.detailIconImage} resizeMode="contain" />
+                                    <Text style={styles.detailText}>{displayDate}</Text>
+                                </View>
+                                <View style={styles.detailRow}>
+                                    <Image source={require('../../assets/img/eventdashboard/clock.png')} style={styles.detailIconImage} resizeMode="contain" />
+                                    <Text style={styles.detailText}>{displayTime}</Text>
+                                </View>
+                                <View style={styles.detailRow}>
+                                    <Image source={require('../../assets/img/eventdashboard/location.png')} style={styles.detailIconImage} resizeMode="contain" />
+                                    <View style={{ flex: 1 }}>
+                                        <Text style={styles.detailText}>{displayAddress}</Text>
+                                        {!!displayState && <Text style={styles.subDetailText}>{displayState}</Text>}
+                                    </View>
+                                </View>
+                                <View style={styles.detailRow}>
+                                    <Image source={require('../../assets/img/common/info.png')} style={styles.detailIconImage} resizeMode="contain" />
+                                    <Text style={styles.detailText}>{details?.category || (eventData as any)?.category || (displayData as any).category || ""}</Text>
+                                </View>
+                            </>
+                        );
+                    })()}
                 </View>
-                {isOddGrid ? (
+                {(userRole !== 'manager') && (
                     <>
-                        <View style={styles.grid}>
-                            {gridItems.slice(0, gridItems.length - 1).map((item, index) => (
-                                <Grid key={index} {...item} />
-                            ))}
-                        </View>
-                        {/* Render last item centered in a new row */}
-                        <View style={[styles.grid, { marginTop: verticalScale(12), justifyContent: 'center', marginBottom: verticalScale(20) }]}>
-                            <Grid {...gridItems[gridItems.length - 1]} />
-                        </View>
+                        {isOddGrid ? (
+                            <>
+                                <View style={styles.grid}>
+                                    {gridItems.slice(0, gridItems.length - 1).map((item, index) => (
+                                        <Grid key={index} {...item} />
+                                    ))}
+                                </View>
+                                {/* Render last item centered in a new row */}
+                                <View style={[styles.grid, { marginTop: verticalScale(12), justifyContent: 'center', marginBottom: verticalScale(20) }]}>
+                                    <Grid {...gridItems[gridItems.length - 1]} />
+                                </View>
+                            </>
+                        ) : (
+                            <View style={styles.grid}>
+                                {gridItems.map((item, index) => (
+                                    <Grid key={index} {...item} />
+                                ))}
+                            </View>
+                        )}
                     </>
-                ) : (
-                    <View style={styles.grid}>
-                        {gridItems.map((item, index) => (
-                            <Grid key={index} {...item} />
-                        ))}
-                    </View>
                 )}
                 <TouchableOpacity style={styles.button}
 
@@ -335,157 +390,161 @@ const EventDashboard = ({ route }: EventDashboardProps) => {
                     <Text style={styles.start}>Start Check-In</Text>
                 </TouchableOpacity>
 
-                <View style={styles.ticketSection}>
-                    <Text style={styles.sectionTitle}>Ticket Distribution</Text>
+                {(userRole !== 'manager') && (
+                    <>
+                        <View style={styles.ticketSection}>
+                            <Text style={styles.sectionTitle}>Ticket Distribution</Text>
 
-                    <View style={styles.chartContainer}>
-                        {/* Pie Chart */}
-                        <View style={styles.donutWrapper}>
-                            <Svg height="140" width="140" viewBox="0 0 160 160">
-                                <G x="80" y="80">
-                                    {validPieData.length > 0 ? (
-                                        (() => {
-                                            const pieData = d3
-                                                .pie()
-                                                .value((d: any) => d.value)
-                                                .sort(null)(validPieData);
+                            <View style={styles.chartContainer}>
+                                {/* Pie Chart */}
+                                <View style={styles.donutWrapper}>
+                                    <Svg height="140" width="140" viewBox="0 0 160 160">
+                                        <G x="80" y="80">
+                                            {validPieData.length > 0 ? (
+                                                (() => {
+                                                    const pieData = d3
+                                                        .pie()
+                                                        .value((d: any) => d.value)
+                                                        .sort(null)(validPieData);
 
-                                            const arcGenerator = d3
-                                                .arc()
-                                                .outerRadius(70)
-                                                .innerRadius(0) // Pie chart
-                                                .padAngle(0.02)
-                                                .cornerRadius(4);
+                                                    const arcGenerator = d3
+                                                        .arc()
+                                                        .outerRadius(70)
+                                                        .innerRadius(0) // Pie chart
+                                                        .padAngle(0.02)
+                                                        .cornerRadius(4);
 
-                                            return pieData.map((slice: any, index: number) => (
-                                                <Path
-                                                    key={index}
-                                                    d={arcGenerator(slice as any) || undefined}
-                                                    fill={slice.data.color}
+                                                    return pieData.map((slice: any, index: number) => (
+                                                        <Path
+                                                            key={index}
+                                                            d={arcGenerator(slice as any) || undefined}
+                                                            fill={slice.data.color}
+                                                        />
+                                                    ));
+                                                })()
+                                            ) : (
+                                                // Placeholder Pie for 0 sales (Solid Gray Circle)
+                                                <Circle
+                                                    cx="0"
+                                                    cy="0"
+                                                    r="70"
+                                                    fill="#F0F0F0"
                                                 />
-                                            ));
-                                        })()
+                                            )}
+                                        </G>
+                                    </Svg>
+                                </View>
+
+                                {/* Legend */}
+                                <View style={styles.legendContainer}>
+                                    {chartData.length > 0 ? (
+                                        chartData.map((ticket, index) => {
+                                            const percentage =
+                                                totalSold > 0
+                                                    ? Math.round((ticket.value / totalSold) * 100)
+                                                    : 0;
+
+                                            return (
+                                                <View key={index} style={styles.legendItem}>
+                                                    <View
+                                                        style={[
+                                                            styles.legendDot,
+                                                            { backgroundColor: ticket.color },
+                                                        ]}
+                                                    />
+                                                    <View>
+                                                        <Text style={styles.legendTitle}>
+                                                            {ticket.title}{' '}
+                                                            <Text style={styles.legendPercent}>({percentage}%)</Text>
+                                                        </Text>
+                                                    </View>
+                                                </View>
+                                            );
+                                        })
                                     ) : (
-                                        // Placeholder Pie for 0 sales (Solid Gray Circle)
-                                        <Circle
-                                            cx="0"
-                                            cy="0"
-                                            r="70"
-                                            fill="#F0F0F0"
-                                        />
+                                        <Text style={styles.emptyChartText}>No tickets defined</Text>
                                     )}
-                                </G>
-                            </Svg>
+                                </View>
+                            </View>
                         </View>
 
-                        {/* Legend */}
-                        <View style={styles.legendContainer}>
-                            {chartData.length > 0 ? (
-                                chartData.map((ticket, index) => {
-                                    const percentage =
-                                        totalSold > 0
-                                            ? Math.round((ticket.value / totalSold) * 100)
-                                            : 0;
+                        {/* Check-in Distribution Section */}
+                        <View style={styles.ticketSection}>
+                            <Text style={styles.sectionTitle}>Check-in Distribution</Text>
 
-                                    return (
-                                        <View key={index} style={styles.legendItem}>
-                                            <View
-                                                style={[
-                                                    styles.legendDot,
-                                                    { backgroundColor: ticket.color },
-                                                ]}
-                                            />
-                                            <View>
-                                                <Text style={styles.legendTitle}>
-                                                    {ticket.title}{' '}
-                                                    <Text style={styles.legendPercent}>({percentage}%)</Text>
-                                                </Text>
-                                            </View>
-                                        </View>
-                                    );
-                                })
-                            ) : (
-                                <Text style={styles.emptyChartText}>No tickets defined</Text>
-                            )}
-                        </View>
-                    </View>
-                </View>
+                            <View style={styles.chartContainer}>
+                                {/* Pie Chart */}
+                                <View style={styles.donutWrapper}>
+                                    <Svg height="140" width="140" viewBox="0 0 160 160">
+                                        <G x="80" y="80">
+                                            {validCheckinPieData.length > 0 ? (
+                                                (() => {
+                                                    const pieData = d3
+                                                        .pie()
+                                                        .value((d: any) => d.value)
+                                                        .sort(null)(validCheckinPieData);
 
-                {/* Check-in Distribution Section */}
-                <View style={styles.ticketSection}>
-                    <Text style={styles.sectionTitle}>Check-in Distribution</Text>
+                                                    const arcGenerator = d3
+                                                        .arc()
+                                                        .outerRadius(70)
+                                                        .innerRadius(0) // Pie chart
+                                                        .padAngle(0.02)
+                                                        .cornerRadius(4);
 
-                    <View style={styles.chartContainer}>
-                        {/* Pie Chart */}
-                        <View style={styles.donutWrapper}>
-                            <Svg height="140" width="140" viewBox="0 0 160 160">
-                                <G x="80" y="80">
-                                    {validCheckinPieData.length > 0 ? (
-                                        (() => {
-                                            const pieData = d3
-                                                .pie()
-                                                .value((d: any) => d.value)
-                                                .sort(null)(validCheckinPieData);
-
-                                            const arcGenerator = d3
-                                                .arc()
-                                                .outerRadius(70)
-                                                .innerRadius(0) // Pie chart
-                                                .padAngle(0.02)
-                                                .cornerRadius(4);
-
-                                            return pieData.map((slice: any, index: number) => (
-                                                <Path
-                                                    key={index}
-                                                    d={arcGenerator(slice as any) || undefined}
-                                                    fill={slice.data.color}
+                                                    return pieData.map((slice: any, index: number) => (
+                                                        <Path
+                                                            key={index}
+                                                            d={arcGenerator(slice as any) || undefined}
+                                                            fill={slice.data.color}
+                                                        />
+                                                    ));
+                                                })()
+                                            ) : (
+                                                <Circle
+                                                    cx="0"
+                                                    cy="0"
+                                                    r="70"
+                                                    fill="#F0F0F0"
                                                 />
-                                            ));
-                                        })()
+                                            )}
+                                        </G>
+                                    </Svg>
+                                </View>
+
+                                {/* Legend */}
+                                <View style={styles.legendContainer}>
+                                    {checkinChartData.length > 0 ? (
+                                        checkinChartData.map((ticket, index) => {
+                                            const percentage =
+                                                checkinTotal > 0
+                                                    ? Math.round((ticket.value / checkinTotal) * 100)
+                                                    : 0;
+
+                                            return (
+                                                <View key={index} style={styles.legendItem}>
+                                                    <View
+                                                        style={[
+                                                            styles.legendDot,
+                                                            { backgroundColor: ticket.color },
+                                                        ]}
+                                                    />
+                                                    <View>
+                                                        <Text style={styles.legendTitle}>
+                                                            {ticket.title}{' '}
+                                                            <Text style={styles.legendPercent}>({percentage}%)</Text>
+                                                        </Text>
+                                                    </View>
+                                                </View>
+                                            );
+                                        })
                                     ) : (
-                                        <Circle
-                                            cx="0"
-                                            cy="0"
-                                            r="70"
-                                            fill="#F0F0F0"
-                                        />
+                                        <Text style={styles.emptyChartText}>No check-in data</Text>
                                     )}
-                                </G>
-                            </Svg>
+                                </View>
+                            </View>
                         </View>
-
-                        {/* Legend */}
-                        <View style={styles.legendContainer}>
-                            {checkinChartData.length > 0 ? (
-                                checkinChartData.map((ticket, index) => {
-                                    const percentage =
-                                        checkinTotal > 0
-                                            ? Math.round((ticket.value / checkinTotal) * 100)
-                                            : 0;
-
-                                    return (
-                                        <View key={index} style={styles.legendItem}>
-                                            <View
-                                                style={[
-                                                    styles.legendDot,
-                                                    { backgroundColor: ticket.color },
-                                                ]}
-                                            />
-                                            <View>
-                                                <Text style={styles.legendTitle}>
-                                                    {ticket.title}{' '}
-                                                    <Text style={styles.legendPercent}>({percentage}%)</Text>
-                                                </Text>
-                                            </View>
-                                        </View>
-                                    );
-                                })
-                            ) : (
-                                <Text style={styles.emptyChartText}>No check-in data</Text>
-                            )}
-                        </View>
-                    </View>
-                </View>
+                    </>
+                )}
             </ScrollView >
 
             <View />
@@ -558,53 +617,65 @@ const styles = StyleSheet.create({
         color: '#333',
         fontWeight: '600',
     },
+    // Modal Styles
     modalBackdrop: {
         flex: 1,
-        backgroundColor: 'rgba(0,0,0,0.4)',
+        backgroundColor: 'rgba(0,0,0,0.5)',
         justifyContent: 'center',
         alignItems: 'center',
         padding: scale(20),
     },
     modalCard: {
         width: '100%',
-        backgroundColor: 'white',
-        borderRadius: scale(16),
+        backgroundColor: '#FFFFFF',
+        borderRadius: scale(20),
         padding: scale(24),
-        gap: verticalScale(20),
+        alignItems: 'center',
+        elevation: 5,
+        shadowColor: '#000',
+        shadowOpacity: 0.25,
+        shadowOffset: { width: 0, height: verticalScale(4) },
+        shadowRadius: scale(8),
     },
     modalTitle: {
-        fontSize: moderateScale(16),
+        fontSize: moderateScale(20),
         fontWeight: '700',
-        color: '#111',
+        color: '#111111',
+        marginBottom: verticalScale(12),
         textAlign: 'center',
+    },
+    modalSecondaryText: {
+        fontSize: moderateScale(16),
+        color: '#6F6F6F',
+        fontWeight: '600',
     },
     modalActions: {
         flexDirection: 'row',
-        justifyContent: 'space-between',
         gap: scale(12),
+        width: '100%',
     },
     modalButtonSecondary: {
         flex: 1,
+        paddingVertical: verticalScale(14),
         borderRadius: scale(12),
-        borderWidth: 1,
-        borderColor: '#CCC',
-        paddingVertical: verticalScale(12),
         alignItems: 'center',
-    },
-    modalSecondaryText: {
-        color: '#555',
-        fontWeight: '600',
+        justifyContent: 'center',
+        backgroundColor: '#F5F5F5',
+        borderWidth: 1,
+        borderColor: '#E0E0E0',
     },
     modalButtonPrimary: {
         flex: 1,
+        paddingVertical: verticalScale(14),
         borderRadius: scale(12),
-        backgroundColor: '#FF8A3C',
-        paddingVertical: verticalScale(12),
         alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: '#FF8A3C',
     },
     modalPrimaryText: {
-        color: '#FFF',
-        fontWeight: '700',
+        fontSize: moderateScale(16),
+        fontWeight: '600',
+        color: '#FFFFFF',
     },
 
     eventCard: {
@@ -670,7 +741,7 @@ const styles = StyleSheet.create({
         borderRadius: scale(10),
         flexDirection: 'row',
         gap: scale(10),
-        marginBottom: verticalScale(20), // ensure space at bottom
+        marginTop: verticalScale(20), // ensure space at bottom
     },
     scanicon: {
         height: scale(25),

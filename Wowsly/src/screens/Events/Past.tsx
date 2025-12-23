@@ -18,6 +18,7 @@ import {
   getEventsPage,
   getEventWebLink
 } from '../../api/event';
+import Pagination from '../../components/Pagination';
 import { scale, verticalScale, moderateScale } from '../../utils/scaling';
 
 const Past = () => {
@@ -95,7 +96,8 @@ const Past = () => {
       const endDate = event.end_date.split('T')[0];
 
       // Search Filter
-      const matchesSearch = event.title?.toLowerCase().includes(query.toLowerCase());
+      const lowerQuery = query.toLowerCase();
+      const matchesSearch = event.title?.toLowerCase().includes(lowerQuery) || event.id?.toString().includes(query);
 
       return endDate < today && matchesSearch;
     });
@@ -138,17 +140,14 @@ const Past = () => {
         selected={isSelected}
         onPress={async () => {
           setSelectedEventId(item.id);
+          let role = null;
 
           if (activeTab === 'joined') {
             try {
               if (item.guest_uuid) {
                 const res = await getEventWebLink(item.guest_uuid);
-                if (res && res.data && res.data.current_user_role === 'manager') {
-                  navigation.navigate('ModeSelection' as never, {
-                    eventTitle: res.data.title || item.title,
-                    eventId: res.data.id || item.id
-                  } as never);
-                  return;
+                if (res && res.data) {
+                  role = res.data.current_user_role;
                 }
               }
             } catch (e) {
@@ -156,7 +155,7 @@ const Past = () => {
             }
           }
 
-          navigation.navigate('EventDashboard' as never, { eventData: item } as never);
+          navigation.navigate('EventDashboard' as never, { eventData: item, userRole: role } as never);
         }}
       />
     );
@@ -188,7 +187,7 @@ const Past = () => {
       <StatusBar hidden />
       <View style={styles.heading}>
         <View style={styles.headingRow}>
-          <Text style={styles.headingtxt}>Past Events</Text>
+          <Text style={styles.headingtxt}>Wowsly</Text>
           <TouchableOpacity
             activeOpacity={0.8}
             onPress={async () => {
@@ -262,27 +261,11 @@ const Past = () => {
         }
       />
 
-      <View style={styles.pagination}>
-        <TouchableOpacity
-          onPress={() => setPage((prev) => Math.max(prev - 1, 1))}
-          disabled={page === 1}>
-          <Image
-            source={require('../../assets/img/common/previous.png')}
-            style={[styles.pageIcon, page === 1 && styles.disabledIcon]}
-            resizeMode="contain"
-          />
-        </TouchableOpacity>
-        <Text style={styles.pageIndicator}>{page} / {totalPages}</Text>
-        <TouchableOpacity
-          onPress={() => setPage((prev) => Math.min(prev + 1, totalPages))}
-          disabled={page === totalPages}>
-          <Image
-            source={require('../../assets/img/common/next.png')}
-            style={[styles.pageIcon, page === totalPages && styles.disabledIcon]}
-            resizeMode="contain"
-          />
-        </TouchableOpacity>
-      </View>
+      <Pagination
+        currentPage={page}
+        totalPages={totalPages}
+        onPageChange={setPage}
+      />
     </View >
   );
 };
@@ -298,8 +281,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     backgroundColor: '#FF8A3C',
     width: '100%',
-    paddingVertical: 15,
-    paddingTop: verticalScale(10), // Add status bar padding
+    paddingVertical: 20,
+    paddingTop: verticalScale(25), // Add status bar padding
     borderBottomLeftRadius: scale(15),
     borderBottomRightRadius: scale(15),
     shadowColor: '#FF8A3C',
@@ -392,33 +375,35 @@ const styles = StyleSheet.create({
   },
   tabContainer: {
     flexDirection: 'row',
-    marginTop: 15,
+    marginTop: verticalScale(15),
     marginHorizontal: scale(20),
-    backgroundColor: '#F5F5F5',
-    borderRadius: scale(25),
+    backgroundColor: '#FFFFFF',
+    borderRadius: scale(12),
     padding: scale(4),
+    borderWidth: 1,
+    borderColor: '#EEEEEE',
+    elevation: 1,
+    shadowColor: '#000',
+    shadowOpacity: 0.05,
+    shadowOffset: { width: 0, height: verticalScale(2) },
+    shadowRadius: scale(4),
   },
   tabButton: {
     flex: 1,
-    paddingVertical: 10,
-    borderRadius: scale(20),
+    paddingVertical: verticalScale(10), // Increased padding for pill shape
+    borderRadius: scale(8),
     alignItems: 'center',
     justifyContent: 'center',
   },
   activeTabButton: {
-    backgroundColor: '#FFFFFF',
-    shadowColor: '#000',
-    shadowOpacity: 0.1,
-    shadowOffset: { width: 0, height: verticalScale(2) },
-    shadowRadius: scale(4),
-    elevation: 2,
+    backgroundColor: '#FF8A3C',
   },
   tabText: {
     fontSize: moderateScale(14),
     fontWeight: '600',
-    color: '#9E9E9E',
+    color: '#FF8A3C', // Inactive text is orange
   },
   activeTabText: {
-    color: '#FF8A3C',
+    color: '#FFFFFF', // Active text is white
   },
 });

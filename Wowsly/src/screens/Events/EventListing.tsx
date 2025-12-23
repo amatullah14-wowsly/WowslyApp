@@ -22,6 +22,7 @@ import {
   getEventsPage,
   getEventWebLink
 } from "../../api/event"; // Modified import
+import Pagination from '../../components/Pagination';
 
 const EventListing = () => {
   const navigation = useNavigation<any>();
@@ -142,7 +143,8 @@ const EventListing = () => {
 
     const filtered = sourceEvents.filter((event: any) => {
       // Search Filter
-      const matchesSearch = event.title?.toLowerCase().includes(query.toLowerCase());
+      const lowerQuery = query.toLowerCase();
+      const matchesSearch = event.title?.toLowerCase().includes(lowerQuery) || event.id?.toString().includes(query);
 
       // Date Filter: >= Today
       // If no end_date, assume it is valid (Current)
@@ -193,6 +195,7 @@ const EventListing = () => {
         selected={isSelected}
         onPress={async () => {
           setSelectedEventId(item.id);
+          let role = null;
 
           if (activeTab === 'joined') {
             try {
@@ -203,15 +206,7 @@ const EventListing = () => {
                 const res = await getEventWebLink(guestUuid);
                 console.log("Role check response:", res);
 
-                // ⚡⚡⚡ MANAGER REDIRECT LOGIC ⚡⚡⚡
-                const role = res?.data?.current_user_role?.toLowerCase();
-                if (role === 'manager') {
-                  navigation.navigate('ModeSelection' as never, {
-                    eventTitle: res.data.title || item.title,
-                    eventId: res.data.id || item.id
-                  } as never);
-                  return;
-                }
+                role = res?.data?.current_user_role?.toLowerCase();
               } else {
                 // console.warn("No guest UUID found for joined event:", item);
               }
@@ -220,7 +215,7 @@ const EventListing = () => {
             }
           }
 
-          navigation.navigate('EventDashboard' as never, { eventData: item } as never);
+          navigation.navigate('EventDashboard' as never, { eventData: item, userRole: role } as never);
         }}
       />
     );
@@ -254,7 +249,7 @@ const EventListing = () => {
       {/* Header with Logout */}
       <View style={styles.heading}>
         <View style={styles.headingRow}>
-          <Text style={styles.headingtxt}>Events</Text>
+          <Text style={styles.headingtxt}>Wowsly</Text>
           <TouchableOpacity
             activeOpacity={0.8}
             onPress={() => setLogoutModalVisible(true)}
@@ -378,33 +373,11 @@ const EventListing = () => {
       />
 
       {/* Pagination */}
-      <View style={styles.pagination}>
-        <TouchableOpacity
-          onPress={() => setPage((prev) => Math.max(prev - 1, 1))}
-          disabled={page === 1}
-        >
-          <Image
-            source={require('../../assets/img/common/previous.png')}
-            style={[styles.pageIcon, page === 1 && styles.disabledIcon]}
-            resizeMode="contain"
-          />
-        </TouchableOpacity>
-
-        <Text style={styles.pageIndicator}>
-          {page} / {totalPages}
-        </Text>
-
-        <TouchableOpacity
-          onPress={() => setPage((prev) => Math.min(prev + 1, totalPages))}
-          disabled={page === totalPages}
-        >
-          <Image
-            source={require('../../assets/img/common/next.png')}
-            style={[styles.pageIcon, page === totalPages && styles.disabledIcon]}
-            resizeMode="contain"
-          />
-        </TouchableOpacity>
-      </View>
+      <Pagination
+        currentPage={page}
+        totalPages={totalPages}
+        onPageChange={setPage}
+      />
     </View>
   );
 };
