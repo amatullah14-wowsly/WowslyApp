@@ -42,7 +42,7 @@ const INFO_ICON = require('../../assets/img/common/info.png');
 const DOWNLOAD_ICON = { uri: 'https://img.icons8.com/ios-glyphs/30/000000/download.png' };
 
 const CustomProgressBar = ({ current, total, color = '#FF8A3C', height }: { current: number, total: number, color?: string, height?: number }) => {
-    const barHeight = height || verticalScale(6);
+    const barHeight = height || 6;
     const percentage = total > 0 ? (current / total) * 100 : 0;
     const clampedPercentage = Math.min(100, Math.max(0, percentage));
 
@@ -183,7 +183,7 @@ const CheckInRecords = () => {
                             <Text style={styles.totalValue}> / {total}</Text>
                         </Text>
                     </View>
-                    <CustomProgressBar current={checkedIn} total={total} height={verticalScale(8)} />
+                    <CustomProgressBar current={checkedIn} total={total} height={8} />
                 </View>
 
                 {/* Separator if facilities exist */}
@@ -202,7 +202,7 @@ const CheckInRecords = () => {
                                         <Text style={styles.facilityName} numberOfLines={1}>{facility.facility_name}</Text>
                                         <Text style={styles.facilityCount}>{fCheckedIn}/{fTotal}</Text>
                                     </View>
-                                    <CustomProgressBar current={fCheckedIn} total={fTotal} height={verticalScale(4)} color="#4CAF50" />
+                                    <CustomProgressBar current={fCheckedIn} total={fTotal} height={4} color="#4CAF50" />
                                 </View>
                             );
                         })}
@@ -251,7 +251,7 @@ const styles = StyleSheet.create({
     },
     header: {
         width: '100%',
-        height: verticalScale(90),
+        height: 90,
         paddingTop: verticalScale(20),
         backgroundColor: 'white',
         alignItems: 'center',
@@ -286,7 +286,7 @@ const styles = StyleSheet.create({
         width: '100%', // Full width cards look better for detailed info like this
         shadowColor: '#000',
         shadowOpacity: 0.08,
-        shadowOffset: { width: 0, height: verticalScale(4) },
+        shadowOffset: { width: 0, height: 4 },
         shadowRadius: scale(8),
         elevation: 3,
         borderWidth: 1,

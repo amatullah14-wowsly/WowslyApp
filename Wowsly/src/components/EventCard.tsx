@@ -47,7 +47,7 @@ const styles = StyleSheet.create({
     marginBottom: verticalScale(18),
     borderWidth: 1,
     borderColor: '#FFE0CC',
-    height: verticalScale(200), // Fixed height for the card
+    height: 200, // Fixed height for the card
     overflow: 'hidden',
     position: 'relative' // Ensure relative positioning for absolute children
   },

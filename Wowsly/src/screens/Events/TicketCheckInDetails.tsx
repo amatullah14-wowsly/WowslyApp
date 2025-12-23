@@ -338,7 +338,7 @@ const styles = StyleSheet.create({
     },
     header: {
         width: '100%',
-        height: verticalScale(60),
+        height: 60,
         alignItems: 'center',
         flexDirection: 'row',
         justifyContent: 'space-between',
@@ -413,13 +413,13 @@ const styles = StyleSheet.create({
         padding: scale(12), // Reduced padding
         elevation: 2,
         shadowColor: '#000',
-        shadowOffset: { width: 0, height: verticalScale(1) },
+        shadowOffset: { width: 0, height: 1 },
         shadowOpacity: 0.1,
         shadowRadius: scale(3),
         width: '48%',
         alignItems: 'center',
         justifyContent: 'space-between',
-        minHeight: verticalScale(130), // Reduced height
+        minHeight: 130, // Reduced height
         borderWidth: 1,
         borderColor: '#EAEAEA',
     },
@@ -531,7 +531,7 @@ const styles = StyleSheet.create({
         borderTopRightRadius: scale(20),
         elevation: 5,
         shadowColor: '#000',
-        shadowOffset: { width: 0, height: verticalScale(-2) },
+        shadowOffset: { width: 0, height: -2 },
         shadowOpacity: 0.2,
         shadowRadius: scale(10),
         overflow: 'hidden',

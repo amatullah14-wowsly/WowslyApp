@@ -463,7 +463,7 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     padding: scale(20),
-    paddingBottom: verticalScale(30),
+    paddingBottom: 30, // Fixed
   },
   header: {
     flexDirection: 'row',
@@ -471,8 +471,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     // marginBottom: 15,
     gap: scale(8),
-    marginTop: verticalScale(15),
-    marginBottom: verticalScale(20),
+    marginTop: 15, // Fixed
+    marginBottom: 20, // Fixed
   },
   headerTitle: {
     flex: 1,
@@ -498,14 +498,14 @@ const styles = StyleSheet.create({
     borderRadius: scale(20),
   },
   scanHint: {
-    marginTop: verticalScale(16),
+    marginTop: 16, // Fixed
     textAlign: 'center',
     color: '#8A8A8A',
     fontSize: moderateScale(14),
   },
   infoStack: {
-    marginTop: verticalScale(20),
-    gap: verticalScale(12),
+    marginTop: 20, // Fixed
+    gap: 12, // Fixed
   },
   infoRow: {
     flexDirection: 'row',
@@ -513,11 +513,11 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     borderRadius: scale(20),
     padding: scale(16),
-    marginBottom: verticalScale(12),
+    marginBottom: 12, // Fixed gap
     shadowColor: '#000',
     shadowOpacity: 0.03,
     shadowRadius: scale(8),
-    shadowOffset: { width: 0, height: verticalScale(2) },
+    shadowOffset: { width: 0, height: 2 }, // Fixed shadow
     elevation: 2,
   },
   infoIconWrap: {
@@ -559,18 +559,18 @@ const styles = StyleSheet.create({
     shadowColor: '#000',
     shadowOpacity: 0.03,
     shadowRadius: scale(8),
-    shadowOffset: { width: 0, height: verticalScale(2) },
+    shadowOffset: { width: 0, height: 2 }, // Fixed
     elevation: 2,
     position: 'relative',
   },
   actionIconCircle: {
-    width: scale(56),
-    height: scale(56),
-    borderRadius: scale(28),
+    width: 56, // Fixed
+    height: 56, // Fixed
+    borderRadius: 28, // Fixed
     backgroundColor: '#F5F5F5',
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: verticalScale(12),
+    marginBottom: 12, // Fixed
   },
   actionIcon: {
     width: scale(28),
@@ -586,7 +586,7 @@ const styles = StyleSheet.create({
   },
   infoButton: {
     position: 'absolute',
-    top: verticalScale(12),
+    top: 12, // Fixed
     right: scale(12),
     zIndex: 1,
   },

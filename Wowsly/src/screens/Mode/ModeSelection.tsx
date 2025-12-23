@@ -315,14 +315,14 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     paddingHorizontal: scale(20),
-    paddingTop: verticalScale(30),
-    paddingBottom: verticalScale(32),
+    paddingTop: 30, // Fixed top padding
+    paddingBottom: 32, // Fixed bottom padding
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: verticalScale(32),
+    marginBottom: 32, // Fixed margin bottom
   },
   title: {
     flex: 1,
@@ -344,22 +344,22 @@ const styles = StyleSheet.create({
     shadowRadius: scale(12),
     shadowOffset: { width: 0, height: verticalScale(4) },
     elevation: 3,
-    marginBottom: verticalScale(4), // Spacing between cards
+    marginBottom: 4, // Fixed Spacing between cards
   },
   card: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: scale(20),
-    paddingVertical: verticalScale(18),
+    paddingVertical: 18, // Fixed padding
   },
   cardExpanded: {
     borderBottomWidth: 1,
     borderBottomColor: '#F5F5F5',
   },
   modeIconWrapper: {
-    width: scale(56),
-    height: scale(56),
-    borderRadius: scale(18),
+    width: 56, // Fixed size
+    height: 56, // Fixed size
+    borderRadius: 18, // Fixed radius preferred for icons
     alignItems: 'center',
     justifyContent: 'center',
   },

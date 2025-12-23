@@ -371,7 +371,9 @@ const EventListing = () => {
         windowSize={5}
         removeClippedSubviews={true}
         getItemLayout={(data, index) => (
-          { length: verticalScale(218), offset: verticalScale(218) * index, index }
+          // Fixed height 200 + margin 18 = 218 approx.
+          // Adjust to match actual EventCard height + margin
+          { length: 218, offset: 218 * index, index }
         )}
       />
 
@@ -415,13 +417,13 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     backgroundColor: '#FF8A3C',
     width: '100%',
-    height: '10%',
+    paddingVertical: 20, // Dynamic height based on content + padding
+    paddingTop: verticalScale(25), // Keep status bar padding
     borderBottomLeftRadius: scale(15),
     borderBottomRightRadius: scale(15),
     shadowColor: '#FF8A3C',
     shadowOpacity: 0.2,
-    shadowOffset: { width: 0, height: verticalScale(6) },
-    shadowRadius: scale(8),
+    shadowOffset: { width: 0, height: 6 }, // Fixed shadow
     elevation: 6,
   },
   headingRow: {
@@ -438,17 +440,17 @@ const styles = StyleSheet.create({
   logoutIcon: {
     width: scale(23),
     height: scale(23),
-    top: verticalScale(5),
+    // Removed top: verticalScale(5) to rely on flex alignment
   },
   searchWrapper: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: 'white',
     marginHorizontal: scale(20),
-    marginTop: verticalScale(20),
+    marginTop: 20, // Fixed margin
     borderRadius: scale(20),
     paddingHorizontal: scale(20),
-    height: verticalScale(55),
+    height: 55, // Fixed height OK for input
     shadowColor: '#999',
     shadowOpacity: 0.1,
     shadowOffset: { width: 0, height: verticalScale(4) },
@@ -473,17 +475,18 @@ const styles = StyleSheet.create({
   },
   listContent: {
     paddingHorizontal: scale(20),
-    paddingTop: verticalScale(18),
-    paddingBottom: verticalScale(90),
+    paddingTop: 18,
+    paddingBottom: 90,
   },
   pagination: {
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
     gap: scale(16),
-    paddingBottom: verticalScale(2),
+    gap: scale(16),
+    paddingBottom: 10,
     backgroundColor: 'white',
-    height: verticalScale(40),
+    height: 60, // Fixed height container for touch targets
   },
   pageIcon: {
     width: scale(28),

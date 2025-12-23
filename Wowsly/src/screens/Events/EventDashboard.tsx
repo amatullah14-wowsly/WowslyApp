@@ -506,13 +506,14 @@ const styles = StyleSheet.create({
     },
     header: {
         width: '100%',
-        height: '12%',
+        // height: '12%', // Removed percentage height
+        paddingVertical: scale(15), // Added padding for dynamic height
         backgroundColor: 'white',
         alignItems: 'center',
         flexDirection: 'row',
         justifyContent: 'space-between',
         paddingHorizontal: scale(20),
-        position: 'relative',
+        // position: 'relative', // unnecessary
     },
 
     title: {
@@ -529,7 +530,7 @@ const styles = StyleSheet.create({
     settingsIcon: {
         width: scale(24),
         height: scale(24),
-        tintColor: '#FF8A3C',
+        tintColor: '#000000',
     },
     menuIcon: {
         width: scale(20),
@@ -545,7 +546,7 @@ const styles = StyleSheet.create({
         paddingHorizontal: scale(12),
         shadowColor: '#000',
         shadowOpacity: 0.15,
-        shadowOffset: { width: 0, height: verticalScale(4) },
+        shadowOffset: { width: 0, height: 4 },
         shadowRadius: scale(6),
         elevation: 4,
     },
@@ -608,7 +609,7 @@ const styles = StyleSheet.create({
 
     eventCard: {
         width: '95%',
-        height: verticalScale(200),
+        height: 200, // Fixed height instead of verticalScale(200)
         alignSelf: 'center',
         marginTop: verticalScale(5),
         backgroundColor: '#fff',
@@ -660,7 +661,7 @@ const styles = StyleSheet.create({
     },
     // rowone removed
     button: {
-        height: verticalScale(50), // Fixed height often better than %
+        height: 50, // Fixed height instead of verticalScale(50)
         width: '90%',
         backgroundColor: '#FF8A3C',
         alignSelf: "center",
@@ -733,7 +734,7 @@ const styles = StyleSheet.create({
     emptyChartContainer: {
         alignItems: 'center',
         justifyContent: 'center',
-        height: verticalScale(100),
+        height: 100,
     },
     emptyChartText: {
         color: '#999',
@@ -748,7 +749,7 @@ const styles = StyleSheet.create({
         padding: scale(20),
         marginTop: verticalScale(15),
         shadowColor: '#000',
-        shadowOffset: { width: 0, height: verticalScale(1) },
+        shadowOffset: { width: 0, height: 1 },
         shadowOpacity: 0.1,
         // shadowRadius: 8,
         elevation: 2,

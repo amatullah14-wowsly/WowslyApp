@@ -298,13 +298,13 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     backgroundColor: '#FF8A3C',
     width: '100%',
-    height: '10%',
+    paddingVertical: 15,
+    paddingTop: verticalScale(10), // Add status bar padding
     borderBottomLeftRadius: scale(15),
     borderBottomRightRadius: scale(15),
     shadowColor: '#FF8A3C',
     shadowOpacity: 0.2,
-    shadowOffset: { width: 0, height: verticalScale(6) },
-    shadowRadius: scale(8),
+    shadowOffset: { width: 0, height: 6 },
     elevation: 6,
   },
   headingtxt: {
@@ -321,17 +321,16 @@ const styles = StyleSheet.create({
   logoutIcon: {
     width: scale(23),
     height: scale(23),
-    top: verticalScale(5),
   },
   searchWrapper: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: 'white',
     marginHorizontal: scale(20),
-    marginTop: verticalScale(20),
+    marginTop: 20,
     borderRadius: scale(20),
     paddingHorizontal: scale(20),
-    height: verticalScale(55),
+    height: 55,
     shadowColor: '#999',
     shadowOpacity: 0.1,
     shadowOffset: { width: 0, height: verticalScale(4) },
@@ -356,8 +355,8 @@ const styles = StyleSheet.create({
   },
   listContent: {
     paddingHorizontal: scale(20),
-    paddingTop: verticalScale(18),
-    paddingBottom: verticalScale(90),
+    paddingTop: 18,
+    paddingBottom: 90,
   },
   pagination: {
     flexDirection: 'row',
@@ -366,6 +365,8 @@ const styles = StyleSheet.create({
     gap: scale(16),
     paddingBottom: verticalScale(4),
     backgroundColor: 'white',
+    paddingBottom: 10,
+    height: 60,
   },
   pageIcon: {
     width: scale(28),
@@ -391,7 +392,7 @@ const styles = StyleSheet.create({
   },
   tabContainer: {
     flexDirection: 'row',
-    marginTop: verticalScale(15),
+    marginTop: 15,
     marginHorizontal: scale(20),
     backgroundColor: '#F5F5F5',
     borderRadius: scale(25),
@@ -399,7 +400,7 @@ const styles = StyleSheet.create({
   },
   tabButton: {
     flex: 1,
-    paddingVertical: verticalScale(10),
+    paddingVertical: 10,
     borderRadius: scale(20),
     alignItems: 'center',
     justifyContent: 'center',

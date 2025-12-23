@@ -118,7 +118,7 @@ const Number = () => {
             </View>
 
             <View style={styles.number}>
-              <Text style={styles.mobile}>Mobile Number</Text>
+              {/* <Text style={styles.mobile}>Mobile Number</Text> */}
               <PhoneNumberInput
                 ref={phoneInput}
                 defaultValue={value}
@@ -136,6 +136,9 @@ const Number = () => {
                 textInputProps={{
                   returnKeyType: 'done',
                   onSubmitEditing: handleSendOTP,
+                      allowFontScaling: false,
+    placeholder: 'Mobile Number',
+    placeholderTextColor: '#9E9E9E',
                 }}
               />
               {countryCode === '91' && (
@@ -216,19 +219,19 @@ const styles = StyleSheet.create({
     flexGrow: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingBottom: verticalScale(20),
-    paddingTop: verticalScale(50),
+    paddingBottom: 20,
+    paddingTop: 50,
   },
   mainbox: {
     width: '90%',
     // height: '48%', // Removed fixed height to allow content to determine size
-    paddingVertical: verticalScale(10),
+    paddingVertical: 10,
     backgroundColor: '#fff',
     borderRadius: scale(25),
     alignSelf: 'center',
     justifyContent: 'center',
     alignItems: 'center',
-    gap: verticalScale(5),
+    gap: 5,
   },
   logo: {
     width: scale(80),
@@ -243,7 +246,7 @@ const styles = StyleSheet.create({
   headingText: {
     fontWeight: '600',
     fontSize: moderateScale(25),
-    top: '10%',
+    marginTop: 10,
     color: '#000',
   },
   organizer: {
@@ -254,26 +257,28 @@ const styles = StyleSheet.create({
   manage: {
     color: 'grey',
     fontSize: moderateScale(12),
-    top: '12%',
+    marginTop: 10,
   },
   number: {
     alignSelf: 'flex-start',
     marginLeft: '8%',
-    top: '3%',
+    marginTop: 10,
   },
   mobile: {
     color: 'black',
+    fontSize: moderateScale(14),
+    fontWeight: '500',
   },
   phoneContainer: {
     width: '90%',
-    marginTop: verticalScale(10),
+    marginTop: 10,
     borderWidth: 1,
     borderColor: '#E0E0E0',
     borderRadius: scale(15),
     backgroundColor: '#fff',
     paddingHorizontal: scale(5),
     paddingVertical: 0,
-    height: verticalScale(50),
+    height: 50,
     alignItems: 'center',
   },
   phoneTextContainer: {
@@ -353,13 +358,13 @@ const styles = StyleSheet.create({
 
   },
   button: {
-    width: '85%',
-    height: '14%',
+    width: '90%',
+    height: 50,
     borderRadius: scale(15),
     backgroundColor: '#FF8A3C',
     alignItems: 'center',
     justifyContent: 'center',
-    top: '3%',
+    marginTop: 20,
   },
   buttonDisabled: {
     backgroundColor: '#CCCCCC',

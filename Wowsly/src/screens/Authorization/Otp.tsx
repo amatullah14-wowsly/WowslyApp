@@ -169,12 +169,12 @@ const styles = StyleSheet.create({
         flexGrow: 1,
         justifyContent: 'center',
         alignItems: 'center',
-        paddingBottom: verticalScale(20),
-        paddingTop: verticalScale(50),
+        paddingBottom: 20,
+        paddingTop: 50,
     },
     wowsly: {
         flexDirection: 'column',
-        gap: verticalScale(6),
+        gap: 6,
         marginBottom: '6%',
 
 
@@ -226,8 +226,8 @@ const styles = StyleSheet.create({
         alignSelf: 'center',
     },
     otpBox: {
-        width: scale(35),
-        height: verticalScale(40),
+        width: 35,
+        height: 40,
         borderWidth: 1,
         borderColor: '#E0E0E0',
         borderRadius: scale(8),
@@ -262,12 +262,12 @@ const styles = StyleSheet.create({
     },
     verifyButton: {
         width: '100%',
-        height: verticalScale(45),
+        height: 45,
         backgroundColor: '#FF8A3C',
         borderRadius: scale(15),
         alignItems: 'center',
         justifyContent: 'center',
-        marginTop: verticalScale(25),
+        marginTop: 25,
     },
     verifyButtonText: {
         color: '#fff',

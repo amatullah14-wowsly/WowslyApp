@@ -106,7 +106,7 @@ const QrCode = () => {
   // Animation State
   const SCREEN_HEIGHT = Dimensions.get('window').height;
   const SHEET_MAX_HEIGHT = SCREEN_HEIGHT * 0.6; // Occupy 60% of screen when open
-  const SHEET_MIN_HEIGHT = verticalScale(220); // Visible part when collapsed
+  const SHEET_MIN_HEIGHT = 220; // Visible part when collapsed
   const MAX_UPWARD_TRANSLATE = -(SHEET_MAX_HEIGHT - SHEET_MIN_HEIGHT); // Negative value to move up
 
   const panY = useRef(new Animated.Value(0)).current;
