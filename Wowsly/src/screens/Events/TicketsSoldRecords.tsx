@@ -296,7 +296,7 @@ const styles = StyleSheet.create({
     },
     header: {
         width: '100%',
-        height: verticalScale(60),
+        height: verticalScale(90),
         alignItems: 'center',
         flexDirection: 'row',
         justifyContent: 'space-between',

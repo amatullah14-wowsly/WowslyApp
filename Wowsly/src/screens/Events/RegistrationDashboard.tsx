@@ -25,6 +25,26 @@ const ActionMenu = React.memo(({ onSelect }: { onSelect: (status: 'accepted' | '
     </View>
 ));
 
+const HeaderMenu = React.memo(({ onSelect, onClose }: { onSelect: (option: 'edit_form' | 'export_all' | 'export_date') => void, onClose: () => void }) => (
+    <Modal transparent visible={true} animationType="fade" onRequestClose={onClose}>
+        <TouchableOpacity style={styles.headerMenuOverlay} activeOpacity={1} onPress={onClose}>
+            <View style={styles.headerMenuContainer}>
+                <TouchableOpacity style={styles.headerMenuItem} onPress={() => onSelect('edit_form')}>
+                    <Text style={styles.headerMenuText}>Edit Form</Text>
+                </TouchableOpacity>
+                <View style={styles.headerMenuSeparator} />
+                <TouchableOpacity style={styles.headerMenuItem} onPress={() => onSelect('export_all')}>
+                    <Text style={styles.headerMenuText}>Export All</Text>
+                </TouchableOpacity>
+                <View style={styles.headerMenuSeparator} />
+                <TouchableOpacity style={styles.headerMenuItem} onPress={() => onSelect('export_date')}>
+                    <Text style={styles.headerMenuText}>Export By Date</Text>
+                </TouchableOpacity>
+            </View>
+        </TouchableOpacity>
+    </Modal>
+));
+
 const ReplyRow = React.memo(({ item, onPress, onActionPress }: { item: any, onPress: (item: any) => void, onActionPress: (item: any) => void }) => {
     let name = "Guest";
     const nameQuestion = item.form_replies?.find((q: any) => q.question.toLowerCase().includes('name'));
@@ -52,12 +72,9 @@ const ReplyRow = React.memo(({ item, onPress, onActionPress }: { item: any, onPr
                 <Text style={styles.replyName}>{name}</Text>
                 <Text style={styles.replyDate}>{formatDate(item.timestamp)}</Text>
             </View>
-            <TouchableOpacity onPress={() => onActionPress(item)} style={styles.actionIconContainer}>
+            <TouchableOpacity onPress={() => onPress(item)} style={styles.actionIconContainer}>
                 <Image source={require('../../assets/img/common/info.png')} style={styles.actionIcon} resizeMode="contain" />
             </TouchableOpacity>
-            <View style={styles.arrowContainer}>
-                <Image source={require('../../assets/img/common/forwardarrow.png')} style={styles.arrowIcon} resizeMode="contain" />
-            </View>
         </TouchableOpacity>
     );
 });
@@ -66,7 +83,6 @@ const RegistrationDashboard = () => {
     const navigation = useNavigation();
     const route = useRoute<any>();
     const { eventId } = route.params || {};
-    const [activeTab, setActiveTab] = useState<'Form' | 'Replies'>('Form');
     const [hasForm, setHasForm] = useState<number | null>(null); // 0 = Created, 1 = Not Created (or vice versa per user req)
     const [isApprovalBasis, setIsApprovalBasis] = useState(false);
     // User said: "if has_registration_form : 0 then form created nathi" (0 means NOT created)
@@ -83,6 +99,7 @@ const RegistrationDashboard = () => {
     const [showReplyModal, setShowReplyModal] = useState(false);
     const [showActionMenu, setShowActionMenu] = useState(false);
     const [showQuickActionModal, setShowQuickActionModal] = useState(false); // New Quick Action Modal
+    const [showHeaderMenu, setShowHeaderMenu] = useState(false);
 
     // Date Modal State
     const [showDateModal, setShowDateModal] = useState(false);
@@ -245,10 +262,17 @@ const RegistrationDashboard = () => {
         }
     };
 
-    const loadMoreReplies = () => {
-        if (!loading && hasMore) {
-            fetchReplies(currentPage + 1);
-        }
+    const handleHeaderMenuSelect = (option: 'edit_form' | 'export_all' | 'export_date') => {
+        setShowHeaderMenu(false);
+        setTimeout(() => {
+            if (option === 'edit_form') {
+                (navigation as any).navigate('RegistrationFormEditor', { eventId });
+            } else if (option === 'export_all') {
+                handleExportAll();
+            } else if (option === 'export_date') {
+                handleExportByDatePress();
+            }
+        }, 300);
     };
 
     const handleQuickAction = async (status: 'accepted' | 'rejected' | 'blocked') => {
@@ -313,22 +337,14 @@ const RegistrationDashboard = () => {
     };
 
     useEffect(() => {
-        if (activeTab === 'Replies' && eventId) {
+        if (eventId) {
             // Reset and fetch
             setReplies([]);
             setHasMore(true);
             setCurrentPage(1);
             fetchReplies(1);
-        } else if (activeTab === 'Form' && eventId) {
-            // Fetch details to check form status
-            getEventDetails(eventId).then(res => {
-                if (res && res.data) {
-                    setHasForm(res.data.has_registration_form);
-                    setIsApprovalBasis(res.data.registration_on_approval_basis === 1);
-                }
-            }).catch(err => console.log("Event details fetch error", err));
         }
-    }, [activeTab, eventId]);
+    }, [eventId]);
 
     const formatDate = (timestamp: string) => {
         if (!timestamp) return "";
@@ -363,109 +379,52 @@ const RegistrationDashboard = () => {
             {/* Header */}
             <View style={styles.header}>
                 <BackButton onPress={() => navigation.goBack()} />
-                <Text style={styles.title}>Registration Form</Text>
-                <View style={{ width: 40 }} />
-            </View>
-
-            {/* Toggle */}
-            {/* Toggle (Orange Pill Style) */}
-            <View style={styles.tabContainer}>
-                <TouchableOpacity
-                    style={[styles.tabButton, activeTab === 'Form' && styles.activeTabButton]}
-                    onPress={() => setActiveTab('Form')}
-                    activeOpacity={0.8}
-                >
-                    <Text style={[styles.tabText, activeTab === 'Form' && styles.activeTabText]}>Form</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                    style={[styles.tabButton, activeTab === 'Replies' && styles.activeTabButton]}
-                    onPress={() => setActiveTab('Replies')}
-                    activeOpacity={0.8}
-                >
-                    <Text style={[styles.tabText, activeTab === 'Replies' && styles.activeTabText]}>Replies</Text>
+                <Text style={styles.title}>Replies</Text>
+                <TouchableOpacity onPress={() => setShowHeaderMenu(true)} style={styles.menuButton}>
+                    <Image source={require('../../assets/img/form/menu.png')} style={styles.menuIcon} resizeMode="contain" />
                 </TouchableOpacity>
             </View>
 
             {/* Content */}
             <View style={styles.content}>
-                {activeTab === 'Form' && hasForm === null ? (
-                    <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-                        <ActivityIndicator size="large" color="#FF8A3C" />
-                    </View>
-                ) : activeTab === 'Form' ? (
-                    hasForm === 1 ? (
-                        <RegistrationFormEditor eventId={eventId} isEmbedded={true} />
-                    ) : (
-                        <View style={styles.placeholderContainer}>
-                            <View style={styles.createFormCard}>
-                                <View style={styles.iconContainer}>
-                                    <Image
-                                        source={require('../../assets/img/eventdashboard/registration.png')}
-                                        style={styles.mainIcon}
-                                        resizeMode="contain"
-                                    />
-                                </View>
-                                <Text style={styles.createFormTitle}>Create Registration Form</Text>
-                                <Text style={styles.createFormSubtitle}>
-                                    Collect details from your guests by creating a custom form.
-                                </Text>
-                                <TouchableOpacity
-                                    style={styles.createButtonPrimary}
-                                    activeOpacity={0.8}
-                                    onPress={() => (navigation as any).navigate('RegistrationFormEditor', { eventId })}
-                                >
-                                    <Text style={styles.createButtonText}>Create Form</Text>
-                                </TouchableOpacity>
-                            </View>
-                        </View>
-                    )
-                ) : (
-                    <View style={styles.repliesContainer}>
+                <View style={styles.repliesContainer}>
 
-
-
-                        {/* Export Buttons */}
-                        <View style={styles.exportRow}>
-                            <TouchableOpacity style={styles.exportButton} onPress={handleExportAll}>
-                                <Image source={require('../../assets/img/eventdashboard/export.png')} style={styles.exportIcon} resizeMode="contain" />
-                                <Text style={styles.exportButtonText}>Export All</Text>
-                            </TouchableOpacity>
-                            <TouchableOpacity style={styles.exportButton} onPress={handleExportByDatePress}>
-                                <Image source={require('../../assets/img/eventdashboard/calendar.png')} style={styles.exportIcon} resizeMode="contain" />
-                                <Text style={styles.exportButtonText}>Export By Date</Text>
-                            </TouchableOpacity>
-
-                            {/* Dynamic 3rd Button */}
+                    {/* Status / Download Button (Only visible if active/completed) */}
+                    {(exportStatus === 'processing' || exportStatus === 'completed') && (
+                        <View style={styles.statusButtonContainer}>
                             {exportStatus === 'processing' ? (
                                 <TouchableOpacity style={[styles.exportButton, styles.checkStatusButton]} onPress={handleCheckStatus}>
                                     <Image source={require('../../assets/img/eventdashboard/clock.png')} style={[styles.exportIcon, { tintColor: 'white' }]} resizeMode="contain" />
                                     <Text style={[styles.exportButtonText, { color: 'white' }]}>Check Status</Text>
                                 </TouchableOpacity>
-                            ) : exportStatus === 'completed' ? (
+                            ) : (
                                 <TouchableOpacity style={[styles.exportButton, styles.downloadButton]} onPress={handleDownload}>
                                     <Image source={require('../../assets/img/eventdashboard/export.png')} style={[styles.exportIcon, { tintColor: 'white', transform: [{ rotate: '180deg' }] }]} resizeMode="contain" />
                                     <Text style={[styles.exportButtonText, { color: 'white' }]}>Download File</Text>
                                 </TouchableOpacity>
-                            ) : null}
-
+                            )}
                         </View>
+                    )}
 
-                        {/* List */}
-                        {loading && replies.length === 0 ? (
-                            <ActivityIndicator size="large" color="#FF8A3C" style={{ marginTop: verticalScale(50) }} />
-                        ) : (
-                            <FlatList
-                                data={replies}
-                                renderItem={renderReplyItem}
-                                keyExtractor={(item, index) => item.id?.toString() || index.toString()}
-                                onEndReached={loadMoreReplies}
-                                onEndReachedThreshold={0.5}
-                                ListFooterComponent={loading && replies.length > 0 ? <ActivityIndicator color="#FF8A3C" style={{ margin: scale(20) }} /> : null}
-                                ListEmptyComponent={!loading ? <Text style={styles.emptyText}>No replies found</Text> : null}
-                            />
-                        )}
-                    </View>
-                )}
+                    {/* List */}
+                    {loading && replies.length === 0 ? (
+                        <ActivityIndicator size="large" color="#FF8A3C" style={{ marginTop: verticalScale(50) }} />
+                    ) : (
+                        <FlatList
+                            data={replies}
+                            renderItem={renderReplyItem}
+                            keyExtractor={(item, index) => item.id?.toString() || index.toString()}
+                            onEndReached={() => {
+                                if (!loading && hasMore) {
+                                    fetchReplies(currentPage + 1);
+                                }
+                            }}
+                            onEndReachedThreshold={0.5}
+                            ListFooterComponent={loading && replies.length > 0 ? <ActivityIndicator color="#FF8A3C" style={{ margin: scale(20) }} /> : null}
+                            ListEmptyComponent={!loading ? <Text style={styles.emptyText}>No replies found</Text> : null}
+                        />
+                    )}
+                </View>
             </View>
 
             {/* Reply Details Modal */}
@@ -618,6 +577,10 @@ const RegistrationDashboard = () => {
                     setEndPickerOpen(false)
                 }}
             />
+            {/* Header Menu */}
+            {showHeaderMenu && (
+                <HeaderMenu onSelect={handleHeaderMenuSelect} onClose={() => setShowHeaderMenu(false)} />
+            )}
         </SafeAreaView>
     )
 }
@@ -798,6 +761,52 @@ const styles = StyleSheet.create({
         backgroundColor: '#2E7D32', // Green fill
         borderColor: '#2E7D32',
     },
+    statusButtonContainer: {
+        paddingHorizontal: scale(16),
+        paddingVertical: verticalScale(10),
+    },
+    menuButton: {
+        padding: scale(8),
+    },
+    menuIcon: {
+        width: scale(20),
+        height: scale(20),
+        tintColor: '#000000',
+    },
+    // Header Menu Styles
+    headerMenuOverlay: {
+        flex: 1,
+        backgroundColor: 'rgba(0,0,0,0.05)', // Very subtle dim for focus
+    },
+    headerMenuContainer: {
+        position: 'absolute',
+        top: Platform.OS === 'ios' ? verticalScale(100) : verticalScale(70),
+        right: scale(20),
+        backgroundColor: 'white',
+        borderRadius: scale(12),
+        width: scale(200),
+        // Clean Shadow
+        elevation: 8,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.1,
+        shadowRadius: scale(12),
+        borderWidth: 1,
+        borderColor: '#f5f5f5',
+    },
+    headerMenuItem: {
+        paddingVertical: verticalScale(16),
+        paddingHorizontal: scale(20),
+    },
+    headerMenuText: {
+        fontSize: moderateScale(15),
+        color: '#222',
+        fontWeight: '500',
+    },
+    headerMenuSeparator: {
+        height: 1,
+        backgroundColor: '#F0F0F0',
+    },
     exportButtonText: {
         color: '#FF8A3C',
         fontWeight: '600',
@@ -813,14 +822,8 @@ const styles = StyleSheet.create({
         paddingHorizontal: scale(20),
         paddingBottom: verticalScale(20),
     },
-    arrowContainer: {
-        padding: scale(4),
-    },
-    arrowIcon: {
-        width: scale(24),
-        height: scale(24),
-        // No tintColor to keep original orange gradient from asset
-    },
+    // arrowContainer removed
+    // arrowIcon removed
     replyRow: {
         flexDirection: 'row',
         alignItems: 'center',

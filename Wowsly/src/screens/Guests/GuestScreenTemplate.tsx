@@ -9,15 +9,18 @@ import {
   TextInput,
   TouchableOpacity,
   View,
-  ActivityIndicator,
-  DeviceEventEmitter,
   InteractionManager,
+  Modal,
+  Platform,
+  Alert,
+  DeviceEventEmitter,
+  ActivityIndicator,
 } from 'react-native';
 import { GestureHandlerRootView, Swipeable } from 'react-native-gesture-handler';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import FastImage from 'react-native-fast-image';
 import { Guest, GuestGroup } from './guestData';
-import { getEventUsers, makeGuestManager, makeGuestUser, getEventUsersPage } from '../../api/event';
+import { getEventUsers, makeGuestManager, makeGuestUser, getEventUsersPage, updateGuestStatus, getEventDetails } from '../../api/event';
 import { getLocalCheckedInGuests } from '../../db';
 import { scanStore, getMergedGuest } from '../../context/ScanStore';
 import GuestDetailsModal from '../../components/GuestDetailsModal';
@@ -67,7 +70,7 @@ const PREV_ICON = require('../../assets/img/common/previous.png');
 const NEXT_ICON = require('../../assets/img/common/next.png');
 
 // --- Optimization: Memoized Row Component ---
-const GuestRow = React.memo(({ item, onPress }: { item: any; onPress: (guest: any) => void }) => {
+const GuestRow = React.memo(({ item, onPress, showActions, onActionPress }: { item: any; onPress: (guest: any) => void; showActions: boolean; onActionPress: (guest: any) => void }) => {
   const name = item.name || item.first_name + ' ' + item.last_name || 'Guest';
   const avatar = item.avatar || item.profile_photo;
   let displayStatus = item.status || 'Registered';
@@ -150,26 +153,31 @@ const GuestRow = React.memo(({ item, onPress }: { item: any; onPress: (guest: an
               </Text>
             </View>
           )}
+
           <View style={localStyles.guestInfo}>
             <Text style={localStyles.guestName}>{name}</Text>
           </View>
-          {/* Status Chip Hidden as per request */}
+
+          {/* Action Arrow for Approval Basis */}
+          {showActions && (
+            <TouchableOpacity onPress={() => onActionPress(item)} style={localStyles.arrowContainer}>
+              <Image source={require('../../assets/img/common/forwardarrow.png')} style={localStyles.arrowIcon} resizeMode="contain" />
+            </TouchableOpacity>
+          )}
         </View>
       </TouchableOpacity>
     </Swipeable>
   );
 }, (prevProps, nextProps) => {
-  // Custom comparison for performance if needed, or rely on default shallow compare
-  // Checking key props that might change
   return (
     prevProps.item.id === nextProps.item.id &&
     prevProps.item.status === nextProps.item.status &&
     prevProps.item.used_entries === nextProps.item.used_entries &&
     prevProps.item.tickets_bought === nextProps.item.tickets_bought &&
-    prevProps.item.checked_in_count === nextProps.item.checked_in_count
+    prevProps.item.checked_in_count === nextProps.item.checked_in_count &&
+    prevProps.showActions === nextProps.showActions
   );
 });
-
 
 const GuestScreenTemplate: React.FC<GuestScreenTemplateProps> = ({
   initialFilter = 'All',
@@ -190,8 +198,18 @@ const GuestScreenTemplate: React.FC<GuestScreenTemplateProps> = ({
   const [lastPage, setLastPage] = useState(1);
   const [totalGuests, setTotalGuests] = useState(0);
 
+  // Approval Basis State
+  const [isApprovalBasis, setIsApprovalBasis] = useState(false);
+  const [actionModalVisible, setActionModalVisible] = useState(false);
+  const [actionGuest, setActionGuest] = useState<any>(null);
+
   useEffect(() => {
     if (eventId) {
+      getEventDetails(eventId).then(res => {
+        if (res && res.data && res.data.registration_on_approval_basis === 1) {
+          setIsApprovalBasis(true);
+        }
+      });
       fetchGuests(1); // Reset to page 1 on mount/filter change
     }
   }, [eventId, activeFilter]);
@@ -364,10 +382,6 @@ const GuestScreenTemplate: React.FC<GuestScreenTemplateProps> = ({
               used_entries: Math.max(apiUsed, localUsed),
               // If local says checked in or has usage, mark as Checked In for UI logic
               status: (apiGuest.status === 'Checked In' || match.status === 'checked_in' || match.status === 'Checked In') ? 'Checked In' : apiGuest.status,
-              // Ensure we don't accidentally revert a 'Checked In' status if API is fresh but DB is slightly behind?
-              // Actually DB is source of truth for offline/manual checkins.
-              // If DB has used_entries, verify against total.
-              // For now, trust DB helps fill gaps.
             };
           }
           return apiGuest;
@@ -391,11 +405,49 @@ const GuestScreenTemplate: React.FC<GuestScreenTemplateProps> = ({
     setModalVisible(true);
   }, []);
 
+  // Action Handler
+  const handleActionPress = useCallback((guest: any) => {
+    setActionGuest(guest);
+    setActionModalVisible(true);
+  }, []);
+
+  const performAction = async (status: 'accepted' | 'rejected' | 'blocked') => {
+    if (!actionGuest || !eventId) return;
+
+    const guestId = actionGuest.id || actionGuest.guest_id;
+    // Close modal immediately for better UX
+    setActionModalVisible(false);
+
+    try {
+      const res = await updateGuestStatus(eventId, guestId, status);
+      if (res && res.success) {
+        Alert.alert("Success", `Guest status updated to ${status}.`, [
+          {
+            text: "OK", onPress: () => {
+              setLastUpdate(Date.now());
+              fetchGuests(currentPage);
+            }
+          }
+        ]);
+      } else {
+        Alert.alert("Error", res.message || "Update failed");
+      }
+    } catch (error) {
+      Alert.alert("Error", "Something went wrong.");
+    }
+    setActionGuest(null);
+  };
+
   const renderItem = useCallback(({ item }: { item: any }) => {
     return (
-      <GuestRow item={item} onPress={handleGuestPress} />
+      <GuestRow
+        item={item}
+        onPress={handleGuestPress}
+        showActions={isApprovalBasis}
+        onActionPress={handleActionPress}
+      />
     );
-  }, [handleGuestPress]);
+  }, [handleGuestPress, isApprovalBasis, handleActionPress]);
 
   // Styles memoization
   const headerSpacerStyle = useMemo(() => ({ width: scale(36) }), []);
@@ -490,6 +542,41 @@ const GuestScreenTemplate: React.FC<GuestScreenTemplateProps> = ({
         )}
       </GestureHandlerRootView>
 
+      {/* Action Modal - Reusing RegistrationDashboard Pattern (Centered) */}
+      <Modal
+        visible={actionModalVisible}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setActionModalVisible(false)}
+      >
+        <TouchableOpacity
+          style={localStyles.modalOverlay}
+          activeOpacity={1}
+          onPress={() => setActionModalVisible(false)}
+        >
+          <View style={localStyles.quickActionCard}>
+            <Text style={localStyles.quickActionTitle}>Action for Guest</Text>
+            {actionGuest && (
+              <Text style={localStyles.quickActionsubtitle}>
+                {actionGuest.name || actionGuest.first_name + ' ' + actionGuest.last_name || "Guest"}
+              </Text>
+            )}
+            <TouchableOpacity style={localStyles.quickActionButton} onPress={() => performAction('accepted')}>
+              <Text style={localStyles.quickActionText}>Accept</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={localStyles.quickActionButton} onPress={() => performAction('rejected')}>
+              <Text style={localStyles.quickActionText}>Reject</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={[localStyles.quickActionButton]} onPress={() => performAction('blocked')}>
+              <Text style={[localStyles.quickActionText, { color: '#D32F2F' }]}>Reject & Block</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={localStyles.cancelActionButton} onPress={() => setActionModalVisible(false)}>
+              <Text style={localStyles.cancelActionText}>Cancel</Text>
+            </TouchableOpacity>
+          </View>
+        </TouchableOpacity>
+      </Modal>
+
       <GuestDetailsModal
         visible={modalVisible}
         onClose={() => {
@@ -499,66 +586,16 @@ const GuestScreenTemplate: React.FC<GuestScreenTemplateProps> = ({
         eventId={eventId}
         guestId={selectedGuestId || undefined}
         guest={guests.find(g => (g.id || '').toString() === selectedGuestId?.toString())}
-
         onMakeManager={async (guestId) => {
-          // ... (Existing logic same as before, ensuring state updates correctly)
-          console.log('Make manager for guest:', guestId);
-          try {
-            const res = await makeGuestManager(eventId, guestId);
-            if (res && (res.status === true || res.success === true || res.data)) {
-              setGuests(prevGuests => {
-                if (activeFilter === 'All') {
-                  return prevGuests.map(g =>
-                    (g.id || '').toString() === guestId.toString()
-                      ? { ...g, type: 'manager', role: 'manager' }
-                      : g
-                  );
-                } else if (activeFilter === 'Manager') {
-                  return prevGuests;
-                } else {
-                  return prevGuests.filter(g => (g.id || '').toString() !== guestId.toString());
-                }
-              });
-              setModalVisible(false);
-              setSelectedGuestId(null);
-            } else {
-              console.error('Failed to make guest manager', res);
-            }
-          } catch (err) {
-            console.error('Error making guest manager:', err);
+          const res = await makeGuestManager(eventId || '', guestId);
+          if (res.success) {
+            fetchGuests(currentPage);
           }
         }}
         onMakeGuest={async (guestId) => {
-          console.log('Make guest for guest:', guestId);
-          try {
-            const guest = guests.find(g => (g.id || '').toString() === guestId.toString());
-            let targetType = 'registered';
-            if (guest && guest.status && guest.status.toLowerCase() === 'invited') {
-              targetType = 'invited';
-            }
-
-            const res = await makeGuestUser(eventId, guestId, targetType);
-            if (res && (res.status === true || res.success === true || res.data)) {
-              setGuests(prevGuests => {
-                if (activeFilter === 'All') {
-                  return prevGuests.map(g =>
-                    (g.id || '').toString() === guestId.toString()
-                      ? { ...g, type: targetType, role: 'guest' }
-                      : g
-                  );
-                } else if (activeFilter === 'Manager') {
-                  return prevGuests.filter(g => (g.id || '').toString() !== guestId.toString());
-                } else {
-                  return prevGuests;
-                }
-              });
-              setModalVisible(false);
-              setSelectedGuestId(null);
-            } else {
-              console.error('Failed to make guest user', res);
-            }
-          } catch (err) {
-            console.error('Error making guest user:', err);
+          const res = await makeGuestUser(eventId || '', guestId);
+          if (res.success) {
+            fetchGuests(currentPage);
           }
         }}
       />
@@ -566,106 +603,107 @@ const GuestScreenTemplate: React.FC<GuestScreenTemplateProps> = ({
   );
 };
 
-export default GuestScreenTemplate;
-
 const localStyles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#ffffff',
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: scale(20),
-    paddingVertical: verticalScale(30),
+    paddingHorizontal: scale(16),
+    paddingVertical: verticalScale(12),
+    backgroundColor: '#fff',
   },
   headerTitle: {
-    fontSize: moderateScale(20),
-    fontWeight: '700',
-    color: '#111111',
+    fontSize: moderateScale(18),
+    fontWeight: '600',
+    color: '#000',
   },
   tabRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingHorizontal: scale(15),
-    marginTop: verticalScale(20),
+    justifyContent: 'space-around',
+    borderBottomWidth: 1,
+    borderBottomColor: '#f0f0f0',
+    backgroundColor: '#fff',
   },
   tabButton: {
-    flex: 1,
+    paddingVertical: verticalScale(12),
     alignItems: 'center',
+    flex: 1,
   },
   tabLabel: {
     fontSize: moderateScale(14),
-    color: '#7A7A7A',
-    fontWeight: '600',
+    fontWeight: '500',
+    color: '#9E9E9E',
   },
   tabLabelActive: {
     color: '#FF8A3C',
+    fontWeight: '600',
   },
   tabIndicator: {
-    marginTop: verticalScale(6),
+    position: 'absolute',
+    bottom: 0,
+    width: '60%',
     height: verticalScale(3),
-    width: scale(24),
-    borderRadius: scale(3),
     backgroundColor: '#FF8A3C',
+    borderRadius: scale(2),
   },
   searchContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F6F6F6',
-    marginHorizontal: scale(20),
-    marginTop: verticalScale(20),
-    borderRadius: scale(12),
-    paddingHorizontal: scale(14),
-    height: verticalScale(48),
+    backgroundColor: '#F5F5F5',
+    marginHorizontal: scale(16),
+    marginVertical: verticalScale(12),
+    borderRadius: scale(8),
+    paddingHorizontal: scale(12),
+    height: verticalScale(40),
   },
   searchIcon: {
     width: scale(16),
     height: scale(16),
+    tintColor: '#9E9E9E',
     marginRight: scale(8),
-    tintColor: '#9B9B9B',
   },
   searchInput: {
     flex: 1,
     fontSize: moderateScale(14),
-    color: '#111111',
+    color: '#000',
+    paddingVertical: 0,
   },
   listWrapper: {
     flex: 1,
-    marginTop: verticalScale(12),
+    backgroundColor: '#fff',
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   listContent: {
-    paddingHorizontal: scale(20),
-    paddingBottom: verticalScale(24),
+    flexGrow: 1,
+    paddingBottom: verticalScale(20),
   },
-  separator: {
-    height: verticalScale(12),
-  },
+  // Guest Row
   guestRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FFFFFF',
-    borderRadius: scale(18),
-    padding: scale(16),
-    borderWidth: 1,
-    borderColor: '#EFEFEF',
-    shadowColor: '#ffffff',
-    shadowOpacity: 0.04,
-    shadowRadius: scale(4),
-    shadowOffset: { width: 0, height: verticalScale(1) },
-    elevation: 1,
+    paddingVertical: verticalScale(12),
+    paddingHorizontal: scale(16),
+    backgroundColor: '#fff',
   },
   avatar: {
     width: scale(40),
     height: scale(40),
     borderRadius: scale(24),
     marginRight: scale(16),
+    backgroundColor: '#e0e0e0',
   },
   avatarPlaceholder: {
-    backgroundColor: '#FF8A3C',
-    alignItems: 'center',
     justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#FF8A3C',
   },
   avatarPlaceholderText: {
     fontSize: moderateScale(18),
@@ -674,81 +712,130 @@ const localStyles = StyleSheet.create({
   },
   guestInfo: {
     flex: 1,
+    justifyContent: 'center',
   },
   guestName: {
     fontSize: moderateScale(16),
-    fontWeight: '700',
-    color: '#111111',
+    color: '#333',
+    fontWeight: '500',
   },
-  statusChip: {
-    paddingHorizontal: scale(12),
-    paddingVertical: verticalScale(6),
-    borderRadius: scale(8),
+  separator: {
+    height: 1,
+    backgroundColor: '#F5F5F5',
+    marginLeft: scale(68), // Offset to align with text
+  },
+  rowActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#fff',
+  },
+  actionButton: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    width: scale(70),
+    height: '100%',
+  },
+  editButton: {
+    backgroundColor: '#E0E0E0',
+  },
+  actionText: {
+    color: '#000',
+    fontSize: moderateScale(12),
+    fontWeight: '600',
   },
   statusChipText: {
     fontSize: moderateScale(12),
     fontWeight: '600',
   },
-  rowActions: {
-    flexDirection: 'row',
-    height: '100%',
-    alignItems: 'center',
-  },
-  actionButton: {
-    width: scale(70),
+  // Empty State
+  emptyState: {
+    flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    height: verticalScale(50), // Matches some standard
-  },
-  editButton: {
-    backgroundColor: '#FF8A3C',
-  },
-  actionText: {
-    color: '#FFFFFF',
-    fontWeight: '600',
-  },
-  emptyState: {
-    marginTop: verticalScale(80),
-    alignItems: 'center',
-    gap: scale(12),
+    paddingTop: verticalScale(60),
+    paddingHorizontal: scale(32),
   },
   emptyIcon: {
     width: scale(120),
     height: scale(120),
+    marginBottom: verticalScale(16),
     resizeMode: 'contain',
+    opacity: 0.8,
   },
   emptyTitle: {
-    fontSize: moderateScale(16),
-    fontWeight: '600',
-    color: '#111111',
+    fontSize: moderateScale(18),
+    fontWeight: '700',
+    color: '#424242',
+    marginBottom: verticalScale(8),
   },
   emptySubtitle: {
     fontSize: moderateScale(14),
-    color: '#7A7A7A',
+    color: '#9E9E9E',
+    textAlign: 'center',
   },
-  loadingContainer: {
+  // Actions
+  arrowContainer: {
+    padding: scale(8),
+  },
+  arrowIcon: {
+    width: scale(20),
+    height: scale(20),
+  },
+  // Modal
+  modalOverlay: {
     flex: 1,
-    justifyContent: 'center',
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center', // Changed for centered modal
     alignItems: 'center',
   },
-  paginationContainer: {
-    flexDirection: 'row',
-    justifyContent: 'center',
+  // Quick Action Card (Centered)
+  quickActionCard: {
+    width: '85%',
+    backgroundColor: 'white',
+    borderRadius: scale(16),
+    padding: scale(20),
     alignItems: 'center',
-    gap: scale(16),
-    paddingTop: verticalScale(16),
-    backgroundColor: '#FFFFFF',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 5,
   },
-  pageIcon: {
-    width: scale(28),
-    height: scale(28),
-    tintColor: '#FF8A3C',
+  quickActionTitle: {
+    fontSize: moderateScale(18),
+    fontWeight: 'bold',
+    marginBottom: verticalScale(4),
+    color: '#000',
   },
-  disabledIcon: {
-    tintColor: '#E0E0E0',
+  quickActionsubtitle: {
+    fontSize: moderateScale(14),
+    color: '#666',
+    marginBottom: verticalScale(20),
+    textAlign: 'center',
   },
-  pageInfo: {
-    fontWeight: '600',
-    color: '#333',
+  quickActionButton: {
+    width: '100%',
+    paddingVertical: verticalScale(14),
+    borderBottomWidth: 1,
+    borderBottomColor: '#f0f0f0',
+    alignItems: 'center',
+  },
+  quickActionText: {
+    fontSize: moderateScale(16),
+    color: '#007AFF', // Standard Blue
+    fontWeight: '500',
+  },
+  cancelActionButton: {
+    marginTop: verticalScale(10),
+    paddingVertical: verticalScale(10),
+    width: '100%',
+    alignItems: 'center',
+  },
+  cancelActionText: {
+    fontSize: moderateScale(16),
+    color: '#999',
+    fontWeight: '500',
   },
 });
+
+export default GuestScreenTemplate;

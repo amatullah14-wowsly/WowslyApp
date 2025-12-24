@@ -16,6 +16,7 @@ import { getTicketCheckInRecords, getTicketCheckInCount } from '../../api/event'
 import BackButton from '../../components/BackButton';
 import { scale, verticalScale, moderateScale } from '../../utils/scaling';
 import Pagination from '../../components/Pagination';
+import { numberToWords } from '../../utils/stringUtils';
 
 const { width } = Dimensions.get('window');
 
@@ -201,9 +202,22 @@ const TicketCheckInDetails = () => {
                     <View style={styles.statsPanel}>
                         <View style={styles.statCard}>
                             <Text style={styles.statsTotalTitle}>Total Check In</Text>
-                            <Text style={styles.statsTotalValue}>
-                                {stats.total_event_check_in.total_check_in}/{stats.total_event_check_in.total_purchase_ticket}
-                            </Text>
+
+                            <View style={styles.statRow}>
+                                <Text style={styles.statLabel}>Checked In</Text>
+                                <Text style={styles.statValueHighlight}>
+                                    {numberToWords(stats.total_event_check_in.total_check_in)}
+                                </Text>
+                            </View>
+
+                            <View style={styles.statDivider} />
+
+                            <View style={styles.statRow}>
+                                <Text style={styles.statLabel}>Total Guests</Text>
+                                <Text style={styles.statValue}>
+                                    {numberToWords(stats.total_event_check_in.total_purchase_ticket)}
+                                </Text>
+                            </View>
                         </View>
                         <View style={styles.facilitiesStatsRow}>
                             {stats.total_facilities_check_in?.facilities.map((fac, index) => (
@@ -231,11 +245,13 @@ const TicketCheckInDetails = () => {
                     />
                 )}
 
-                <Pagination
-                    currentPage={page}
-                    totalPages={totalPages}
-                    onPageChange={fetchRecords}
-                />
+                {!recordsLoading && (
+                    <Pagination
+                        currentPage={page}
+                        totalPages={totalPages}
+                        onPageChange={fetchRecords}
+                    />
+                )}
             </View>
 
             {/* Details Modal */}
@@ -321,17 +337,19 @@ export default TicketCheckInDetails;
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: '#F8F9FA',
+        backgroundColor: 'white',
     },
     header: {
         width: '100%',
-        height: 60,
+        height: 90,
+        paddingTop: verticalScale(20),
         alignItems: 'center',
         flexDirection: 'row',
         justifyContent: 'space-between',
         paddingHorizontal: scale(20),
         backgroundColor: 'white',
         elevation: 2,
+
     },
     title: {
         fontSize: moderateScale(18),
@@ -344,27 +362,57 @@ const styles = StyleSheet.create({
     statsPanel: {
         padding: scale(16),
         backgroundColor: 'white',
-        marginBottom: verticalScale(10),
+        marginBottom: verticalScale(0),
         elevation: 1,
     },
     statCard: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        paddingBottom: verticalScale(10),
-        borderBottomWidth: 1,
-        borderBottomColor: '#EEE',
-        marginBottom: verticalScale(10),
+        flexDirection: 'column',
+        backgroundColor: 'white',
+        borderWidth: 1,
+        borderColor: '#EEE',
+        borderRadius: scale(12),
+        padding: scale(12), // Reduced padding
+        marginBottom: verticalScale(0),
+        elevation: 2,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: scale(4),
     },
     statsTotalTitle: {
         fontSize: moderateScale(16),
-        fontWeight: '600',
-        color: '#333',
+        fontWeight: 'bold',
+        color: '#222',
+        marginBottom: verticalScale(8), // Reduced margin
     },
-    statsTotalValue: {
-        fontSize: moderateScale(18),
+    statRow: {
+        flexDirection: 'column',
+        marginBottom: verticalScale(2), // Reduced margin
+    },
+    statLabel: {
+        fontSize: moderateScale(12),
+        color: '#666',
+        fontWeight: '500',
+        marginBottom: verticalScale(2), // Reduced margin
+        textTransform: 'uppercase',
+        letterSpacing: 0.5,
+    },
+    statValueHighlight: {
+        fontSize: moderateScale(16),
         fontWeight: 'bold',
         color: '#FF8A3C',
+        textTransform: 'capitalize',
+    },
+    statValue: {
+        fontSize: moderateScale(15),
+        fontWeight: '600',
+        color: '#444',
+        textTransform: 'capitalize',
+    },
+    statDivider: {
+        height: 1,
+        backgroundColor: '#F0F0F0',
+        marginVertical: verticalScale(6), // Reduced margin
     },
     facilitiesStatsRow: {
         flexDirection: 'row',

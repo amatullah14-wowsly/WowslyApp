@@ -382,13 +382,22 @@ const EventDashboard = ({ route }: EventDashboardProps) => {
                     </>
                 )}
                 <TouchableOpacity style={styles.button}
-
                     onPress={() => navigation.navigate("ModeSelection", { eventTitle: displayData.title, eventId: displayData.id })}>
-
                     <Image source={require('./../../assets/img/eventdashboard/scanner.png')}
                         style={styles.scanicon} />
                     <Text style={styles.start}>Start Check-In</Text>
                 </TouchableOpacity>
+
+                {userRole === 'manager' && (
+                    <TouchableOpacity
+                        style={[styles.button, { marginTop: verticalScale(12), backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#FF8A3C' }]} // White button with orange border
+                        onPress={() => navigation.navigate("RegistrationDashboard", { eventId: displayData.id })}
+                    >
+                        <Image source={require('../../assets/img/eventdashboard/registration.png')}
+                            style={[styles.scanicon, { tintColor: '#FF8A3C' }]} />
+                        <Text style={[styles.start, { color: '#FF8A3C' }]}>Register a Guest</Text>
+                    </TouchableOpacity>
+                )}
 
                 {(userRole !== 'manager') && (
                     <>

@@ -799,6 +799,20 @@ export const getRegistrationFormStatus = async (eventId) => {
     }
 };
 
+export const updateGuestStatus = async (eventId, guestId, status) => {
+    try {
+        console.log(`Updating guest status for event: ${eventId}, guest: ${guestId}, status: ${status}`);
+        const response = await client.put(`/events/${eventId}/guests/${guestId}/status`, {
+            approval_status: status
+        });
+        console.log("UPDATE GUEST STATUS RESPONSE:", JSON.stringify(response.data));
+        return response.data;
+    } catch (error) {
+        console.log("UPDATE GUEST STATUS ERROR:", error.response?.data || error.message);
+        return { success: false, message: "Status update failed" };
+    }
+};
+
 export const generateEventToken = async (eventId, payload) => {
     try {
         console.log(`Generating Token for event: ${eventId} with payload:`, payload);
@@ -823,17 +837,7 @@ export const createRegistrationForm = async (eventId, payload) => {
     }
 };
 
-export const updateGuestStatus = async (eventId, guestId, status) => {
-    try {
-        console.log(`Updating Guest Status for event: ${eventId}, guest: ${guestId}, status: ${status}`);
-        const response = await client.put(`/events/${eventId}/guests/${guestId}/status`, { approval_status: status });
-        console.log("UPDATE GUEST STATUS RESPONSE:", JSON.stringify(response.data));
-        return response.data;
-    } catch (error) {
-        console.log("UPDATE GUEST STATUS ERROR:", error.response?.data || error.message);
-        return { success: false, message: "Status update failed" };
-    }
-};
+
 
 export const getRegistrationFormDetails = async (eventId, formId) => {
     try {

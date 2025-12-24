@@ -428,31 +428,36 @@ const RegistrationFormEditor = ({ isEmbedded = false, eventId: propEventId }: { 
 
     // --- RENDER HELPERS ---
 
+    // --- RENDER HELPERS ---
+
     const renderFieldPreview = (field: FormField) => {
-        // Common Label
-        const Label = () => <Text style={{ fontSize: 15, color: '#333', marginBottom: 8 }}>{field.label}</Text>;
+        // Standard Layout: Label Above Field
+        const Label = () => <Text style={{ fontSize: moderateScale(15), color: '#333', marginBottom: verticalScale(8), fontWeight: '500' }}>{field.label} {field.mandatory && <Text style={{ color: 'red' }}>*</Text>}</Text>;
 
         switch (field.type) {
             case 'switch':
                 return (
-                    <View style={styles.switchRow}>
-                        <Text style={{ fontSize: 16, color: '#333' }}>{field.label}</Text>
-                        <Switch
-                            trackColor={{ false: "#767577", true: "#d3d3d3" }} // Greyish for read-only preview or match screenshot
-                            thumbColor={Platform.OS === 'ios' ? '#fff' : '#f4f3f4'}
-                            value={false} // Default off for preview or mock
-                            disabled={true}
-                        />
+                    <View style={styles.fieldContainer}>
+                        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderWidth: 1, borderColor: '#E0E0E0', borderRadius: 8, padding: 12 }}>
+                            <Text style={{ fontSize: moderateScale(16), color: '#333' }}>{field.label}</Text>
+                            <Switch
+                                trackColor={{ false: "#767577", true: "#FF8A3C" }}
+                                thumbColor={'#fff'}
+                                value={false}
+                                disabled={true}
+                            />
+                        </View>
                     </View>
                 );
             case 'radio':
+            case 'Multiple Choice, Single Answer':
                 return (
                     <View style={styles.fieldContainer}>
                         <Label />
-                        <View style={styles.optionsRow}>
+                        <View style={{ gap: 10 }}>
                             {field.options && field.options.map((opt, idx) => (
-                                <View key={idx} style={styles.optionItem}>
-                                    <View style={styles.radioCircle} />
+                                <View key={idx} style={{ flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: '#E0E0E0', borderRadius: 8, padding: 12 }}>
+                                    <View style={[styles.radioCircle, { borderColor: '#666', width: 18, height: 18, borderWidth: 1.5 }]} />
                                     <Text style={styles.optionText}>{opt}</Text>
                                 </View>
                             ))}
@@ -460,13 +465,14 @@ const RegistrationFormEditor = ({ isEmbedded = false, eventId: propEventId }: { 
                     </View>
                 );
             case 'checkbox':
+            case 'Multiple Choice, Multiple Answer':
                 return (
                     <View style={styles.fieldContainer}>
                         <Label />
-                        <View style={styles.optionsRow}>
+                        <View style={{ gap: 10 }}>
                             {field.options && field.options.map((opt, idx) => (
-                                <View key={idx} style={styles.optionItem}>
-                                    <View style={styles.checkboxSquare} />
+                                <View key={idx} style={{ flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: '#E0E0E0', borderRadius: 8, padding: 12 }}>
+                                    <View style={[styles.checkboxSquare, { borderColor: '#666', width: 18, height: 18, borderWidth: 1.5 }]} />
                                     <Text style={styles.optionText}>{opt}</Text>
                                 </View>
                             ))}
@@ -477,23 +483,19 @@ const RegistrationFormEditor = ({ isEmbedded = false, eventId: propEventId }: { 
                 return (
                     <View style={styles.fieldContainer}>
                         <Label />
-                        <View style={styles.fileUploadBox}>
-                            <Text style={{ color: '#666', marginBottom: verticalScale(5) }}>{field.label}</Text>
-                            {/* Replaced missing image with text placeholder */}
-                            <View style={{ width: scale(40), height: scale(40), borderWidth: 1, borderColor: '#999', justifyContent: 'center', alignItems: 'center', borderRadius: scale(4) }}>
-                                <Text style={{ fontSize: moderateScale(24), color: '#999', lineHeight: verticalScale(28) }}>↑</Text>
-                            </View>
-                            <Text style={{ fontSize: moderateScale(10), color: '#999', marginTop: verticalScale(4) }}>Upload File</Text>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: '#E0E0E0', borderRadius: 8, padding: 15, borderStyle: 'dashed' }}>
+                            <Text style={{ fontSize: 18, color: '#5F6368', marginRight: 10 }}>cloud_upload</Text>
+                            <Text style={{ color: '#333', fontSize: 14 }}>Upload File</Text>
                         </View>
                     </View>
                 );
             case 'textarea':
                 return (
-                    <View style={styles.inputWrapper}>
+                    <View style={styles.fieldContainer}>
+                        <Label />
                         <TextInput
-                            style={[styles.input, { height: 80, textAlignVertical: 'top' }]}
-                            value={field.label === "Address" ? "" : field.label} // Don't show label as value for address if empty 
-                            placeholder={field.placeholder}
+                            style={[styles.cleanInput, { height: 100, textAlignVertical: 'top', borderWidth: 1, borderColor: '#E0E0E0', borderRadius: 8, padding: 12, backgroundColor: 'white' }]}
+                            placeholder={"Your answer"}
                             placeholderTextColor="#999"
                             editable={false}
                             multiline={true}
@@ -505,14 +507,22 @@ const RegistrationFormEditor = ({ isEmbedded = false, eventId: propEventId }: { 
             case 'email':
             default:
                 return (
-                    <View style={styles.inputWrapper}>
+                    <View style={styles.fieldContainer}>
+                        <Label />
                         <TextInput
-                            style={[styles.input, field.isDefault && { borderBottomWidth: 1, borderBottomColor: '#FF8A3C' }]}
-                            value={field.isDefault ? field.label : ""}
-                            onChangeText={field.isDefault ? (text) => handleFieldChange(text, field.id) : undefined}
-                            placeholder={field.label + (field.mandatory ? " *" : "")}
-                            placeholderTextColor={field.isDefault ? "#333" : "#666"}
-                            editable={field.isDefault}
+                            style={{
+                                borderWidth: 1,
+                                borderColor: '#E0E0E0',
+                                borderRadius: 8,
+                                paddingHorizontal: 15,
+                                paddingVertical: 12,
+                                fontSize: 16,
+                                color: '#333',
+                                backgroundColor: 'white'
+                            }}
+                            placeholder={field.placeholder || "Your answer"}
+                            placeholderTextColor="#999"
+                            editable={false}
                         />
                     </View>
                 );
@@ -520,228 +530,265 @@ const RegistrationFormEditor = ({ isEmbedded = false, eventId: propEventId }: { 
     };
 
     const renderPreviewMode = () => (
-        <View style={{ flex: 1 }}>
+        <View style={{ flex: 1, backgroundColor: 'white' }}>
             {!isEmbedded && (
-                <View style={styles.header}>
+                <View style={[styles.header, { backgroundColor: 'white', borderBottomWidth: 0 }]}>
                     <BackButton onPress={() => navigation.goBack()} />
-                    <Text style={styles.headerTitle}>{!formId ? "Create Registration Form" : formTitle}</Text>
-                    <View style={{ width: 22 }} />
+                    <Text style={[styles.headerTitle, { flex: 1, textAlign: 'center' }]}>Preview Form</Text>
+                    {/* Edit Icon Right aligned */}
+                    <TouchableOpacity
+                        style={styles.editIconContainer}
+                        onPress={() => {
+                            if (isEmbedded) {
+                                (navigation as any).navigate('RegistrationFormEditor', { eventId, autoEdit: true });
+                            } else {
+                                setIsEditing(true);
+                            }
+                        }}
+                    >
+                        <Image source={require('../../assets/img/form/edit.png')} style={{ width: 24, height: 24, tintColor: '#333' }} resizeMode="contain" />
+                    </TouchableOpacity>
                 </View>
             )}
-            <ScrollView contentContainerStyle={styles.content}>
-                <View style={styles.card}>
-                    <View style={styles.cardHeader}>
-                        <Text style={styles.cardTitle}>Form Details</Text>
-                        <TouchableOpacity
-                            style={styles.editIconContainer}
-                            onPress={() => {
-                                if (isEmbedded) {
-                                    (navigation as any).navigate('RegistrationFormEditor', { eventId, autoEdit: true });
-                                } else {
-                                    setIsEditing(true);
-                                }
-                            }}
-                        >
-                            <PencilIcon width={20} height={20} color="#1a237e" />
-                        </TouchableOpacity>
-                    </View>
-                    <View style={styles.fieldsContainer}>
-                        {formFields.filter(f => f.is_show !== 0 && f.is_show !== false).map((field) => (
-                            <View key={field.id}>
-                                {renderFieldPreview(field)}
-                            </View>
-                        ))}
-                    </View>
 
-                    {/* Summary Section */}
-                    <View style={styles.summarySection}>
-                        <Text style={styles.summaryLabel}>Button Text : <Text style={styles.summaryValue}>{buttonText}</Text></Text>
-                        <View style={{ marginTop: verticalScale(10) }}>
-                            <Text style={styles.summaryLabel}>Registration success message :</Text>
-                            <Text style={[styles.summaryValue, { marginTop: verticalScale(5) }]}>{successMessage}</Text>
+            <ScrollView contentContainerStyle={[styles.content]}>
+
+                {/* Clean Title Header */}
+                <View style={{ marginBottom: 30, marginTop: 10 }}>
+                    <Text style={{ fontSize: 24, fontWeight: '700', color: '#000', textAlign: 'center' }}>{formTitle || "Guest Registration Form"}</Text>
+                    <View style={{ height: 2, width: 40, backgroundColor: '#000', marginTop: 10, alignSelf: 'center' }} />
+                </View>
+
+                {/* Form Fields List */}
+                <View style={{ gap: 20 }}>
+                    {formFields.filter(f => f.is_show !== 0 && f.is_show !== false).map((field) => (
+                        <View key={field.id}>
+                            {renderFieldPreview(field)}
                         </View>
+                    ))}
+                </View>
+
+                {/* Submit Button */}
+                <View style={{ marginTop: 40, marginBottom: 40 }}>
+                    <View style={{
+                        backgroundColor: '#FF8A3C',
+                        borderRadius: 8,
+                        paddingVertical: 15,
+                        alignItems: 'center',
+                        shadowColor: "#000",
+                        shadowOffset: { width: 0, height: 2 },
+                        shadowOpacity: 0.1,
+                        shadowRadius: 4,
+                        elevation: 3
+                    }}>
+                        <Text style={{ color: 'white', fontWeight: '700', fontSize: 18 }}>{buttonText || "Registration"}</Text>
                     </View>
                 </View>
             </ScrollView>
+
+            {/* Floating Edit Button if standard mode */}
+            {!isEmbedded && (
+                <TouchableOpacity
+                    style={{ position: 'absolute', bottom: 30, right: 20, width: 56, height: 56, borderRadius: 28, backgroundColor: '#FF8A3C', elevation: 6, justifyContent: 'center', alignItems: 'center' }}
+                    onPress={() => setIsEditing(true)}
+                >
+                    <Image source={require('../../assets/img/form/edit.png')} style={{ width: 24, height: 24, tintColor: 'white' }} resizeMode="contain" />
+                </TouchableOpacity>
+            )}
         </View>
     );
 
     const renderEditMode = () => (
-        <View style={{ flex: 1 }}>
+        <View style={{ flex: 1, backgroundColor: 'white' }}>
             {!isEmbedded && (
-                <View style={styles.header}>
+                <View style={[styles.header, { backgroundColor: 'white', borderBottomWidth: 0, elevation: 2 }]}>
                     <BackButton onPress={() => setIsEditing(false)} />
-                    {/* Back acts as Cancel/Back to Preview? Or explicit Cancel button? User said 'Cancel' button exists. */}
                     <Text style={styles.headerTitle}>Edit Form</Text>
                     <View style={{ width: 40 }} />
                 </View>
             )}
-            <ScrollView contentContainerStyle={styles.content}>
-                <View style={styles.sectionContainer}>
-                    <View style={styles.inputContainer}>
-                        <Text style={styles.inputLabel}>Form title</Text>
-                        <TextInput
-                            style={styles.textInput}
-                            value={formTitle}
-                            onChangeText={setFormTitle}
-                        />
-                    </View>
-                    <View style={styles.inputContainer}>
-                        <Text style={styles.inputLabel}>Button Text</Text>
-                        <TextInput
-                            style={styles.textInput}
-                            value={buttonText}
-                            onChangeText={setButtonText}
-                        />
-                    </View>
-                    <View style={styles.inputContainer}>
-                        <Text style={styles.inputLabel}>Registration Success Message</Text>
-                        <TextInput
-                            style={styles.textInput}
-                            value={successMessage}
-                            onChangeText={setSuccessMessage}
-                        />
-                    </View>
-                    <View style={styles.toggleRow}>
-                        <Text style={styles.toggleLabel}>Email Validation</Text>
-                        <Switch
-                            trackColor={{ false: "#767577", true: "#FF8A3C" }}
-                            thumbColor={emailValidation ? "#f4f3f4" : "#f4f3f4"}
-                            onValueChange={setEmailValidation}
-                            value={emailValidation}
-                        />
-                    </View>
-                    <Text style={styles.helperText}>Mark as mandatory fields by clicking on the check boxes</Text>
-                </View>
+            <ScrollView contentContainerStyle={[styles.content, { paddingBottom: verticalScale(100) }]}>
 
-                <View style={styles.sectionContainer}>
-                    <Text style={styles.sectionHeader}>Form Details</Text>
-                    <View style={styles.fieldsList}>
+                {/* Single Consolidated Card for Editor - Admin Style */}
+                <View style={[styles.card, { padding: scale(15) }]}>
+                    <View style={styles.sectionContainer}>
+                        <View style={styles.inputContainer}>
+                            <Text style={styles.inputLabel}>Form title</Text>
+                            <TextInput
+                                style={styles.textInput}
+                                value={formTitle}
+                                onChangeText={setFormTitle}
+                            />
+                        </View>
+                        <View style={styles.inputContainer}>
+                            <Text style={styles.inputLabel}>Button Text</Text>
+                            <TextInput
+                                style={styles.textInput}
+                                value={buttonText}
+                                onChangeText={setButtonText}
+                            />
+                        </View>
+                        <View style={styles.inputContainer}>
+                            <Text style={styles.inputLabel}>Registration Success Message</Text>
+                            <TextInput
+                                style={styles.textInput}
+                                value={successMessage}
+                                onChangeText={setSuccessMessage}
+                            />
+                        </View>
+                        <Text style={styles.helperText}>Mark as mandatory fields by clicking on the check boxes</Text>
+                    </View>
+
+                    {/* Questions List */}
+                    <View style={{ gap: verticalScale(15) }}>
                         {formFields.map((field) => (
-                            <View key={field.id} style={[styles.readOnlyField, !field.isDefault && styles.customFieldRow]}>
-                                <TextInput
-                                    style={[styles.readOnlyInput, !field.isDefault && { flex: 1, borderWidth: 1, borderColor: '#E0E0E0', borderRadius: 8 }]}
-                                    value={field.label}
-                                    placeholder={field.placeholder}
-                                    editable={false}
-                                />
-                                {!field.isDefault && (
-                                    <View style={styles.actionIconsRow}>
-                                        <TouchableOpacity style={styles.actionIcon} onPress={() => handleEditQuestion(field)}>
-                                            <Image source={require('../../assets/img/form/edit.png')} style={{ width: scale(20), height: scale(20), resizeMode: 'contain' }} />
-                                        </TouchableOpacity>
-                                        <TouchableOpacity style={styles.actionIcon} onPress={() => handleToggleVisibility(field.id)}>
-                                            <Image
-                                                source={field.is_show ? require('../../assets/img/form/visible.png') : require('../../assets/img/form/hide.png')}
-                                                style={{ width: scale(22), height: scale(22), resizeMode: 'contain', opacity: field.is_show ? 1 : 0.6 }}
-                                            />
-                                        </TouchableOpacity>
-                                        <TouchableOpacity style={styles.actionIcon} onPress={() => handleDeleteField(field.id)}>
-                                            <Image source={require('../../assets/img/form/trash.png')} style={{ width: scale(20), height: scale(20), resizeMode: 'contain' }} />
-                                        </TouchableOpacity>
+                            <View key={field.id} style={{ marginBottom: 15 }}>
+                                <View style={[styles.readOnlyField, styles.customFieldRow]}>
+                                    {/* Unified Input Style for All Fields */}
+                                    <TextInput
+                                        style={[
+                                            styles.readOnlyInput,
+                                            { flex: 1, height: 50, color: '#333' },
+                                            { borderWidth: 1, borderColor: '#E0E0E0', borderRadius: 12 }
+                                        ]}
+                                        value={field.label}
+                                        onChangeText={(text) => handleFieldChange(text, field.id)}
+                                        placeholder={field.placeholder}
+                                        editable={true}
+                                    />
+
+                                    {/* Action Icons - Visible ONLY for Custom Fields */}
+                                    {!field.isDefault && (
+                                        <View style={styles.actionIconsRow}>
+                                            <TouchableOpacity style={styles.actionIcon} onPress={() => handleEditQuestion(field)}>
+                                                <Image source={require('../../assets/img/form/edit.png')} style={{ width: scale(20), height: scale(20), resizeMode: 'contain', tintColor: '#5F6368' }} />
+                                            </TouchableOpacity>
+                                            <TouchableOpacity style={styles.actionIcon} onPress={() => handleToggleVisibility(field.id)}>
+                                                <Image
+                                                    source={field.is_show ? require('../../assets/img/form/visible.png') : require('../../assets/img/form/hide.png')}
+                                                    style={{ width: scale(22), height: scale(22), resizeMode: 'contain', opacity: field.is_show ? 1 : 0.6, tintColor: '#5F6368' }}
+                                                />
+                                            </TouchableOpacity>
+                                            <TouchableOpacity style={styles.actionIcon} onPress={() => handleDeleteField(field.id)}>
+                                                <Image source={require('../../assets/img/form/trash.png')} style={{ width: scale(20), height: scale(20), resizeMode: 'contain', tintColor: '#5F6368' }} />
+                                            </TouchableOpacity>
+                                        </View>
+                                    )}
+                                </View>
+
+                                {/* Email Toggle */}
+                                {field.label === 'Email' && (
+                                    <View style={[styles.toggleRow, { marginTop: verticalScale(15), marginBottom: 0, paddingHorizontal: 0, justifyContent: 'space-between' }]}>
+                                        <Text style={{ fontSize: 14, color: '#202124' }}>Collect strings (Email Validation)</Text>
+                                        <Switch
+                                            trackColor={{ false: "#767577", true: "#FF8A3C" }}
+                                            thumbColor={emailValidation ? "#white" : "#f4f3f4"}
+                                            value={emailValidation}
+                                            onValueChange={setEmailValidation}
+                                        />
                                     </View>
                                 )}
                             </View>
                         ))}
                     </View>
-                    {
-                        showAddQuestionModal ? (
-                            <View style={styles.addQuestionCard} >
-                                {/* Title Removed as requested */}
 
-                                {/* Question Type Selector */}
-                                <View style={[styles.inputContainer, { zIndex: 2000 }]} >
-                                    <Text style={{ fontSize: 13, color: '#666', marginBottom: 5, fontWeight: '500' }}>Question Type</Text>
-                                    <TouchableOpacity
-                                        style={[styles.textInput, { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }]}
-                                        onPress={() => setShowTypeDropdown(!showTypeDropdown)}
-                                    >
-                                        <Text style={{ color: '#333' }}>{newQuestionType}</Text>
-                                        <ChevronDownIcon width={20} height={20} color="#666" />
-                                    </TouchableOpacity>
+                    {/* Add Question UI */}
+                    {/* Add Question UI - Standard Block */}
+                    {showAddQuestionModal ? (
+                        <View style={{ borderWidth: 1, borderColor: '#FF8A3C', borderRadius: 12, padding: 20, marginTop: 20, backgroundColor: '#FFF5EB' }}>
+                            {/* Question Type Selector */}
+                            <View style={[styles.inputContainer, { zIndex: 2000 }]} >
+                                <Text style={{ fontSize: 13, color: '#666', marginBottom: 5, fontWeight: '500' }}>Question Type</Text>
+                                <TouchableOpacity
+                                    style={[styles.textInput, { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }]}
+                                    onPress={() => setShowTypeDropdown(!showTypeDropdown)}
+                                >
+                                    <Text style={{ color: '#333' }}>{newQuestionType}</Text>
+                                    <ChevronDownIcon width={20} height={20} color="#666" />
+                                </TouchableOpacity>
 
-                                    {showTypeDropdown && (
-                                        <View style={styles.dropdownList}>
-                                            {questionTypes.map((type, index) => (
-                                                <TouchableOpacity
-                                                    key={index}
-                                                    style={styles.dropdownItem}
-                                                    onPress={() => {
-                                                        setNewQuestionType(type);
-                                                        setShowTypeDropdown(false);
-                                                    }}
-                                                >
-                                                    <Text style={styles.dropdownText}>{type}</Text>
-                                                </TouchableOpacity>
-                                            ))}
-                                        </View>
-                                    )}
-                                </View>
-
-                                {/* Question Text Input */}
-                                <View style={[styles.inputContainer, { zIndex: 1000 }]}>
-                                    <TextInput
-                                        style={styles.textInput}
-                                        value={newQuestionLabel}
-                                        onChangeText={setNewQuestionLabel}
-                                        placeholder="Type your question"
-                                        placeholderTextColor="#999"
-                                    />
-                                </View>
-
-                                {/* Options Input for Multiple Choice */}
-                                {(newQuestionType === 'Multiple Choice, Single Answer' || newQuestionType === 'Multiple Choice, Multiple Answer') && (
-                                    <View>
-                                        <View style={[styles.inputContainer, { flexDirection: 'row', alignItems: 'center', gap: 10 }]}>
-                                            <TextInput
-                                                style={[styles.textInput, { flex: 1 }]}
-                                                placeholder="Add option"
-                                                placeholderTextColor="#999"
-                                                value={newOptionText}
-                                                onChangeText={setNewOptionText}
-                                            />
-                                            <TouchableOpacity onPress={handleAddOption}>
-                                                <Text style={{ fontSize: 30, color: '#FF8A3C', fontWeight: '500' }}>+</Text>
+                                {showTypeDropdown && (
+                                    <View style={styles.dropdownList}>
+                                        {questionTypes.map((type, index) => (
+                                            <TouchableOpacity
+                                                key={index}
+                                                style={styles.dropdownItem}
+                                                onPress={() => {
+                                                    setNewQuestionType(type);
+                                                    setShowTypeDropdown(false);
+                                                }}
+                                            >
+                                                <Text style={styles.dropdownText}>{type}</Text>
                                             </TouchableOpacity>
-                                        </View>
-
-                                        {/* Chips */}
-                                        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginTop: 5, marginBottom: 15 }}>
-                                            {newOptions.map((opt, idx) => (
-                                                <View key={idx} style={{
-                                                    flexDirection: 'row',
-                                                    alignItems: 'center',
-                                                    backgroundColor: '#FF8A3C',
-                                                    borderRadius: 20,
-                                                    paddingHorizontal: 15,
-                                                    paddingVertical: 8,
-                                                    gap: 8
-                                                }}>
-                                                    <Text style={{ color: 'white', fontSize: 14 }}>{opt}</Text>
-                                                    <TouchableOpacity onPress={() => handleRemoveOption(idx)}>
-                                                        <Text style={{ color: 'white', fontWeight: 'bold' }}>×</Text>
-                                                    </TouchableOpacity>
-                                                </View>
-                                            ))}
-                                        </View>
+                                        ))}
                                     </View>
                                 )}
-
-                                {/* Buttons */}
-                                <View style={styles.modalButtons}>
-                                    <TouchableOpacity onPress={() => { setShowAddQuestionModal(false); setEditingFieldId(null); }} style={styles.modalCancelButton}>
-                                        <Text style={styles.modalCancelText}>Cancel</Text>
-                                    </TouchableOpacity>
-                                    <TouchableOpacity onPress={confirmAddQuestion} style={[styles.modalAddButton, { opacity: newQuestionLabel ? 1 : 0.6 }]} disabled={!newQuestionLabel}>
-                                        <Text style={styles.modalAddText}>{editingFieldId ? 'Update' : 'Add'}</Text>
-                                    </TouchableOpacity>
-                                </View>
                             </View>
-                        ) : (
-                            <TouchableOpacity style={styles.addQuestionButton} onPress={handleAddQuestion}>
-                                <Text style={styles.addQuestionText}>+ Add Question</Text>
-                            </TouchableOpacity>
-                        )}
+
+                            {/* Question Text Input */}
+                            <View style={[styles.inputContainer, { zIndex: 1000 }]}>
+                                <TextInput
+                                    style={styles.textInput}
+                                    value={newQuestionLabel}
+                                    onChangeText={setNewQuestionLabel}
+                                    placeholder="Type your question"
+                                    placeholderTextColor="#999"
+                                />
+                            </View>
+
+                            {/* Options Input for Multiple Choice */}
+                            {(newQuestionType === 'Multiple Choice, Single Answer' || newQuestionType === 'Multiple Choice, Multiple Answer') && (
+                                <View>
+                                    <View style={[styles.inputContainer, { flexDirection: 'row', alignItems: 'center', gap: 10 }]}>
+                                        <TextInput
+                                            style={[styles.textInput, { flex: 1 }]}
+                                            placeholder="Add option"
+                                            placeholderTextColor="#999"
+                                            value={newOptionText}
+                                            onChangeText={setNewOptionText}
+                                        />
+                                        <TouchableOpacity onPress={handleAddOption}>
+                                            <Text style={{ fontSize: 30, color: '#FF8A3C', fontWeight: '500' }}>+</Text>
+                                        </TouchableOpacity>
+                                    </View>
+
+                                    {/* Chips */}
+                                    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginTop: 5, marginBottom: 15 }}>
+                                        {newOptions.map((opt, idx) => (
+                                            <View key={idx} style={{
+                                                flexDirection: 'row',
+                                                alignItems: 'center',
+                                                backgroundColor: '#FF8A3C',
+                                                borderRadius: 20,
+                                                paddingHorizontal: 15,
+                                                paddingVertical: 8,
+                                                gap: 8
+                                            }}>
+                                                <Text style={{ color: 'white', fontSize: 14 }}>{opt}</Text>
+                                                <TouchableOpacity onPress={() => handleRemoveOption(idx)}>
+                                                    <Text style={{ color: 'white', fontWeight: 'bold' }}>×</Text>
+                                                </TouchableOpacity>
+                                            </View>
+                                        ))}
+                                    </View>
+                                </View>
+                            )}
+
+                            {/* Buttons */}
+                            <View style={styles.modalButtons}>
+                                <TouchableOpacity onPress={() => { setShowAddQuestionModal(false); setEditingFieldId(null); }} style={styles.modalCancelButton}>
+                                    <Text style={styles.modalCancelText}>Cancel</Text>
+                                </TouchableOpacity>
+                                <TouchableOpacity onPress={confirmAddQuestion} style={[styles.modalAddButton, { opacity: newQuestionLabel ? 1 : 0.6 }]} disabled={!newQuestionLabel}>
+                                    <Text style={styles.modalAddText}>{editingFieldId ? 'Update' : 'Add'}</Text>
+                                </TouchableOpacity>
+                            </View>
+                        </View>
+                    ) : (
+                        <TouchableOpacity style={styles.addQuestionButton} onPress={handleAddQuestion}>
+                            <Text style={styles.addQuestionText}>+ Add New Question</Text>
+                        </TouchableOpacity>
+                    )}
                 </View>
             </ScrollView >
 
@@ -788,7 +835,7 @@ const styles = StyleSheet.create({
         borderBottomColor: '#F0F0F0',
     },
     headerTitle: {
-        fontSize: moderateScale(18),
+        fontSize: moderateScale(16),
         fontWeight: '600',
         color: '#333',
     },
@@ -810,6 +857,65 @@ const styles = StyleSheet.create({
         elevation: 3,
         marginBottom: verticalScale(20),
     },
+    blockContainer: {
+        backgroundColor: 'white',
+        borderRadius: scale(12),
+        padding: scale(20),
+        marginBottom: verticalScale(15),
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: verticalScale(4) },
+        shadowOpacity: 0.08,
+        shadowRadius: scale(12),
+        elevation: 4,
+        borderWidth: 1,
+        borderColor: '#F0F0F0',
+    },
+    questionBlock: {
+        backgroundColor: 'white',
+        borderRadius: scale(8),
+        padding: scale(20),
+        marginBottom: verticalScale(15),
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: verticalScale(1) },
+        shadowOpacity: 0.05, // Very soft for questions
+        shadowRadius: scale(2),
+        elevation: 2,
+    },
+    headerInput: {
+        fontSize: moderateScale(26),
+        fontWeight: '700',
+        color: '#202124',
+        paddingVertical: verticalScale(10),
+        marginBottom: verticalScale(10),
+    },
+    cleanInput: {
+        fontSize: moderateScale(15),
+        color: '#202124',
+        borderWidth: 1,
+        borderColor: '#E0E0E0',
+        borderRadius: scale(12),
+        paddingHorizontal: scale(15),
+        paddingVertical: verticalScale(12),
+        marginBottom: verticalScale(10),
+        backgroundColor: '#FCFCFC',
+    },
+    staticFieldLabel: {
+        fontSize: moderateScale(16),
+        fontWeight: '500',
+        color: '#202124',
+        marginBottom: verticalScale(5),
+    },
+    staticFieldPlaceholder: {
+        fontSize: moderateScale(14),
+        color: '#888',
+        paddingVertical: verticalScale(12),
+        paddingHorizontal: scale(15),
+        borderWidth: 1,
+        borderColor: '#F0F0F0',
+        borderRadius: scale(10),
+        backgroundColor: '#FAFAFA',
+        marginTop: verticalScale(5),
+    },
     cardHeader: {
         flexDirection: 'row',
         justifyContent: 'space-between',
@@ -827,7 +933,7 @@ const styles = StyleSheet.create({
     inputWrapper: {
         borderWidth: 1,
         borderColor: '#E0E0E0',
-        borderRadius: scale(8),
+        borderRadius: scale(12),
         backgroundColor: 'white',
     },
     input: {
@@ -857,12 +963,12 @@ const styles = StyleSheet.create({
     textInput: {
         borderWidth: 1,
         borderColor: '#E0E0E0',
-        borderRadius: scale(8),
+        borderRadius: scale(12),
         paddingHorizontal: scale(15),
-        paddingVertical: verticalScale(12),
+        paddingVertical: verticalScale(14),
         fontSize: moderateScale(16),
         color: '#333',
-        backgroundColor: 'white',
+        backgroundColor: '#FCFCFC',
     },
     toggleRow: {
         flexDirection: 'row',
@@ -892,7 +998,7 @@ const styles = StyleSheet.create({
     readOnlyField: {
         borderWidth: 1,
         borderColor: '#E0E0E0',
-        borderRadius: scale(8),
+        borderRadius: scale(12),
         backgroundColor: 'white',
     },
     readOnlyInput: {
@@ -902,13 +1008,20 @@ const styles = StyleSheet.create({
         color: '#333',
     },
     addQuestionButton: {
-        alignSelf: 'center',
-        paddingVertical: verticalScale(10),
+        alignSelf: 'stretch',
+        paddingVertical: verticalScale(14),
+        borderRadius: scale(12),
+        borderWidth: 1,
+        borderColor: '#FF8A3C',
+        borderStyle: 'dashed',
+        alignItems: 'center',
+        marginTop: verticalScale(20),
+        backgroundColor: '#FFF',
     },
     addQuestionText: {
         color: '#FF8A3C',
         fontSize: moderateScale(16),
-        fontWeight: '600',
+        fontWeight: '700',
     },
     footerButtons: {
         flexDirection: 'row',
