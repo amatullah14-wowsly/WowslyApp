@@ -10,7 +10,7 @@ import DocumentPicker from 'react-native-document-picker';
 const GuestRegistration = () => {
     const navigation = useNavigation();
     const route = useRoute<any>();
-    const { eventId } = route.params || {};
+    const { eventId, registeredBy } = route.params || {};
 
     const [loading, setLoading] = useState(false);
     const [tickets, setTickets] = useState<any[]>([]);
@@ -244,7 +244,19 @@ const GuestRegistration = () => {
         setLoading(false);
 
         if (res && (res.status === true || res.guest_data)) {
-            Alert.alert("Success", "Guest Registered Successfully!", [{ text: "OK", onPress: () => navigation.goBack() }]);
+            // Extract guest info
+            const guestUuid = res.guest_data?.uuid || res.guest_data?.guest_uuid || res.guest_uuid;
+            // If unknown structure, might need to debug, but assuming `guest_data` has the needed UUID.
+
+            if (tickets && tickets.length > 0) {
+                navigation.navigate("GuestTicketSelection", {
+                    eventId,
+                    guestUuid: guestUuid,
+                    registeredBy: null // or current user id if needed
+                });
+            } else {
+                Alert.alert("Success", "Guest Registered Successfully!", [{ text: "OK", onPress: () => navigation.goBack() }]);
+            }
         } else {
             Alert.alert("Error", res?.message || "Registration failed");
         }

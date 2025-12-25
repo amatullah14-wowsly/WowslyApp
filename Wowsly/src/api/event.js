@@ -881,6 +881,18 @@ export const submitGuestRegistrationForm = async (eventId, payload) => {
     }
 };
 
+export const selectGuestTicket = async (eventId, payload) => {
+    try {
+        console.log(`Selecting Ticket for event: ${eventId}`);
+        const response = await client.post(`/events/${eventId}/ticket/select`, payload);
+        console.log("SELECT TICKET RESPONSE:", JSON.stringify(response.data));
+        return response.data;
+    } catch (error) {
+        console.log("SELECT TICKET ERROR:", error.response?.data || error.message);
+        return { success: false, message: "Ticket selection failed" };
+    }
+};
+
 export const getEventWebLink = async (guestUuid) => {
     try {
         console.log(`Getting Event Link via guest UUID: ${guestUuid}`);
