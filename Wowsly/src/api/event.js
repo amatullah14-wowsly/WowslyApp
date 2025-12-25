@@ -616,10 +616,10 @@ export const checkInEventUser = async (eventId, payload) => {
     }
 };
 
-export const getEventTickets = async (eventId) => {
+export const getEventTickets = async (eventId, queryParams = {}) => {
     try {
         console.log(`Fetching Event Tickets (with facilities) for event: ${eventId}`);
-        const response = await client.get(`/events/${eventId}/eventticket`);
+        const response = await client.get(`/events/${eventId}/eventticket`, { params: queryParams });
         // console.log("EVENT TICKETS RESPONSE:", response.data);
         return response.data;
     } catch (error) {
@@ -848,6 +848,36 @@ export const getRegistrationFormDetails = async (eventId, formId) => {
     } catch (error) {
         console.log("GET FORM DETAILS ERROR:", error.response?.data || error.message);
         return { success: false, message: "Fetch failed" };
+    }
+};
+
+export const submitGuestRegistrationForm = async (eventId, payload) => {
+    try {
+        console.log(`Submitting Registration Form for event: ${eventId}`);
+
+        const config = {};
+        // Detect FormData
+        if (payload instanceof FormData) {
+            console.log("Payload is FormData. Setting multipart headers.");
+            config.headers = {
+                'Content-Type': 'multipart/form-data',
+            };
+            // Log FormData parts for debugging (React Native specific)
+            // @ts-ignore
+            if (payload._parts) {
+                // @ts-ignore
+                console.log("FormData Parts:", JSON.stringify(payload._parts));
+            }
+        } else {
+            console.log("Payload is JSON:", JSON.stringify(payload));
+        }
+
+        const response = await client.post(`/events/${eventId}/registrationform/answer`, payload, config);
+        console.log("SUBMIT REGISTRATION FORM RESPONSE:", JSON.stringify(response.data));
+        return response.data;
+    } catch (error) {
+        console.log("SUBMIT REGISTRATION FORM ERROR:", error.response?.data || error.message);
+        return error.response?.data || { success: false, message: "Submission failed" };
     }
 };
 

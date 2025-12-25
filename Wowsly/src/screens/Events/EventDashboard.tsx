@@ -8,7 +8,7 @@ import { getUnsyncedCheckins, getLocalCheckedInGuests } from '../../db';
 import BackButton from '../../components/BackButton';
 import Svg, { G, Path, Circle, Text as SvgText } from 'react-native-svg';
 import * as d3 from 'd3-shape';
-
+// import GuestRegistrationModal from './GuestRegistrationModal'; // Removed
 
 
 const COLORS = ['#FFF5C4', '#FFD180', '#FFAB40', '#FF6D00', '#D50000', '#8E0000', '#5D0000'];
@@ -43,6 +43,7 @@ const EventDashboard = ({ route }: EventDashboardProps) => {
 
     // Exit Modal State
     const [exitModalVisible, setExitModalVisible] = useState(false);
+    // const [showRegisterGuestModal, setShowRegisterGuestModal] = useState(false); // Modal state removed
 
     const onSettingsPressIn = () => {
         Animated.spring(scaleAnim, {
@@ -391,7 +392,7 @@ const EventDashboard = ({ route }: EventDashboardProps) => {
                 {userRole === 'manager' && (
                     <TouchableOpacity
                         style={[styles.button, { marginTop: verticalScale(12), backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#FF8A3C' }]} // White button with orange border
-                        onPress={() => navigation.navigate("RegistrationDashboard", { eventId: displayData.id })}
+                        onPress={() => navigation.navigate("GuestRegistration", { eventId: displayData.id })}
                     >
                         <Image source={require('../../assets/img/eventdashboard/registration.png')}
                             style={[styles.scanicon, { tintColor: '#FF8A3C' }]} />
@@ -556,7 +557,6 @@ const EventDashboard = ({ route }: EventDashboardProps) => {
                 )}
             </ScrollView >
 
-            <View />
         </View>
     )
 
@@ -750,7 +750,7 @@ const styles = StyleSheet.create({
         borderRadius: scale(10),
         flexDirection: 'row',
         gap: scale(10),
-        marginTop: verticalScale(20), // ensure space at bottom
+        marginTop: verticalScale(5), // ensure space at bottom
     },
     scanicon: {
         height: scale(25),

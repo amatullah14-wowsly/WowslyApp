@@ -432,7 +432,11 @@ const RegistrationFormEditor = ({ isEmbedded = false, eventId: propEventId }: { 
 
     const renderFieldPreview = (field: FormField) => {
         // Standard Layout: Label Above Field
-        const Label = () => <Text style={{ fontSize: moderateScale(15), color: '#333', marginBottom: verticalScale(8), fontWeight: '500' }}>{field.label} {field.mandatory && <Text style={{ color: 'red' }}>*</Text>}</Text>;
+        const Label = () => (
+            <Text style={{ fontSize: moderateScale(15), color: '#333', marginBottom: verticalScale(2), fontWeight: '500' }}>
+                {field.label} {!!field.mandatory && <Text style={{ color: 'red' }}>*</Text>}
+            </Text>
+        );
 
         switch (field.type) {
             case 'switch':
@@ -457,7 +461,14 @@ const RegistrationFormEditor = ({ isEmbedded = false, eventId: propEventId }: { 
                         <View style={{ gap: 10 }}>
                             {field.options && field.options.map((opt, idx) => (
                                 <View key={idx} style={{ flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: '#E0E0E0', borderRadius: 8, padding: 12 }}>
-                                    <View style={[styles.radioCircle, { borderColor: '#666', width: 18, height: 18, borderWidth: 1.5 }]} />
+                                    <View style={{
+                                        height: 20,
+                                        width: 20,
+                                        borderRadius: 10,
+                                        borderWidth: 1.5,
+                                        borderColor: '#666',
+                                        marginRight: 10
+                                    }} />
                                     <Text style={styles.optionText}>{opt}</Text>
                                 </View>
                             ))}
@@ -472,7 +483,13 @@ const RegistrationFormEditor = ({ isEmbedded = false, eventId: propEventId }: { 
                         <View style={{ gap: 10 }}>
                             {field.options && field.options.map((opt, idx) => (
                                 <View key={idx} style={{ flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: '#E0E0E0', borderRadius: 8, padding: 12 }}>
-                                    <View style={[styles.checkboxSquare, { borderColor: '#666', width: 18, height: 18, borderWidth: 1.5 }]} />
+                                    <View style={{
+                                        height: 20,
+                                        width: 20,
+                                        borderWidth: 1.5,
+                                        borderColor: '#666',
+                                        marginRight: 10
+                                    }} />
                                     <Text style={styles.optionText}>{opt}</Text>
                                 </View>
                             ))}
@@ -484,7 +501,11 @@ const RegistrationFormEditor = ({ isEmbedded = false, eventId: propEventId }: { 
                     <View style={styles.fieldContainer}>
                         <Label />
                         <View style={{ flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: '#E0E0E0', borderRadius: 8, padding: 15, borderStyle: 'dashed' }}>
-                            <Text style={{ fontSize: 18, color: '#5F6368', marginRight: 10 }}>cloud_upload</Text>
+                            <Image
+                                source={require('../../assets/img/eventdashboard/upload.png')}
+                                style={{ width: 24, height: 24, marginRight: 10, tintColor: '#5F6368', opacity: 0.7 }}
+                                resizeMode="contain"
+                            />
                             <Text style={{ color: '#333', fontSize: 14 }}>Upload File</Text>
                         </View>
                     </View>
@@ -554,13 +575,13 @@ const RegistrationFormEditor = ({ isEmbedded = false, eventId: propEventId }: { 
             <ScrollView contentContainerStyle={[styles.content]}>
 
                 {/* Clean Title Header */}
-                <View style={{ marginBottom: 30, marginTop: 10 }}>
+                <View style={{ marginBottom: 20, marginTop: 10 }}>
                     <Text style={{ fontSize: 24, fontWeight: '700', color: '#000', textAlign: 'center' }}>{formTitle || "Guest Registration Form"}</Text>
                     <View style={{ height: 2, width: 40, backgroundColor: '#000', marginTop: 10, alignSelf: 'center' }} />
                 </View>
 
                 {/* Form Fields List */}
-                <View style={{ gap: 20 }}>
+                <View style={{ gap: 8 }}>
                     {formFields.filter(f => f.is_show !== 0 && f.is_show !== false).map((field) => (
                         <View key={field.id}>
                             {renderFieldPreview(field)}
@@ -569,7 +590,7 @@ const RegistrationFormEditor = ({ isEmbedded = false, eventId: propEventId }: { 
                 </View>
 
                 {/* Submit Button */}
-                <View style={{ marginTop: 40, marginBottom: 40 }}>
+                <View style={{ marginTop: 20, marginBottom: 40 }}>
                     <View style={{
                         backgroundColor: '#FF8A3C',
                         borderRadius: 8,
@@ -636,41 +657,46 @@ const RegistrationFormEditor = ({ isEmbedded = false, eventId: propEventId }: { 
                                 onChangeText={setSuccessMessage}
                             />
                         </View>
-                        <Text style={styles.helperText}>Mark as mandatory fields by clicking on the check boxes</Text>
+                        <Text style={[styles.helperText, { color: '#888', fontSize: 13 }]}>Basic contact fields are fixed and cannot be edited.</Text>
                     </View>
 
                     {/* Questions List */}
-                    <View style={{ gap: verticalScale(15) }}>
+                    <View style={{ gap: verticalScale(10) }}>
                         {formFields.map((field) => (
-                            <View key={field.id} style={{ marginBottom: 15 }}>
+                            <View key={field.id} style={{ marginBottom: 0 }}>
                                 <View style={[styles.readOnlyField, styles.customFieldRow]}>
                                     {/* Unified Input Style for All Fields */}
                                     <TextInput
                                         style={[
                                             styles.readOnlyInput,
-                                            { flex: 1, height: 50, color: '#333' },
-                                            { borderWidth: 1, borderColor: '#E0E0E0', borderRadius: 12 }
+                                            { flex: 1, height: 50, color: field.isDefault ? '#999' : '#333' },
+                                            {
+                                                borderWidth: 1,
+                                                borderColor: '#E0E0E0',
+                                                borderRadius: 12,
+                                                backgroundColor: field.isDefault ? '#F9F9F9' : 'white'
+                                            }
                                         ]}
                                         value={field.label}
                                         onChangeText={(text) => handleFieldChange(text, field.id)}
                                         placeholder={field.placeholder}
-                                        editable={true}
+                                        editable={!field.isDefault}
                                     />
 
                                     {/* Action Icons - Visible ONLY for Custom Fields */}
                                     {!field.isDefault && (
                                         <View style={styles.actionIconsRow}>
                                             <TouchableOpacity style={styles.actionIcon} onPress={() => handleEditQuestion(field)}>
-                                                <Image source={require('../../assets/img/form/edit.png')} style={{ width: scale(20), height: scale(20), resizeMode: 'contain', tintColor: '#5F6368' }} />
+                                                <Image source={require('../../assets/img/form/edit.png')} style={{ width: scale(20), height: scale(20), resizeMode: 'contain', tintColor: '#FF8A3C' }} />
                                             </TouchableOpacity>
                                             <TouchableOpacity style={styles.actionIcon} onPress={() => handleToggleVisibility(field.id)}>
                                                 <Image
                                                     source={field.is_show ? require('../../assets/img/form/visible.png') : require('../../assets/img/form/hide.png')}
-                                                    style={{ width: scale(22), height: scale(22), resizeMode: 'contain', opacity: field.is_show ? 1 : 0.6, tintColor: '#5F6368' }}
+                                                    style={{ width: scale(22), height: scale(22), resizeMode: 'contain', opacity: field.is_show ? 1 : 0.6, tintColor: '#FF8A3C' }}
                                                 />
                                             </TouchableOpacity>
                                             <TouchableOpacity style={styles.actionIcon} onPress={() => handleDeleteField(field.id)}>
-                                                <Image source={require('../../assets/img/form/trash.png')} style={{ width: scale(20), height: scale(20), resizeMode: 'contain', tintColor: '#5F6368' }} />
+                                                <Image source={require('../../assets/img/form/trash.png')} style={{ width: scale(20), height: scale(20), resizeMode: 'contain', tintColor: '#FF8A3C' }} />
                                             </TouchableOpacity>
                                         </View>
                                     )}

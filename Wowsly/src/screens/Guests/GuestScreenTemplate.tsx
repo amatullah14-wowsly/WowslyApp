@@ -158,6 +158,11 @@ const GuestRow = React.memo(({ item, onPress, showActions, onActionPress }: { it
             <Text style={localStyles.guestName}>{name}</Text>
           </View>
 
+          {/* Info Icon */}
+          <TouchableOpacity onPress={handlePress} style={localStyles.arrowContainer}>
+            <Image source={require('../../assets/img/common/info.png')} style={[localStyles.arrowIcon, { tintColor: '#757575' }]} resizeMode="contain" />
+          </TouchableOpacity>
+
           {/* Action Arrow for Approval Basis */}
           {showActions && (
             <TouchableOpacity onPress={() => onActionPress(item)} style={localStyles.arrowContainer}>
