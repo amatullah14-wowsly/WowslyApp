@@ -59,6 +59,9 @@ const GuestTicketSelection = () => {
         const ticket = tickets.find(t => t.id === selectedTicketId);
         if (!ticket) return;
 
+        // Determine if this is a paid ticket based on amount or type
+        const isPaidTicket = (ticket.amount && Number(ticket.amount) > 0);
+
         const payload = {
             amount_currency: ticket.currency || "rupees",
             facility_details: ticket.facilities ? ticket.facilities.map((f: any) => f.id) : [],
@@ -80,7 +83,24 @@ const GuestTicketSelection = () => {
         setLoading(false);
 
         if (res && res.data) {
-            Alert.alert("Success", "Ticket Selected Successfully!", [{ text: "OK", onPress: () => navigation.navigate("EventDashboard", { eventId }) }]);
+            if (isPaidTicket) {
+                // Navigate to Payment Screen for paid tickets
+                navigation.navigate("GuestPayment", {
+                    eventId,
+                    guestDetails: {
+                        name: route.params?.guestDetails?.name || "Guest",
+                        mobile: route.params?.guestDetails?.mobile || "",
+                        email: route.params?.guestDetails?.email || ""
+                    },
+                    facilities: ticket.facilities || [],
+                    ticketResponse: res,
+                    sendToWhatsapp: sendToWhatsapp,
+                    registeredBy: registeredBy
+                });
+            } else {
+                // Direct success for free tickets
+                Alert.alert("Success", "Ticket Selected Successfully!", [{ text: "OK", onPress: () => navigation.navigate("EventDashboard", { eventId }) }]);
+            }
         } else {
             Alert.alert("Error", res?.message || "Selection failed");
         }

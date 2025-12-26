@@ -916,3 +916,17 @@ export const updateEventSettings = async (eventId, payload) => {
         return { success: false, message: "Failed to update settings" };
     }
 };
+
+export const payViaCash = async (eventId, payload) => {
+    try {
+        console.log(`Processing Cash Payment for event: ${eventId}`);
+        console.log("PAY VIA CASH PAYLOAD:", JSON.stringify(payload));
+        const response = await client.post(`/payment/method/cash`, payload);
+        console.log("PAY VIA CASH RESPONSE:", JSON.stringify(response.data));
+        return response.data;
+    } catch (error) {
+        console.log("PAY VIA CASH ERROR STATUS:", error.response?.status);
+        console.log("PAY VIA CASH ERROR DATA:", JSON.stringify(error.response?.data || error.message));
+        return { success: false, message: "Payment failed" };
+    }
+};

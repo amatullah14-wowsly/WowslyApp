@@ -50,6 +50,7 @@ const StackNavigation = () => {
       <Stack.Screen name='RegistrationDashboard' component={require('../screens/Events/RegistrationDashboard').default} />
       <Stack.Screen name='RegistrationFormEditor' component={require('../screens/Events/RegistrationFormEditor').default} />
       <Stack.Screen name='GuestTicketSelection' component={require('../screens/Events/GuestTicketSelection').default} />
+      <Stack.Screen name='GuestPayment' component={require('../screens/Events/GuestPayment').default} />
 
 
     </Stack.Navigator>

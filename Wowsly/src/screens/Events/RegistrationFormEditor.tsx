@@ -582,11 +582,32 @@ const RegistrationFormEditor = ({ isEmbedded = false, eventId: propEventId }: { 
 
                 {/* Form Fields List */}
                 <View style={{ gap: 8 }}>
-                    {formFields.filter(f => f.is_show !== 0 && f.is_show !== false).map((field) => (
-                        <View key={field.id}>
-                            {renderFieldPreview(field)}
-                        </View>
-                    ))}
+                    {formFields.filter(f => f.is_show !== 0 && f.is_show !== false).map((field, index, array) => {
+                        if (field.label === 'Country Code') {
+                            const mobileField = array.find(f => f.label === 'Mobile Number');
+                            if (mobileField) {
+                                return (
+                                    <View key={field.id} style={{ flexDirection: 'row', gap: 10 }}>
+                                        <View style={{ flex: 0.35 }}>
+                                            {renderFieldPreview(field)}
+                                        </View>
+                                        <View style={{ flex: 0.65 }}>
+                                            {renderFieldPreview(mobileField)}
+                                        </View>
+                                    </View>
+                                );
+                            }
+                        }
+                        if (field.label === 'Mobile Number') {
+                            const countryField = array.find(f => f.label === 'Country Code');
+                            if (countryField) return null; // Already rendered with Country Code
+                        }
+                        return (
+                            <View key={field.id}>
+                                {renderFieldPreview(field)}
+                            </View>
+                        );
+                    })}
                 </View>
 
                 {/* Submit Button */}

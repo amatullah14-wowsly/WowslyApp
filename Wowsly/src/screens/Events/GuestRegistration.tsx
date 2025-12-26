@@ -248,11 +248,43 @@ const GuestRegistration = () => {
             const guestUuid = res.guest_data?.uuid || res.guest_data?.guest_uuid || res.guest_uuid;
             // If unknown structure, might need to debug, but assuming `guest_data` has the needed UUID.
 
+            // Extract Name, Email, Mobile from res.QAs if available, otherwise fallback to formValues
+            let guestName = "Guest";
+            let guestMobile = "";
+            let guestEmail = "";
+
+            // Helper to find answer by question content
+            const findAnswer = (qs: string[]) => {
+                if (res.QAs && Array.isArray(res.QAs)) {
+                    const qa = res.QAs.find((q: any) => qs.some(query => q.question && q.question.toLowerCase().includes(query.toLowerCase())));
+                    return qa ? qa.answer : null;
+                }
+                return null;
+            };
+
+            // Helper to find value from formValues as fallback
+            const findFormValue = (qs: string[]) => {
+                const field = formFields.find(f => qs.some(query => f.question && f.question.toLowerCase().includes(query.toLowerCase())));
+                return field ? formValues[field.id] : null;
+            }
+
+            guestName = findAnswer(['Name', 'Full Name']) || findFormValue(['Name', 'Full Name']) || "Guest";
+            guestMobile = findAnswer(['Mobile', 'Phone']) || findFormValue(['Mobile', 'Phone']) || "";
+            guestEmail = findAnswer(['Email']) || findFormValue(['Email']) || "";
+
+            // If mobile/email empty, try top level fields if API returns them differently? 
+            // Based on user snippet: res has "QAs" array.
+
             if (tickets && tickets.length > 0) {
                 navigation.navigate("GuestTicketSelection", {
                     eventId,
                     guestUuid: guestUuid,
-                    registeredBy: null // or current user id if needed
+                    registeredBy: null, // or current user id if needed
+                    guestDetails: {
+                        name: guestName,
+                        mobile: guestMobile,
+                        email: guestEmail
+                    }
                 });
             } else {
                 Alert.alert("Success", "Guest Registered Successfully!", [{ text: "OK", onPress: () => navigation.goBack() }]);
