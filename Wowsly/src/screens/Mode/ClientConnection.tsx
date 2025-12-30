@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
     SafeAreaView,
     StyleSheet,
@@ -10,17 +10,25 @@ import {
     KeyboardAvoidingView,
     Platform,
     DeviceEventEmitter,
+    useWindowDimensions,
 } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import TcpSocket from 'react-native-tcp-socket';
 import BackButton from '../../components/BackButton';
-import { scale, verticalScale, moderateScale } from '../../utils/scaling';
 import Toast from 'react-native-toast-message';
 import { updateTicketStatusLocal } from '../../db';
+import { useScale } from '../../utils/useScale';
+import { FontSize } from '../../constants/fontSizes';
 
 const ClientConnection = () => {
     const navigation = useNavigation<any>();
     const route = useRoute<any>();
+
+    const { width } = useWindowDimensions();
+    const isTablet = width >= 768; // Tablet breakpoint
+    const { scale, verticalScale, moderateScale } = useScale();
+    const styles = useMemo(() => makeStyles(scale, verticalScale, moderateScale, isTablet), [scale, verticalScale, moderateScale, isTablet]);
+
     const [hostIp, setHostIp] = useState('');
     const [hostPort, setHostPort] = useState(8888);
     const [sessionCode, setSessionCode] = useState('');
@@ -235,9 +243,7 @@ const ClientConnection = () => {
     );
 };
 
-export default ClientConnection;
-
-const styles = StyleSheet.create({
+const makeStyles = (scale: (size: number) => number, verticalScale: (size: number) => number, moderateScale: (size: number, factor?: number) => number, isTablet: boolean = false) => StyleSheet.create({
     safeArea: {
         flex: 1,
         backgroundColor: '#FAFAFA',
@@ -245,6 +251,9 @@ const styles = StyleSheet.create({
     container: {
         flex: 1,
         padding: scale(20),
+        width: '100%',
+        maxWidth: isTablet ? 600 : '100%',
+        alignSelf: 'center',
     },
     header: {
         flexDirection: 'row',
@@ -256,7 +265,7 @@ const styles = StyleSheet.create({
     headerTitle: {
         flex: 1,
         textAlign: 'center',
-        fontSize: moderateScale(18),
+        fontSize: moderateScale(FontSize.lg), // 18 -> lg
         fontWeight: '700',
         color: '#1F1F1F',
     },
@@ -266,14 +275,14 @@ const styles = StyleSheet.create({
         paddingBottom: verticalScale(100),
     },
     label: {
-        fontSize: moderateScale(20),
+        fontSize: moderateScale(FontSize.xl), // 20 -> xl
         fontWeight: '700',
         color: '#1F1F1F',
         marginBottom: verticalScale(8),
         textAlign: 'center',
     },
     subLabel: {
-        fontSize: moderateScale(14),
+        fontSize: moderateScale(FontSize.sm), // 14 -> sm
         color: '#888888',
         marginBottom: verticalScale(32),
         textAlign: 'center',
@@ -283,7 +292,7 @@ const styles = StyleSheet.create({
         backgroundColor: '#FFFFFF',
         borderRadius: scale(16),
         padding: scale(16),
-        fontSize: moderateScale(18),
+        fontSize: moderateScale(FontSize.lg), // 18 -> lg
         color: '#1F1F1F',
         borderWidth: 1,
         borderColor: '#EFEFEF',
@@ -305,7 +314,7 @@ const styles = StyleSheet.create({
         backgroundColor: '#FFCCAA',
     },
     buttonText: {
-        fontSize: moderateScale(16),
+        fontSize: moderateScale(FontSize.md), // 16 -> md
         fontWeight: '700',
         color: '#FFFFFF',
     },
@@ -319,8 +328,10 @@ const styles = StyleSheet.create({
         marginBottom: verticalScale(16),
     },
     scanButtonText: {
-        fontSize: moderateScale(16),
+        fontSize: moderateScale(FontSize.md), // 16 -> md
         fontWeight: '700',
         color: '#FF8A3C',
     },
 });
+
+export default ClientConnection;

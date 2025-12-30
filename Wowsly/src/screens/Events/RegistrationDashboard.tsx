@@ -1,15 +1,16 @@
 import { StyleSheet, Text, View, TouchableOpacity, SafeAreaView, FlatList, ActivityIndicator, Image, Modal, ScrollView, TextInput } from 'react-native'
 import DatePicker from 'react-native-date-picker'
-import React, { useState, useEffect, useCallback } from 'react'
+import React, { useState, useEffect, useCallback, useMemo } from 'react'
 import { useNavigation, useRoute } from '@react-navigation/native';
 import BackButton from '../../components/BackButton';
 // import GuestScreenTemplate from '../Guests/GuestScreenTemplate'; // Removed per request
 import { getRegistrationAnswers, exportRegistrationReplies, getExportStatus, getEventDetails, updateGuestStatus } from '../../api/event';
-import { ToastAndroid, Alert, Platform, Linking } from 'react-native';
+import { ToastAndroid, Alert, Platform, Linking, useWindowDimensions } from 'react-native';
 import RegistrationFormEditor from './RegistrationFormEditor';
-import { scale, verticalScale, moderateScale } from '../../utils/scaling';
+import { useScale } from '../../utils/useScale';
+import { FontSize } from '../../constants/fontSizes';
 
-const ActionMenu = React.memo(({ onSelect }: { onSelect: (status: 'accepted' | 'rejected' | 'blocked') => void }) => (
+const ActionMenu = React.memo(({ onSelect, styles }: { onSelect: (status: 'accepted' | 'rejected' | 'blocked') => void, styles: any }) => (
     <View style={styles.popupMenu}>
         <TouchableOpacity style={styles.menuItem} onPress={() => onSelect('accepted')}>
             <Text style={styles.menuText}>Accept</Text>
@@ -25,7 +26,7 @@ const ActionMenu = React.memo(({ onSelect }: { onSelect: (status: 'accepted' | '
     </View>
 ));
 
-const HeaderMenu = React.memo(({ onSelect, onClose }: { onSelect: (option: 'edit_form' | 'export_all' | 'export_date') => void, onClose: () => void }) => (
+const HeaderMenu = React.memo(({ onSelect, onClose, styles }: { onSelect: (option: 'edit_form' | 'export_all' | 'export_date') => void, onClose: () => void, styles: any }) => (
     <Modal transparent visible={true} animationType="fade" onRequestClose={onClose}>
         <TouchableOpacity style={styles.headerMenuOverlay} activeOpacity={1} onPress={onClose}>
             <View style={styles.headerMenuContainer}>
@@ -45,7 +46,7 @@ const HeaderMenu = React.memo(({ onSelect, onClose }: { onSelect: (option: 'edit
     </Modal>
 ));
 
-const ReplyRow = React.memo(({ item, onPress, onActionPress }: { item: any, onPress: (item: any) => void, onActionPress: (item: any) => void }) => {
+const ReplyRow = React.memo(({ item, onPress, onActionPress, styles }: { item: any, onPress: (item: any) => void, onActionPress: (item: any) => void, styles: any }) => {
     let name = "Guest";
     const nameQuestion = item.form_replies?.find((q: any) => q.question.toLowerCase().includes('name'));
     if (nameQuestion) {
@@ -83,6 +84,11 @@ const RegistrationDashboard = () => {
     const navigation = useNavigation();
     const route = useRoute<any>();
     const { eventId } = route.params || {};
+
+    const { width } = useWindowDimensions();
+    const { scale, verticalScale, moderateScale } = useScale();
+    const styles = useMemo(() => makeStyles(scale, verticalScale, moderateScale), [scale, verticalScale, moderateScale]);
+
     const [hasForm, setHasForm] = useState<number | null>(null); // 0 = Created, 1 = Not Created (or vice versa per user req)
     const [isApprovalBasis, setIsApprovalBasis] = useState(false);
     // User said: "if has_registration_form : 0 then form created nathi" (0 means NOT created)
@@ -371,8 +377,8 @@ const RegistrationDashboard = () => {
     }, []);
 
     const renderReplyItem = useCallback(({ item }: { item: any }) => {
-        return <ReplyRow item={item} onPress={handleReplyPress} onActionPress={handleActionPress} />;
-    }, [handleReplyPress, handleActionPress]);
+        return <ReplyRow item={item} onPress={handleReplyPress} onActionPress={handleActionPress} styles={styles} />;
+    }, [handleReplyPress, handleActionPress, styles]);
 
     return (
         <SafeAreaView style={styles.container}>
@@ -458,7 +464,7 @@ const RegistrationDashboard = () => {
                         />
 
                         {/* Popup Menu (for Details Modal) */}
-                        {showActionMenu && <ActionMenu onSelect={handleUpdateStatus} />}
+                        {showActionMenu && <ActionMenu onSelect={handleUpdateStatus} styles={styles} />}
                     </View>
                 </View>
             </Modal>
@@ -579,7 +585,7 @@ const RegistrationDashboard = () => {
             />
             {/* Header Menu */}
             {showHeaderMenu && (
-                <HeaderMenu onSelect={handleHeaderMenuSelect} onClose={() => setShowHeaderMenu(false)} />
+                <HeaderMenu onSelect={handleHeaderMenuSelect} onClose={() => setShowHeaderMenu(false)} styles={styles} />
             )}
         </SafeAreaView>
     )
@@ -587,7 +593,7 @@ const RegistrationDashboard = () => {
 
 export default RegistrationDashboard
 
-const styles = StyleSheet.create({
+const makeStyles = (scale: (size: number) => number, verticalScale: (size: number) => number, moderateScale: (size: number, factor?: number) => number) => StyleSheet.create({
     container: {
         flex: 1,
         backgroundColor: 'white',
@@ -799,7 +805,7 @@ const styles = StyleSheet.create({
         paddingHorizontal: scale(20),
     },
     headerMenuText: {
-        fontSize: moderateScale(15),
+        fontSize: moderateScale(FontSize.md),
         color: '#222',
         fontWeight: '500',
     },
@@ -810,7 +816,7 @@ const styles = StyleSheet.create({
     exportButtonText: {
         color: '#FF8A3C',
         fontWeight: '600',
-        fontSize: moderateScale(11),
+        fontSize: moderateScale(FontSize.xs), // 11 -> xs(12) or keep literal 11? xs is close enough.
         textAlign: 'center',
     },
     exportIcon: {
@@ -846,14 +852,14 @@ const styles = StyleSheet.create({
         tintColor: '#FF8A3C'
     },
     replyName: {
-        fontSize: moderateScale(16),
+        fontSize: moderateScale(FontSize.md),
         fontWeight: 'bold',
         color: '#111',
         textTransform: 'capitalize', // Make it proper
         marginBottom: verticalScale(4),
     },
     replyDate: {
-        fontSize: moderateScale(12),
+        fontSize: moderateScale(FontSize.xs),
         color: '#888',
         fontWeight: '500',
     },
@@ -884,7 +890,7 @@ const styles = StyleSheet.create({
         borderBottomColor: '#eee',
     },
     modalTitle: {
-        fontSize: moderateScale(18),
+        fontSize: moderateScale(FontSize.lg),
         fontWeight: 'bold',
         color: '#111',
     },
@@ -892,7 +898,7 @@ const styles = StyleSheet.create({
         padding: scale(5),
     },
     closeButtonText: {
-        fontSize: moderateScale(18),
+        fontSize: moderateScale(FontSize.lg),
         color: '#666',
         fontWeight: 'bold',
     },
@@ -907,14 +913,14 @@ const styles = StyleSheet.create({
         borderBottomColor: '#f5f5f5',
     },
     detailLabel: {
-        fontSize: moderateScale(12),
+        fontSize: moderateScale(FontSize.xs),
         color: '#888',
         marginBottom: verticalScale(4),
         textTransform: 'uppercase',
         letterSpacing: scale(0.5),
     },
     detailValue: {
-        fontSize: moderateScale(16),
+        fontSize: moderateScale(FontSize.md),
         color: '#111',
         fontWeight: '500',
     },
@@ -922,7 +928,7 @@ const styles = StyleSheet.create({
         textAlign: 'center',
         marginTop: verticalScale(20),
         color: '#666',
-        fontSize: moderateScale(14),
+        fontSize: moderateScale(FontSize.sm),
     },
     // Menu Styles
     headerActions: {
@@ -961,7 +967,7 @@ const styles = StyleSheet.create({
         // backgroundColor: '#FFEBEE', // Removed per user request ("nothing selected")
     },
     menuText: {
-        fontSize: moderateScale(14),
+        fontSize: moderateScale(FontSize.sm),
         color: '#333',
         fontWeight: '500',
     },
@@ -987,7 +993,7 @@ const styles = StyleSheet.create({
         marginBottom: verticalScale(24),
     },
     dateModalTitle: {
-        fontSize: moderateScale(18),
+        fontSize: moderateScale(FontSize.lg),
         fontWeight: 'bold',
         color: '#111',
     },
@@ -995,7 +1001,7 @@ const styles = StyleSheet.create({
         marginBottom: verticalScale(20),
     },
     dateLabel: {
-        fontSize: moderateScale(14),
+        fontSize: moderateScale(FontSize.sm),
         color: '#666',
         marginBottom: verticalScale(8),
         position: 'absolute',
@@ -1016,7 +1022,7 @@ const styles = StyleSheet.create({
     },
     dateInput: {
         flex: 1,
-        fontSize: moderateScale(16),
+        fontSize: moderateScale(FontSize.md),
         color: '#333',
     },
     inputIcon: {
@@ -1025,7 +1031,7 @@ const styles = StyleSheet.create({
         tintColor: '#333',
     },
     helperText: {
-        fontSize: moderateScale(12),
+        fontSize: moderateScale(FontSize.xs),
         color: '#888',
         marginBottom: verticalScale(24),
     },
@@ -1040,7 +1046,7 @@ const styles = StyleSheet.create({
         paddingHorizontal: scale(16),
     },
     cancelButtonText: {
-        fontSize: moderateScale(16),
+        fontSize: moderateScale(FontSize.md),
         color: '#333',
         fontWeight: '500',
     },
@@ -1051,7 +1057,7 @@ const styles = StyleSheet.create({
         borderRadius: scale(8),
     },
     startExportButtonText: {
-        fontSize: moderateScale(16),
+        fontSize: moderateScale(FontSize.md),
         color: 'white',
         fontWeight: '600',
     },
@@ -1064,12 +1070,12 @@ const styles = StyleSheet.create({
         elevation: 10,
     },
     quickActionTitle: {
-        fontSize: moderateScale(18),
+        fontSize: moderateScale(FontSize.lg),
         fontWeight: 'bold',
         marginBottom: verticalScale(5),
     },
     quickActionsubtitle: {
-        fontSize: moderateScale(14),
+        fontSize: moderateScale(FontSize.sm),
         color: '#666',
         marginBottom: verticalScale(20),
     },
@@ -1081,7 +1087,7 @@ const styles = StyleSheet.create({
         borderBottomColor: '#f0f0f0',
     },
     quickActionText: {
-        fontSize: moderateScale(16),
+        fontSize: moderateScale(FontSize.md),
         fontWeight: '600',
         color: '#333',
     },
@@ -1090,7 +1096,7 @@ const styles = StyleSheet.create({
         paddingVertical: verticalScale(10),
     },
     cancelActionText: {
-        fontSize: moderateScale(14),
+        fontSize: moderateScale(FontSize.sm),
         color: '#999',
         fontWeight: '600',
     }

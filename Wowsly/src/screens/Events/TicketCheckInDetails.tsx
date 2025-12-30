@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import {
     View,
     Text,
@@ -7,18 +7,17 @@ import {
     TouchableOpacity,
     FlatList,
     Modal,
-    Dimensions,
     ScrollView,
-    Image
+    Image,
+    useWindowDimensions
 } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { getTicketCheckInRecords, getTicketCheckInCount } from '../../api/event';
 import BackButton from '../../components/BackButton';
-import { scale, verticalScale, moderateScale } from '../../utils/scaling';
+import { useScale } from '../../utils/useScale';
 import Pagination from '../../components/Pagination';
 import { numberToWords } from '../../utils/stringUtils';
-
-const { width } = Dimensions.get('window');
+import SystemNavigationBar from 'react-native-system-navigation-bar';
 
 type FacilityCheckIn = {
     facility_name: string;
@@ -52,8 +51,6 @@ type GuestRecord = {
     }[];
 };
 
-import SystemNavigationBar from 'react-native-system-navigation-bar';
-
 const TicketCheckInDetails = () => {
     const navigation = useNavigation();
     const route = useRoute<any>();
@@ -70,6 +67,359 @@ const TicketCheckInDetails = () => {
     // Modal state
     const [modalVisible, setModalVisible] = useState(false);
     const [selectedGuest, setSelectedGuest] = useState<GuestRecord | null>(null);
+
+    const { scale, verticalScale, moderateScale } = useScale();
+
+    const styles = useMemo(() => StyleSheet.create({
+        container: {
+            flex: 1,
+            backgroundColor: 'white',
+        },
+        header: {
+            width: '100%',
+            height: 90,
+            paddingTop: verticalScale(20),
+            alignItems: 'center',
+            flexDirection: 'row',
+            justifyContent: 'space-between',
+            paddingHorizontal: scale(20),
+            backgroundColor: 'white',
+            elevation: 2,
+        },
+        title: {
+            fontSize: moderateScale(18),
+            fontWeight: '600',
+            color: 'black',
+        },
+        content: {
+            flex: 1,
+        },
+        statsPanel: {
+            padding: scale(16),
+            backgroundColor: 'white',
+            marginBottom: verticalScale(0),
+            elevation: 1,
+        },
+        statCard: {
+            flexDirection: 'column',
+            backgroundColor: 'white',
+            borderWidth: 1,
+            borderColor: '#EEE',
+            borderRadius: scale(12),
+            padding: scale(12), // Reduced padding
+            marginBottom: verticalScale(0),
+            elevation: 2,
+            shadowColor: '#000',
+            shadowOffset: { width: 0, height: 2 },
+            shadowOpacity: 0.1,
+            shadowRadius: scale(4),
+        },
+        statsTotalTitle: {
+            fontSize: moderateScale(16),
+            fontWeight: 'bold',
+            color: '#222',
+            marginBottom: verticalScale(8), // Reduced margin
+        },
+        statRow: {
+            flexDirection: 'column',
+            marginBottom: verticalScale(2), // Reduced margin
+        },
+        statLabel: {
+            fontSize: moderateScale(12),
+            color: '#666',
+            fontWeight: '500',
+            marginBottom: verticalScale(2), // Reduced margin
+            textTransform: 'uppercase',
+            letterSpacing: 0.5,
+        },
+        statValueHighlight: {
+            fontSize: moderateScale(16),
+            fontWeight: 'bold',
+            color: '#FF8A3C',
+            textTransform: 'capitalize',
+        },
+        statValue: {
+            fontSize: moderateScale(15),
+            fontWeight: '600',
+            color: '#444',
+            textTransform: 'capitalize',
+        },
+        statDivider: {
+            height: 1,
+            backgroundColor: '#F0F0F0',
+            marginVertical: verticalScale(6), // Reduced margin
+        },
+        facilitiesStatsRow: {
+            flexDirection: 'row',
+            flexWrap: 'wrap',
+            gap: scale(8),
+        },
+        statChip: {
+            backgroundColor: '#FFF0E0',
+            paddingHorizontal: scale(10),
+            paddingVertical: verticalScale(5),
+            borderRadius: scale(15),
+            borderWidth: 1,
+            borderColor: '#FFD2B3',
+        },
+        statChipText: {
+            fontSize: moderateScale(12),
+            color: '#D95C0F',
+            fontWeight: '500',
+        },
+        listContent: {
+            padding: scale(16),
+            paddingTop: verticalScale(8),
+        },
+        columnWrapper: {
+            justifyContent: 'space-between',
+            gap: scale(12),
+        },
+        // Grid Card Styles
+        gridCard: {
+            backgroundColor: 'white',
+            borderRadius: scale(12), // Slightly smaller radius
+            marginBottom: verticalScale(12),
+            padding: scale(12), // Reduced padding
+            elevation: 2,
+            shadowColor: '#000',
+            shadowOffset: { width: 0, height: 1 },
+            shadowOpacity: 0.1,
+            shadowRadius: scale(3),
+            width: '48%',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            minHeight: 130, // Reduced height
+            borderWidth: 1,
+            borderColor: '#EAEAEA',
+        },
+        cardHeaderCenter: {
+            alignItems: 'center',
+            width: '100%',
+            flex: 1, // Take available space
+            justifyContent: 'center',
+        },
+        // Removed avatar styles
+        gridGuestName: {
+            fontSize: moderateScale(14),
+            fontWeight: '700',
+            color: '#222',
+            textAlign: 'center',
+            marginBottom: verticalScale(6),
+            lineHeight: verticalScale(18),
+        },
+        ticketBadge: {
+            backgroundColor: '#FFF0E0',
+            paddingHorizontal: scale(8),
+            paddingVertical: verticalScale(3),
+            borderRadius: scale(8),
+            marginBottom: verticalScale(6),
+            borderWidth: 1,
+            borderColor: '#FFD2B3',
+        },
+        gridTicketCount: {
+            fontSize: moderateScale(12),
+            color: '#E65100', // Darker orange for highlighter text
+            fontWeight: '700',
+        },
+        gridCheckInTime: {
+            fontSize: moderateScale(10),
+            color: '#999',
+            marginTop: verticalScale(2),
+        },
+        viewDetailsButton: {
+            marginTop: verticalScale(10),
+            width: '100%',
+            paddingVertical: verticalScale(6),
+            backgroundColor: '#fff',
+            borderRadius: scale(6),
+            alignItems: 'center',
+            borderWidth: 1,
+            borderColor: '#DDD',
+        },
+        viewDetailsText: {
+            fontSize: moderateScale(11),
+            fontWeight: '600',
+            color: '#555',
+        },
+
+        // Pagination
+        pagination: {
+            flexDirection: 'row',
+            justifyContent: 'center',
+            alignItems: 'center',
+            paddingVertical: verticalScale(16),
+            gap: scale(12),
+            backgroundColor: '#F8F9FA',
+        },
+        pageBtn: {
+            width: scale(32),
+            height: scale(32),
+            borderRadius: scale(16),
+            backgroundColor: 'white',
+            justifyContent: 'center',
+            alignItems: 'center',
+            borderWidth: 1,
+            borderColor: '#E5E7EB',
+            elevation: 1,
+        },
+        disabledBtn: {
+            opacity: 0.5,
+            backgroundColor: '#E0E0E0',
+            elevation: 0,
+        },
+        pageBtnText: {
+            fontSize: moderateScale(16),
+            color: '#666',
+            fontWeight: 'bold',
+        },
+        pageNumberContainer: {
+            width: scale(32),
+            height: scale(32),
+            borderRadius: scale(16),
+            backgroundColor: '#FF8A3C',
+            justifyContent: 'center',
+            alignItems: 'center',
+            elevation: 2,
+        },
+        pageNumberText: {
+            color: 'white',
+            fontWeight: 'bold',
+        },
+
+        // Modal Styles
+        modalOverlay: {
+            flex: 1,
+            backgroundColor: 'rgba(0,0,0,0.5)',
+            justifyContent: 'flex-end',
+        },
+        modalContainer: {
+            width: '100%',
+            maxHeight: '50%', // Compact height
+            backgroundColor: 'white',
+            borderTopLeftRadius: scale(20),
+            borderTopRightRadius: scale(20),
+            elevation: 5,
+            shadowColor: '#000',
+            shadowOffset: { width: 0, height: -2 },
+            shadowOpacity: 0.2,
+            shadowRadius: scale(10),
+            overflow: 'hidden',
+        },
+        modalHeader: {
+            flexDirection: 'row',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            paddingHorizontal: scale(20),
+            paddingVertical: verticalScale(10), // Compact padding
+            borderBottomWidth: 1,
+            borderBottomColor: '#F0F0F0',
+        },
+        modalTitle: {
+            fontSize: moderateScale(16), // Compact font
+            fontWeight: '700',
+            color: '#222',
+        },
+        closeButton: {
+            padding: scale(5),
+        },
+        closeButtonText: {
+            fontSize: moderateScale(18),
+            color: '#999',
+        },
+        modalBody: {
+            padding: scale(20),
+            paddingBottom: verticalScale(30),
+        },
+        modalRow: {
+            marginBottom: verticalScale(8), // Compact margin
+        },
+        modalLabel: {
+            fontSize: moderateScale(11), // Compact font
+            color: '#888',
+            fontWeight: '600',
+            textTransform: 'uppercase',
+            marginBottom: verticalScale(2),
+        },
+        modalValueMain: {
+            fontSize: moderateScale(16), // Compact font
+            fontWeight: '700',
+            color: '#111',
+        },
+        modalValue: {
+            fontSize: moderateScale(14), // Compact font
+            color: '#333',
+            fontWeight: '500',
+        },
+        separator: {
+            height: verticalScale(1),
+            backgroundColor: '#F0F0F0',
+            marginVertical: verticalScale(8), // Compact margin
+        },
+        modalFacilitiesContainer: {
+            marginTop: verticalScale(8),
+            backgroundColor: '#F9F9F9',
+            borderRadius: scale(12),
+            padding: scale(12),
+        },
+        modalSectionTitle: {
+            fontSize: moderateScale(13),
+            fontWeight: '700',
+            color: '#444',
+            marginBottom: verticalScale(8),
+        },
+        modalFacilityItem: {
+            marginBottom: verticalScale(8),
+            borderBottomWidth: 1,
+            borderBottomColor: '#EEE',
+            paddingBottom: verticalScale(6),
+        },
+        modalFacilityHeader: {
+            flexDirection: 'row',
+            justifyContent: 'space-between',
+            marginBottom: verticalScale(4),
+        },
+        modalFacilityName: {
+            fontSize: moderateScale(13),
+            fontWeight: '600',
+            color: '#333',
+        },
+        modalFacilityCount: {
+            fontSize: moderateScale(12),
+            color: '#666',
+        },
+        facilityTimes: {
+            flexDirection: 'row',
+            flexWrap: 'wrap',
+            gap: scale(6),
+        },
+        facilityTimeText: {
+            fontSize: moderateScale(10),
+            color: '#888',
+            backgroundColor: 'white',
+            paddingHorizontal: scale(6),
+            paddingVertical: verticalScale(2),
+            borderRadius: scale(4),
+            borderWidth: 1,
+            borderColor: '#EEE',
+        },
+        modalFooter: {
+            padding: scale(16),
+            borderTopWidth: 1,
+            borderTopColor: '#F0F0F0',
+        },
+        modalCloseBtn: {
+            backgroundColor: '#FF8A3C',
+            borderRadius: scale(12),
+            paddingVertical: verticalScale(14),
+            alignItems: 'center',
+        },
+        modalCloseBtnText: {
+            color: 'white',
+            fontSize: moderateScale(16),
+            fontWeight: '700',
+        }
+    }), [scale, verticalScale, moderateScale]);
 
     useEffect(() => {
         if (eventId && ticketId) {
@@ -333,355 +683,3 @@ const TicketCheckInDetails = () => {
 };
 
 export default TicketCheckInDetails;
-
-const styles = StyleSheet.create({
-    container: {
-        flex: 1,
-        backgroundColor: 'white',
-    },
-    header: {
-        width: '100%',
-        height: 90,
-        paddingTop: verticalScale(20),
-        alignItems: 'center',
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        paddingHorizontal: scale(20),
-        backgroundColor: 'white',
-        elevation: 2,
-
-    },
-    title: {
-        fontSize: moderateScale(18),
-        fontWeight: '600',
-        color: 'black',
-    },
-    content: {
-        flex: 1,
-    },
-    statsPanel: {
-        padding: scale(16),
-        backgroundColor: 'white',
-        marginBottom: verticalScale(0),
-        elevation: 1,
-    },
-    statCard: {
-        flexDirection: 'column',
-        backgroundColor: 'white',
-        borderWidth: 1,
-        borderColor: '#EEE',
-        borderRadius: scale(12),
-        padding: scale(12), // Reduced padding
-        marginBottom: verticalScale(0),
-        elevation: 2,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.1,
-        shadowRadius: scale(4),
-    },
-    statsTotalTitle: {
-        fontSize: moderateScale(16),
-        fontWeight: 'bold',
-        color: '#222',
-        marginBottom: verticalScale(8), // Reduced margin
-    },
-    statRow: {
-        flexDirection: 'column',
-        marginBottom: verticalScale(2), // Reduced margin
-    },
-    statLabel: {
-        fontSize: moderateScale(12),
-        color: '#666',
-        fontWeight: '500',
-        marginBottom: verticalScale(2), // Reduced margin
-        textTransform: 'uppercase',
-        letterSpacing: 0.5,
-    },
-    statValueHighlight: {
-        fontSize: moderateScale(16),
-        fontWeight: 'bold',
-        color: '#FF8A3C',
-        textTransform: 'capitalize',
-    },
-    statValue: {
-        fontSize: moderateScale(15),
-        fontWeight: '600',
-        color: '#444',
-        textTransform: 'capitalize',
-    },
-    statDivider: {
-        height: 1,
-        backgroundColor: '#F0F0F0',
-        marginVertical: verticalScale(6), // Reduced margin
-    },
-    facilitiesStatsRow: {
-        flexDirection: 'row',
-        flexWrap: 'wrap',
-        gap: scale(8),
-    },
-    statChip: {
-        backgroundColor: '#FFF0E0',
-        paddingHorizontal: scale(10),
-        paddingVertical: verticalScale(5),
-        borderRadius: scale(15),
-        borderWidth: 1,
-        borderColor: '#FFD2B3',
-    },
-    statChipText: {
-        fontSize: moderateScale(12),
-        color: '#D95C0F',
-        fontWeight: '500',
-    },
-    listContent: {
-        padding: scale(16),
-        paddingTop: verticalScale(8),
-    },
-    columnWrapper: {
-        justifyContent: 'space-between',
-        gap: scale(12),
-    },
-    // Grid Card Styles
-    gridCard: {
-        backgroundColor: 'white',
-        borderRadius: scale(12), // Slightly smaller radius
-        marginBottom: verticalScale(12),
-        padding: scale(12), // Reduced padding
-        elevation: 2,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 1 },
-        shadowOpacity: 0.1,
-        shadowRadius: scale(3),
-        width: '48%',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        minHeight: 130, // Reduced height
-        borderWidth: 1,
-        borderColor: '#EAEAEA',
-    },
-    cardHeaderCenter: {
-        alignItems: 'center',
-        width: '100%',
-        flex: 1, // Take available space
-        justifyContent: 'center',
-    },
-    // Removed avatar styles
-    gridGuestName: {
-        fontSize: moderateScale(14),
-        fontWeight: '700',
-        color: '#222',
-        textAlign: 'center',
-        marginBottom: verticalScale(6),
-        lineHeight: verticalScale(18),
-    },
-    ticketBadge: {
-        backgroundColor: '#FFF0E0',
-        paddingHorizontal: scale(8),
-        paddingVertical: verticalScale(3),
-        borderRadius: scale(8),
-        marginBottom: verticalScale(6),
-        borderWidth: 1,
-        borderColor: '#FFD2B3',
-    },
-    gridTicketCount: {
-        fontSize: moderateScale(12),
-        color: '#E65100', // Darker orange for highlighter text
-        fontWeight: '700',
-    },
-    gridCheckInTime: {
-        fontSize: moderateScale(10),
-        color: '#999',
-        marginTop: verticalScale(2),
-    },
-    viewDetailsButton: {
-        marginTop: verticalScale(10),
-        width: '100%',
-        paddingVertical: verticalScale(6),
-        backgroundColor: '#fff',
-        borderRadius: scale(6),
-        alignItems: 'center',
-        borderWidth: 1,
-        borderColor: '#DDD',
-    },
-    viewDetailsText: {
-        fontSize: moderateScale(11),
-        fontWeight: '600',
-        color: '#555',
-    },
-
-    // Pagination
-    pagination: {
-        flexDirection: 'row',
-        justifyContent: 'center',
-        alignItems: 'center',
-        paddingVertical: verticalScale(16),
-        gap: scale(12),
-        backgroundColor: '#F8F9FA',
-    },
-    pageBtn: {
-        width: scale(32),
-        height: scale(32),
-        borderRadius: scale(16),
-        backgroundColor: 'white',
-        justifyContent: 'center',
-        alignItems: 'center',
-        borderWidth: 1,
-        borderColor: '#E5E7EB',
-        elevation: 1,
-    },
-    disabledBtn: {
-        opacity: 0.5,
-        backgroundColor: '#E0E0E0',
-        elevation: 0,
-    },
-    pageBtnText: {
-        fontSize: moderateScale(16),
-        color: '#666',
-        fontWeight: 'bold',
-    },
-    pageNumberContainer: {
-        width: scale(32),
-        height: scale(32),
-        borderRadius: scale(16),
-        backgroundColor: '#FF8A3C',
-        justifyContent: 'center',
-        alignItems: 'center',
-        elevation: 2,
-    },
-    pageNumberText: {
-        color: 'white',
-        fontWeight: 'bold',
-    },
-
-    // Modal Styles
-    modalOverlay: {
-        flex: 1,
-        backgroundColor: 'rgba(0,0,0,0.5)',
-        justifyContent: 'flex-end',
-    },
-    modalContainer: {
-        width: '100%',
-        maxHeight: '50%', // Compact height
-        backgroundColor: 'white',
-        borderTopLeftRadius: scale(20),
-        borderTopRightRadius: scale(20),
-        elevation: 5,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: -2 },
-        shadowOpacity: 0.2,
-        shadowRadius: scale(10),
-        overflow: 'hidden',
-    },
-    modalHeader: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        paddingHorizontal: scale(20),
-        paddingVertical: verticalScale(10), // Compact padding
-        borderBottomWidth: 1,
-        borderBottomColor: '#F0F0F0',
-    },
-    modalTitle: {
-        fontSize: moderateScale(16), // Compact font
-        fontWeight: '700',
-        color: '#222',
-    },
-    closeButton: {
-        padding: scale(5),
-    },
-    closeButtonText: {
-        fontSize: moderateScale(18),
-        color: '#999',
-    },
-    modalBody: {
-        padding: scale(20),
-        paddingBottom: verticalScale(30),
-    },
-    modalRow: {
-        marginBottom: verticalScale(8), // Compact margin
-    },
-    modalLabel: {
-        fontSize: moderateScale(11), // Compact font
-        color: '#888',
-        fontWeight: '600',
-        textTransform: 'uppercase',
-        marginBottom: verticalScale(2),
-    },
-    modalValueMain: {
-        fontSize: moderateScale(16), // Compact font
-        fontWeight: '700',
-        color: '#111',
-    },
-    modalValue: {
-        fontSize: moderateScale(14), // Compact font
-        color: '#333',
-        fontWeight: '500',
-    },
-    separator: {
-        height: verticalScale(1),
-        backgroundColor: '#F0F0F0',
-        marginVertical: verticalScale(8), // Compact margin
-    },
-    modalFacilitiesContainer: {
-        marginTop: verticalScale(8),
-        backgroundColor: '#F9F9F9',
-        borderRadius: scale(12),
-        padding: scale(12),
-    },
-    modalSectionTitle: {
-        fontSize: moderateScale(13),
-        fontWeight: '700',
-        color: '#444',
-        marginBottom: verticalScale(8),
-    },
-    modalFacilityItem: {
-        marginBottom: verticalScale(8),
-        borderBottomWidth: 1,
-        borderBottomColor: '#EEE',
-        paddingBottom: verticalScale(6),
-    },
-    modalFacilityHeader: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        marginBottom: verticalScale(4),
-    },
-    modalFacilityName: {
-        fontSize: moderateScale(13),
-        fontWeight: '600',
-        color: '#333',
-    },
-    modalFacilityCount: {
-        fontSize: moderateScale(12),
-        color: '#666',
-    },
-    facilityTimes: {
-        flexDirection: 'row',
-        flexWrap: 'wrap',
-        gap: scale(6),
-    },
-    facilityTimeText: {
-        fontSize: moderateScale(10),
-        color: '#888',
-        backgroundColor: 'white',
-        paddingHorizontal: scale(6),
-        paddingVertical: verticalScale(2),
-        borderRadius: scale(4),
-        borderWidth: 1,
-        borderColor: '#EEE',
-    },
-    modalFooter: {
-        padding: scale(16),
-        borderTopWidth: 1,
-        borderTopColor: '#F0F0F0',
-    },
-    modalCloseBtn: {
-        backgroundColor: '#FF8A3C',
-        borderRadius: scale(12),
-        paddingVertical: verticalScale(14),
-        alignItems: 'center',
-    },
-    modalCloseBtnText: {
-        color: 'white',
-        fontSize: moderateScale(16),
-        fontWeight: '700',
-    }
-});

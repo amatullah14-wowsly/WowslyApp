@@ -1,15 +1,21 @@
-import React, { useState, useEffect } from 'react';
-import { StyleSheet, Text, View, TouchableOpacity, ScrollView, Image, SafeAreaView, Alert } from 'react-native';
+import React, { useState, useEffect, useMemo } from 'react';
+import { StyleSheet, Text, View, TouchableOpacity, ScrollView, Image, SafeAreaView, Alert, useWindowDimensions } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
-import { scale, verticalScale, moderateScale } from '../../utils/scaling';
+import { useScale } from '../../utils/useScale';
+import { FontSize } from '../../constants/fontSizes';
 import { getEventTickets, selectGuestTicket } from '../../api/event';
 import BackButton from '../../components/BackButton';
 import Toast from 'react-native-toast-message';
 
 const GuestTicketSelection = () => {
-    const navigation = useNavigation();
+    const navigation = useNavigation<any>();
     const route = useRoute<any>();
     const { eventId, guestUuid, registeredBy } = route.params || {};
+
+    const { width } = useWindowDimensions();
+    const isTablet = width >= 768;
+    const { scale, verticalScale, moderateScale } = useScale();
+    const styles = useMemo(() => makeStyles(scale, verticalScale, moderateScale, isTablet), [scale, verticalScale, moderateScale, isTablet]);
 
     const [loading, setLoading] = useState(false);
     const [tickets, setTickets] = useState<any[]>([]);
@@ -114,7 +120,7 @@ const GuestTicketSelection = () => {
             <View style={styles.header}>
                 <BackButton onPress={() => navigation.goBack()} />
                 <Text style={styles.headerTitle}>Select Ticket</Text>
-                <View style={{ width: 40 }} />
+                <View style={{ width: scale(40) }} />
             </View>
 
             <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
@@ -212,7 +218,7 @@ const GuestTicketSelection = () => {
     );
 };
 
-const styles = StyleSheet.create({
+const makeStyles = (scale: (size: number) => number, verticalScale: (size: number) => number, moderateScale: (size: number, factor?: number) => number, isTablet: boolean = false) => StyleSheet.create({
     header: {
         width: '100%',
         paddingVertical: scale(16),
@@ -224,19 +230,22 @@ const styles = StyleSheet.create({
         borderBottomColor: '#F0F0F0',
     },
     headerTitle: {
-        fontSize: moderateScale(18),
+        fontSize: moderateScale(FontSize.xl), // 18 -> xl
         fontWeight: '600',
         color: '#333',
         flex: 1,
         textAlign: 'center',
-        marginRight: 40
+        marginRight: scale(40)
     },
     content: {
         padding: scale(20),
         paddingBottom: verticalScale(100),
+        width: '100%',
+        maxWidth: isTablet ? 600 : '100%',
+        alignSelf: 'center',
     },
     sectionTitle: {
-        fontSize: moderateScale(16),
+        fontSize: moderateScale(FontSize.lg), // 16 -> lg
         fontWeight: '600',
         color: '#333',
         marginBottom: verticalScale(15),
@@ -246,14 +255,14 @@ const styles = StyleSheet.create({
     },
     ticketCard: {
         backgroundColor: 'white',
-        borderRadius: 12,
+        borderRadius: scale(12),
         padding: scale(16),
         borderWidth: 1,
         borderColor: '#EFEFEF',
         shadowColor: "#000",
-        shadowOffset: { width: 0, height: 1 },
+        shadowOffset: { width: 0, height: verticalScale(1) },
         shadowOpacity: 0.05,
-        shadowRadius: 2,
+        shadowRadius: scale(2),
         elevation: 1,
     },
     ticketCardSelected: {
@@ -267,9 +276,9 @@ const styles = StyleSheet.create({
         gap: scale(15),
     },
     radioCircle: {
-        width: 22,
-        height: 22,
-        borderRadius: 11,
+        width: scale(22),
+        height: scale(22),
+        borderRadius: scale(11),
         borderWidth: 2,
         borderColor: '#D0D0D0',
         alignItems: 'center',
@@ -279,13 +288,13 @@ const styles = StyleSheet.create({
         borderColor: '#FF8A3C',
     },
     radioDot: {
-        width: 12,
-        height: 12,
-        borderRadius: 6,
+        width: scale(12),
+        height: scale(12),
+        borderRadius: scale(6),
         backgroundColor: '#FF8A3C',
     },
     ticketTitle: {
-        fontSize: moderateScale(16),
+        fontSize: moderateScale(FontSize.lg), // 16 -> lg
         fontWeight: '500',
         color: '#333',
     },
@@ -294,18 +303,18 @@ const styles = StyleSheet.create({
         fontWeight: '600',
     },
     ticketType: {
-        fontSize: moderateScale(13),
+        fontSize: moderateScale(FontSize.xs),
         color: '#888',
-        marginTop: 2,
+        marginTop: verticalScale(2),
     },
     detailsContainer: {
         marginTop: verticalScale(25),
         backgroundColor: 'white',
-        borderRadius: 12,
+        borderRadius: scale(12),
         padding: scale(16),
     },
     amenitiesTitle: {
-        fontSize: moderateScale(14),
+        fontSize: moderateScale(FontSize.sm),
         fontWeight: '600',
         color: '#555',
         marginBottom: verticalScale(12),
@@ -319,12 +328,12 @@ const styles = StyleSheet.create({
         backgroundColor: '#F5F5F5',
         paddingHorizontal: scale(12),
         paddingVertical: verticalScale(6),
-        borderRadius: 20,
+        borderRadius: scale(20),
         borderWidth: 1,
         borderColor: '#EFEFEF',
     },
     amenityText: {
-        fontSize: moderateScale(13),
+        fontSize: moderateScale(FontSize.xs),
         color: '#555',
         fontWeight: '500',
     },
@@ -340,12 +349,12 @@ const styles = StyleSheet.create({
         marginBottom: verticalScale(20),
         backgroundColor: 'white',
         padding: scale(16),
-        borderRadius: 12,
+        borderRadius: scale(12),
         borderWidth: 1,
         borderColor: '#EFEFEF'
     },
     quantityLabel: {
-        fontSize: moderateScale(15),
+        fontSize: moderateScale(FontSize.md),
         fontWeight: '500',
         color: '#333',
     },
@@ -355,37 +364,37 @@ const styles = StyleSheet.create({
         gap: scale(15),
     },
     controlButton: {
-        width: 32,
-        height: 32,
-        borderRadius: 16,
+        width: scale(32),
+        height: scale(32),
+        borderRadius: scale(16),
         backgroundColor: '#FFF1E8', // Light orange bg
         alignItems: 'center',
         justifyContent: 'center',
     },
     controlButtonText: {
-        fontSize: 20,
+        fontSize: moderateScale(20),
         fontWeight: '600',
         color: '#FF8A3C',
         lineHeight: 22,
     },
     quantityBox: {
-        minWidth: 30,
+        minWidth: scale(30),
         alignItems: 'center',
     },
     quantityText: {
-        fontSize: moderateScale(16),
+        fontSize: moderateScale(FontSize.md),
         fontWeight: '600',
         color: '#333',
     },
     whatsappText: {
-        fontSize: moderateScale(15),
+        fontSize: moderateScale(FontSize.md),
         color: '#333',
         fontWeight: '500',
     },
     checkbox: {
-        width: 24,
-        height: 24,
-        borderRadius: 6,
+        width: scale(24),
+        height: scale(24),
+        borderRadius: scale(6),
         borderWidth: 2,
         borderColor: '#D0D0D0',
         alignItems: 'center',
@@ -397,7 +406,7 @@ const styles = StyleSheet.create({
     },
     checkmark: {
         color: 'white',
-        fontSize: 14,
+        fontSize: moderateScale(FontSize.sm), // 14 -> sm
         fontWeight: 'bold',
     },
     footer: {
@@ -409,17 +418,17 @@ const styles = StyleSheet.create({
     nextButton: {
         backgroundColor: '#FF8A3C',
         paddingVertical: verticalScale(16),
-        borderRadius: 12,
+        borderRadius: scale(12),
         alignItems: 'center',
         shadowColor: "#FF8A3C",
-        shadowOffset: { width: 0, height: 4 },
+        shadowOffset: { width: 0, height: verticalScale(4) },
         shadowOpacity: 0.2,
-        shadowRadius: 8,
+        shadowRadius: scale(8),
         elevation: 4,
     },
     nextButtonText: {
         color: 'white',
-        fontSize: moderateScale(16),
+        fontSize: moderateScale(FontSize.md),
         fontWeight: '700',
         letterSpacing: 0.5,
     }

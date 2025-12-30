@@ -1,10 +1,16 @@
-import React, { useState } from 'react';
-import { StyleSheet, Text, View, SafeAreaView, TouchableOpacity, ScrollView, Alert, Platform, Modal } from 'react-native';
-import { useNavigation, useRoute } from '@react-navigation/native';
-import { scale, verticalScale, moderateScale } from '../../utils/scaling';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { StyleSheet, Text, View, SafeAreaView, TouchableOpacity, ScrollView, Alert, Platform, Modal, Image, BackHandler, LayoutAnimation, UIManager, TextInput, useWindowDimensions } from 'react-native';
+import { useNavigation, useRoute, useFocusEffect } from '@react-navigation/native';
+import { useScale } from '../../utils/useScale';
 import BackButton from '../../components/BackButton';
+import { FontSize } from '../../constants/fontSizes';
 import { payViaCash } from '../../api/event';
 import Toast from 'react-native-toast-message';
+
+// Enable LayoutAnimation for Android
+if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
+    UIManager.setLayoutAnimationEnabledExperimental(true);
+}
 
 const GuestPayment = () => {
     const navigation = useNavigation();
@@ -15,18 +21,46 @@ const GuestPayment = () => {
     const [paymentMode, setPaymentMode] = useState<'Cash' | 'Online'>('Cash');
     const [sendToWhatsapp, setSendToWhatsapp] = useState(route.params?.sendToWhatsapp || false);
     const [showConfirm, setShowConfirm] = useState(false);
+    const [showOnlineScreen, setShowOnlineScreen] = useState(false);
 
     const ticketData = ticketResponse?.data || {};
     const amountToPay = ticketData.amount_to_pay || 0;
     const currencySymbol = (ticketData.currency === 'rupees' || ticketData.currency === 'INR') ? '₹' : (ticketData.currency || '₹');
 
-    const handleBack = () => navigation.goBack();
+    const { width } = useWindowDimensions();
+    const { scale, verticalScale, moderateScale } = useScale();
+    const styles = useMemo(() => makeStyles(scale, verticalScale, moderateScale, width), [scale, verticalScale, moderateScale, width]);
+
+    // Handle Hardware Back Button
+    useFocusEffect(
+        useCallback(() => {
+            const onBackPress = () => {
+                if (showOnlineScreen) {
+                    setShowOnlineScreen(false);
+                    return true;
+                }
+                return false;
+            };
+
+            BackHandler.addEventListener('hardwareBackPress', onBackPress);
+
+            return () => BackHandler.removeEventListener('hardwareBackPress', onBackPress);
+        }, [showOnlineScreen])
+    );
+
+    const handleBack = () => {
+        if (showOnlineScreen) {
+            setShowOnlineScreen(false);
+        } else {
+            navigation.goBack();
+        }
+    };
 
     const handleSubmit = () => {
         if (paymentMode === 'Cash') {
             setShowConfirm(true);
         } else {
-            Alert.alert("Info", "Online payment is not supported yet.");
+            setShowOnlineScreen(true);
         }
     };
 
@@ -34,10 +68,8 @@ const GuestPayment = () => {
         setShowConfirm(false);
         setLoading(true);
         try {
-            // Fix 1: Send ALL facility IDs for the selected ticket
             const facilityIds = (route.params?.facilities || []).map((f: any) => f.id);
 
-            // Fix 4: Use correct payload shape (final)
             const payload = {
                 guest_ticket_id: ticketData.id,
                 payment_amount: amountToPay,
@@ -69,6 +101,17 @@ const GuestPayment = () => {
             setLoading(false);
         }
     };
+
+    if (showOnlineScreen) {
+        return (
+            <OnlinePaymentScreen
+                amount={amountToPay}
+                currency={currencySymbol}
+                mobile={guestDetails?.mobile}
+                onBack={handleBack}
+            />
+        );
+    }
 
     return (
         <SafeAreaView style={styles.container}>
@@ -242,9 +285,243 @@ const GuestPayment = () => {
     );
 };
 
+// -- Data Structures --
+const ALL_BANKS = [
+    { id: 'airtel', name: 'Airtel Payments Bank' },
+    { id: 'au', name: 'AU Small Finance Bank' },
+    { id: 'axis', name: 'Axis Bank' },
+    { id: 'bandhan', name: 'Bandhan Bank' },
+    { id: 'bbk', name: 'Bank of Bahrain and Kuwait' },
+    { id: 'bob_retail', name: 'Bank of Baroda - Retail Banking' },
+    { id: 'bassein', name: 'Bassein Catholic Co-operative Bank' },
+    { id: 'canara', name: 'Canara Bank' },
+    { id: 'dcb', name: 'DCB Bank' },
+    { id: 'deutsche', name: 'Deutsche Bank' },
+    { id: 'dbs', name: 'Development Bank of Singapore' },
+    { id: 'dhanlaxmi', name: 'Dhanlaxmi Bank' },
+    { id: 'dhanlaxmi_corp', name: 'Dhanlaxmi Bank - Corporate Banking' },
+    { id: 'equitas', name: 'Equitas Small Finance Bank' },
+    { id: 'esaf', name: 'ESAF Small Finance Bank' },
+    { id: 'federal', name: 'Federal Bank' },
+    { id: 'fincare', name: 'Fincare Small Finance Bank' },
+    { id: 'hsbc', name: 'HSBC' },
+    { id: 'idbi_corp', name: 'IDBI - Corporate Banking' },
+    { id: 'idfc', name: 'IDFC FIRST Bank' },
+    { id: 'indian', name: 'Indian Bank' },
+    { id: 'indian_allahabad', name: 'Indian Bank (Erstwhile Allahabad Bank)' },
+    { id: 'iob', name: 'Indian Overseas Bank' },
+    { id: 'indusind', name: 'IndusInd Bank' },
+    { id: 'jk', name: 'Jammu and Kashmir Bank' },
+    { id: 'kotak', name: 'Kotak Mahindra Bank' },
+    { id: 'mehsana', name: 'Mehsana Urban Co-operative Bank' },
+    { id: 'nkgsb', name: 'NKGSB Co-operative Bank' },
+    { id: 'nsdl', name: 'NSDL Payments Bank' },
+    { id: 'northeast', name: 'North East Small Finance Bank' },
+    { id: 'pnb_united', name: 'PNB (Erstwhile-United Bank of India)' },
+    { id: 'pnb_oriental', name: 'PNB (Erstwhile-Oriental Bank of Commerce)' },
+    { id: 'punjab_sind', name: 'Punjab & Sind Bank' },
+    { id: 'pnb_retail', name: 'Punjab National Bank - Retail Banking' },
+    { id: 'rbl', name: 'RBL Bank' },
+    { id: 'saraswat', name: 'Saraswat Co-operative Bank' },
+    { id: 'south_indian', name: 'South Indian Bank' },
+    { id: 'standard', name: 'Standard Chartered Bank' },
+    { id: 'svc', name: 'SVC Co-Operative Bank Ltd.' },
+    { id: 'svc_corp', name: 'SVC Co-Operative Bank Ltd. - Corporate' },
+    { id: 'syndicate', name: 'Syndicate Bank' },
+    { id: 'tmb', name: 'Tamilnad Mercantile Bank' },
+    { id: 'tamilnadu_apex', name: 'Tamilnadu State Apex Co-operative Bank' },
+    { id: 'thane', name: 'Thane Bharat Sahakari Bank' },
+    { id: 'tjsb', name: 'TJSB Sahakari Bank' },
+    { id: 'uco', name: 'UCO Bank' },
+    { id: 'ujjivan', name: 'Ujjivan Small Finance Bank' },
+    { id: 'union', name: 'Union Bank of India' },
+    { id: 'varachha', name: 'Varachha Co-operative Bank' },
+    { id: 'yes', name: 'Yes Bank' },
+    { id: 'yes_corp', name: 'Yes Bank - Corporate Banking' },
+    { id: 'zoroastrian', name: 'Zoroastrian Co-operative Bank' },
+];
+
+const gpayIcon = require('../../assets/img/payment/gpay.png');
+const phonepeIcon = require('../../assets/img/payment/PhonePe.png');
+const paytmIcon = require('../../assets/img/payment/icons8-paytm-48.png');
+const credIcon = require('../../assets/img/payment/cred.png');
+const amazonIcon = require('../../assets/img/payment/amazon.png');
+const bhimIcon = require('../../assets/img/payment/bhim.webp');
+const netbankingIcon = require('../../assets/img/payment/netbanking.png');
+const walletIcon = require('../../assets/img/payment/wallet.png');
+
+const UPI_APPS = [
+    { id: 'gpay', name: 'Google Pay', icon: gpayIcon },
+    { id: 'phonepe', name: 'PhonePe', icon: phonepeIcon },
+    { id: 'paytm', name: 'Paytm', icon: paytmIcon },
+    { id: 'cred', name: 'CRED', icon: credIcon },
+    { id: 'amazon', name: 'Amazon Pay', icon: amazonIcon },
+    { id: 'bhim', name: 'BHIM', icon: bhimIcon },
+];
+
+const BankSelectionScreen = ({ onClose, onSelect }: { onClose: () => void, onSelect: (bank: any) => void }) => {
+    const [search, setSearch] = useState('');
+    const { width } = useWindowDimensions();
+    const { scale, verticalScale, moderateScale } = useScale();
+    const styles = useMemo(() => makeStyles(scale, verticalScale, moderateScale, width), [scale, verticalScale, moderateScale, width]);
+
+    const filteredBanks = ALL_BANKS.filter(bank => bank.name.toLowerCase().includes(search.toLowerCase()));
+
+    return (
+        <SafeAreaView style={styles.cleanContainer}>
+            <View style={styles.bankHeader}>
+                <TouchableOpacity onPress={onClose} style={styles.closeSearchBtn}>
+                    <Text style={[styles.cleanBackArrow, { fontSize: 28 }]}>←</Text>
+                </TouchableOpacity>
+                <TextInput
+                    style={styles.searchBar}
+                    placeholder="Search for Banks"
+                    placeholderTextColor="#999"
+                    value={search}
+                    onChangeText={setSearch}
+                />
+            </View>
+
+            <ScrollView contentContainerStyle={styles.bankListContent}>
+                <Text style={[styles.bankSectionTitle, { marginTop: 10 }]}>All Banks</Text>
+                <View style={styles.allBanksList}>
+                    {filteredBanks.map((bank, index) => (
+                        <TouchableOpacity key={index} style={styles.bankRow} onPress={() => onSelect(bank)}>
+                            {/* Placeholder Icon */}
+                            <View style={styles.bankIconPlaceholder}>
+                                <Text style={styles.bankIconPlaceholderText}>{bank.name.charAt(0)}</Text>
+                            </View>
+                            <View style={styles.bankInfo}>
+                                <Text style={styles.bankName}>{bank.name}</Text>
+                            </View>
+                            <Text style={styles.chevron}>›</Text>
+                        </TouchableOpacity>
+                    ))}
+                </View>
+                <View style={{ height: 40 }} />
+            </ScrollView>
+        </SafeAreaView>
+    );
+}
+
+// -- Modern Minimalist Payment Screen --
+const OnlinePaymentScreen = ({ amount, currency, mobile, onBack }: { amount: any, currency: string, mobile: any, onBack: () => void }) => {
+    const [showBankScreen, setShowBankScreen] = useState(false);
+    const { width } = useWindowDimensions();
+    const { scale, verticalScale, moderateScale } = useScale();
+    const styles = useMemo(() => makeStyles(scale, verticalScale, moderateScale, width), [scale, verticalScale, moderateScale, width]);
+
+    const handleBankSelect = (bank: any) => {
+        setShowBankScreen(false);
+        // Logic to handle bank selection, maybe set it as selected mode
+        Alert.alert("Bank Selected", `You selected ${bank.name}`);
+    };
+
+    if (showBankScreen) {
+        return <BankSelectionScreen onClose={() => setShowBankScreen(false)} onSelect={handleBankSelect} />;
+    }
+
+    return (
+        <SafeAreaView style={styles.cleanContainer}>
+            {/* Header */}
+            <View style={styles.cleanHeader}>
+                <TouchableOpacity onPress={onBack} style={styles.cleanBackBtn}>
+                    <Text style={styles.cleanBackArrow}>←</Text>
+                </TouchableOpacity>
+                <Text style={styles.cleanHeaderTitle}>Checkout</Text>
+                <View style={{ width: 40 }} />
+            </View>
+
+            <ScrollView contentContainerStyle={styles.cleanContent} showsVerticalScrollIndicator={false}>
+
+                {/* Amount Section */}
+                <View style={styles.cleanAmountSection}>
+                    <Text style={styles.cleanAmountLabel}>Total Payable</Text>
+                    <Text style={styles.cleanAmountValue}>{currency}{amount}</Text>
+                </View>
+
+                {/* Section: Recommended (Apps) */}
+                <View style={styles.cleanSection}>
+                    <Text style={styles.cleanSectionTitle}>Pay with UPI</Text>
+                    <View style={styles.cleanAppsGrid}>
+                        {UPI_APPS.map((app) => (
+                            <TouchableOpacity key={app.id} style={styles.cleanAppItem} activeOpacity={0.7}>
+                                <View style={styles.cleanAppIconContainer}>
+                                    <Image source={app.icon} style={styles.cleanAppIcon} resizeMode="contain" />
+                                </View>
+                                <Text style={styles.cleanAppName}>{app.name}</Text>
+                            </TouchableOpacity>
+                        ))}
+                    </View>
+
+                    <View style={styles.cleanInputContainer}>
+                        <Text style={styles.cleanInputLabel}>Pay with UPI ID/NUMBER</Text>
+                        <TextInput
+                            style={styles.cleanInput}
+                            placeholder="example@oksbi"
+                            placeholderTextColor="#999"
+                        />
+                    </View>
+                </View>
+
+                {/* Section: Cards */}
+                <View style={styles.cleanSection}>
+                    <Text style={styles.cleanSectionTitle}>Credit / Debit Cards</Text>
+                    <TouchableOpacity style={styles.cleanCardRow} activeOpacity={0.7}>
+                        <View style={styles.cleanCardIconBox}>
+                            <Text style={{ fontSize: 18 }}>💳</Text>
+                        </View>
+                        <Text style={styles.cleanCardText}>Add details</Text>
+                        <Text style={styles.cleanChevron}>›</Text>
+                    </TouchableOpacity>
+                </View>
+
+                {/* Section: More Options */}
+                <View style={styles.cleanSection}>
+                    <Text style={styles.cleanSectionTitle}>More Options</Text>
+
+                    <TouchableOpacity
+                        style={styles.cleanOptionRow}
+                        activeOpacity={0.7}
+                        onPress={() => setShowBankScreen(true)}
+                    >
+                        <View style={styles.cleanOptionIconBox}>
+                            <Image source={netbankingIcon} style={styles.cleanOptionIcon} resizeMode="contain" />
+                        </View>
+                        <Text style={styles.cleanOptionText}>Netbanking</Text>
+                        <Text style={styles.cleanChevron}>›</Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity style={[styles.cleanOptionRow, { borderBottomWidth: 0 }]} activeOpacity={0.7}>
+                        <View style={styles.cleanOptionIconBox}>
+                            <Image source={walletIcon} style={styles.cleanOptionIcon} resizeMode="contain" />
+                        </View>
+                        <Text style={styles.cleanOptionText}>Wallets</Text>
+                        <Text style={styles.cleanChevron}>›</Text>
+                    </TouchableOpacity>
+                </View>
+
+                <View style={{ height: 40 }} />
+
+            </ScrollView>
+
+            {/* Bottom Button */}
+            <View style={styles.cleanFooter}>
+                <TouchableOpacity style={styles.cleanPayButton} activeOpacity={0.8}>
+                    <Text style={styles.cleanPayButtonText}>Pay {currency}{amount}</Text>
+                </TouchableOpacity>
+                <View style={styles.cleanSecureRow}>
+                    <Text style={{ fontSize: 12 }}>🔒</Text>
+                    <Text style={styles.cleanSecureText}>Secured by Trusted Payments</Text>
+                </View>
+            </View>
+        </SafeAreaView>
+    );
+};
+
 export default GuestPayment;
 
-const styles = StyleSheet.create({
+const makeStyles = (scale: (size: number) => number, verticalScale: (size: number) => number, moderateScale: (size: number, factor?: number) => number, width: number) => StyleSheet.create({
     container: {
         flex: 1,
         backgroundColor: '#F8F9FA',
@@ -320,7 +597,7 @@ const styles = StyleSheet.create({
         fontSize: moderateScale(14),
         color: '#333',
         fontWeight: '600',
-        maxWidth: '60%', // Prevent overflow for long emails
+        maxWidth: '60%',
         textAlign: 'right'
     },
     divider: {
@@ -524,7 +801,6 @@ const styles = StyleSheet.create({
         fontSize: moderateScale(16),
         fontWeight: '700',
     },
-    // Modal Styles
     modalOverlay: {
         flex: 1,
         backgroundColor: 'rgba(0,0,0,0.5)',
@@ -548,13 +824,13 @@ const styles = StyleSheet.create({
         elevation: 5,
     },
     modalTitle: {
-        fontSize: moderateScale(20),
+        fontSize: moderateScale(FontSize.xl), // 20
         fontWeight: '700',
         color: '#1E232C',
         marginBottom: verticalScale(12),
     },
     modalMessage: {
-        fontSize: moderateScale(16),
+        fontSize: moderateScale(FontSize.md), // 16
         color: '#555',
         marginBottom: verticalScale(24),
         textAlign: 'center',
@@ -577,16 +853,296 @@ const styles = StyleSheet.create({
         borderColor: '#E0E0E0',
     },
     confirmButton: {
-        backgroundColor: '#FF8A3C', // Apps Orange
+        backgroundColor: '#FF8A3C',
     },
     cancelButtonText: {
         color: '#555',
-        fontSize: moderateScale(15),
+        fontSize: moderateScale(FontSize.md),
         fontWeight: '600',
     },
     confirmButtonText: {
         color: 'white',
-        fontSize: moderateScale(15),
+        fontSize: moderateScale(FontSize.md),
         fontWeight: '700',
+    },
+
+    // --- Modern Minimalist Styles ---
+    cleanContainer: {
+        flex: 1,
+        backgroundColor: '#FAFAFA', // Very light grey/white
+    },
+    cleanHeader: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        paddingHorizontal: scale(20),
+        paddingVertical: verticalScale(16),
+        backgroundColor: '#FAFAFA',
+    },
+    cleanBackBtn: {
+        width: 40,
+        height: 40,
+        alignItems: 'flex-start',
+        justifyContent: 'center'
+    },
+    cleanBackArrow: {
+        fontSize: moderateScale(FontSize.xxl), // 24
+        color: '#1A1A1A',
+        fontWeight: '300'
+    },
+    cleanHeaderTitle: {
+        fontSize: moderateScale(FontSize.md),
+        fontWeight: '600',
+        color: '#1A1A1A',
+    },
+    cleanContent: {
+        padding: scale(24),
+    },
+    cleanAmountSection: {
+        alignItems: 'center',
+        marginBottom: verticalScale(40),
+        marginTop: verticalScale(10),
+    },
+    cleanAmountLabel: {
+        fontSize: moderateScale(FontSize.sm),
+        color: '#666',
+        marginBottom: 8,
+        fontWeight: '500'
+    },
+    cleanAmountValue: {
+        fontSize: moderateScale(36), // Keep 36
+        color: '#1A1A1A',
+        fontWeight: '700',
+    },
+    cleanSection: {
+        marginBottom: verticalScale(32),
+    },
+    cleanSectionTitle: {
+        fontSize: moderateScale(FontSize.md),
+        fontWeight: '600',
+        color: '#1A1A1A',
+        marginBottom: verticalScale(16),
+    },
+    cleanAppsGrid: {
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        gap: scale(16),
+        justifyContent: 'space-between'
+    },
+    cleanAppItem: {
+        width: (width - scale(48) - scale(32)) / 3, // 3 columns
+        alignItems: 'center',
+        gap: 8,
+        marginBottom: 8
+    },
+    cleanAppIconContainer: {
+        width: 60,
+        height: 60,
+        borderRadius: 16,
+        backgroundColor: 'white',
+        alignItems: 'center',
+        justifyContent: 'center',
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.05,
+        shadowRadius: 8,
+        elevation: 2,
+    },
+    cleanAppIcon: {
+        width: 32,
+        height: 32,
+    },
+    cleanAppName: {
+        fontSize: moderateScale(FontSize.xs),
+        color: '#444',
+        fontWeight: '500',
+        textAlign: 'center'
+    },
+    cleanCardRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: 'white',
+        padding: scale(16),
+        borderRadius: 16,
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.05,
+        shadowRadius: 8,
+        elevation: 1,
+    },
+    cleanCardIconBox: {
+        width: 40,
+        height: 28,
+        backgroundColor: '#F5F5F5',
+        borderRadius: 4,
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginRight: 16,
+    },
+    cleanCardText: {
+        fontSize: moderateScale(FontSize.md),
+        color: '#333',
+        fontWeight: '500',
+        flex: 1
+    },
+    cleanChevron: {
+        fontSize: moderateScale(FontSize.xl),
+        color: '#CCC',
+        fontWeight: '300'
+    },
+    cleanOptionRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingVertical: scale(16),
+        borderBottomWidth: 1,
+        borderBottomColor: '#F0F0F0',
+    },
+    cleanOptionIconBox: {
+        width: 32,
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginRight: 12
+    },
+    cleanOptionText: {
+        fontSize: moderateScale(FontSize.md),
+        color: '#333',
+        fontWeight: '500',
+        flex: 1
+    },
+    cleanOptionIcon: {
+        width: 24,
+        height: 24,
+    },
+    cleanFooter: {
+        padding: scale(24),
+        backgroundColor: '#FAFAFA',
+        alignItems: 'center'
+    },
+    cleanPayButton: {
+        width: '100%',
+        backgroundColor: '#1E232C',
+        paddingVertical: verticalScale(16),
+        borderRadius: 16,
+        alignItems: 'center',
+        justifyContent: 'center',
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.2,
+        shadowRadius: 10,
+        elevation: 5,
+        marginBottom: 16,
+    },
+    cleanPayButtonText: {
+        color: 'white',
+        fontSize: moderateScale(FontSize.md),
+        fontWeight: '600',
+        letterSpacing: 0.5
+    },
+    cleanSecureRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 8,
+        opacity: 0.6
+    },
+    cleanSecureText: {
+        fontSize: moderateScale(FontSize.xs),
+        color: '#666',
+        fontWeight: '500'
+    },
+    cleanInputContainer: {
+        marginTop: verticalScale(20),
+    },
+    cleanInputLabel: {
+        fontSize: moderateScale(FontSize.sm),
+        color: '#333',
+        marginBottom: verticalScale(8),
+        fontWeight: '500',
+    },
+    cleanInput: {
+        backgroundColor: 'white',
+        borderWidth: 1,
+        borderColor: '#E0E0E0',
+        borderRadius: 12,
+        paddingHorizontal: scale(16),
+        paddingVertical: verticalScale(14),
+        fontSize: moderateScale(FontSize.md),
+        color: '#333',
+    },
+    bankHeader: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        padding: scale(16),
+        backgroundColor: 'white',
+        borderBottomWidth: 1,
+        borderBottomColor: '#F0F0F0',
+        gap: 12
+    },
+    closeSearchBtn: {
+        width: 30,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    searchBar: {
+        flex: 1,
+        backgroundColor: '#F5F5F5',
+        borderRadius: 8,
+        paddingHorizontal: scale(12),
+        paddingVertical: verticalScale(10),
+        fontSize: moderateScale(FontSize.md),
+        color: '#333',
+    },
+    bankListContent: {
+        padding: scale(20),
+    },
+    bankSectionTitle: {
+        fontSize: moderateScale(FontSize.md),
+        fontWeight: '600',
+        color: '#666',
+        marginBottom: verticalScale(12),
+    },
+    allBanksList: {
+        backgroundColor: 'white',
+        borderRadius: 12,
+        borderWidth: 1,
+        borderColor: '#F0F0F0',
+    },
+    bankRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingVertical: verticalScale(14),
+        paddingHorizontal: scale(16),
+        borderBottomWidth: 1,
+        borderBottomColor: '#F5F5F5',
+    },
+    bankIconPlaceholder: {
+        width: 36,
+        height: 36,
+        borderRadius: 18,
+        backgroundColor: '#EEE',
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginRight: scale(12),
+        borderWidth: 1,
+        borderColor: '#E0E0E0'
+    },
+    bankIconPlaceholderText: {
+        fontSize: moderateScale(FontSize.md), // 16
+        fontWeight: '600',
+        color: '#555'
+    },
+    bankInfo: {
+        flex: 1,
+        justifyContent: 'center',
+    },
+    bankName: {
+        fontSize: moderateScale(FontSize.md),
+        color: '#333',
+        fontWeight: '500',
+    },
+    chevron: {
+        fontSize: moderateScale(FontSize.xl),
+        color: '#CCC',
+        fontWeight: '300'
     }
+
 });

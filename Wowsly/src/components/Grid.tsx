@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useMemo } from "react";
 import {
   View,
   Text,
@@ -7,7 +7,8 @@ import {
   StyleSheet,
   ImageSourcePropType,
 } from "react-native";
-import { scale, verticalScale, moderateScale } from "../utils/scaling";
+import { FontSize } from "../constants/fontSizes";
+import { useScale } from "../utils/useScale";
 
 type GridProps = {
   icon: ImageSourcePropType;
@@ -19,22 +20,27 @@ type GridProps = {
 };
 
 const Grid = ({ icon, title, value, onPress, showArrow = true, disabled = false }: GridProps) => {
+  const { scale, verticalScale, moderateScale } = useScale();
+  const styles = useMemo(() => makeStyles(scale, verticalScale, moderateScale), [scale, verticalScale, moderateScale]);
+
   return (
     <TouchableOpacity
       style={[styles.card, disabled && styles.disabledCard]}
       onPress={onPress}
       disabled={disabled}
+      activeOpacity={0.7}
     >
       <View style={styles.row}>
-        <Image source={icon} style={[styles.icon, disabled && styles.disabledImage]} />
+        <Image source={icon} style={[styles.icon, disabled && styles.disabledImage]} resizeMode="contain" />
         <Text style={[styles.title, disabled && styles.disabledText]}>{title}</Text>
       </View>
-      <Text style={[styles.value, disabled && styles.disabledText]}>{value}</Text>
+      <Text style={[styles.value, disabled && styles.disabledText]} numberOfLines={1} adjustsFontSizeToFit>{value}</Text>
 
       {onPress && showArrow && !disabled && (
         <Image
           source={require("../assets/img/common/forwardarrow.png")}
           style={styles.arrow}
+          resizeMode="contain"
         />
       )}
     </TouchableOpacity>
@@ -43,23 +49,24 @@ const Grid = ({ icon, title, value, onPress, showArrow = true, disabled = false 
 
 export default Grid;
 
-const styles = StyleSheet.create({
+const makeStyles = (scale: (size: number) => number, verticalScale: (size: number) => number, moderateScale: (size: number, factor?: number) => number) => StyleSheet.create({
   card: {
-    height: verticalScale(80),
+    minHeight: verticalScale(90),
     backgroundColor: "white",
-    width: scale(145),
-    borderRadius: scale(8),
+    width: '100%', // Flexible width
+    borderRadius: moderateScale(12),
     borderColor: "#EDEDED",
     borderWidth: 1,
-    padding: scale(8),
+    padding: moderateScale(12),
     shadowColor: "#000",
     shadowOffset: {
       width: 0,
-      height: verticalScale(4),
+      height: verticalScale(2),
     },
-    shadowOpacity: 0.3,
-    shadowRadius: scale(4.65),
+    shadowOpacity: 0.1,
+    shadowRadius: scale(3),
     elevation: 3,
+    justifyContent: 'space-between'
   },
   disabledCard: {
     backgroundColor: "#F5F5F5",
@@ -69,21 +76,24 @@ const styles = StyleSheet.create({
   },
   row: {
     flexDirection: "row",
-    gap: scale(5),
+    alignItems: 'center',
+    marginBottom: verticalScale(4)
   },
   icon: {
     height: scale(20),
     width: scale(20),
+    marginRight: scale(8),
   },
   title: {
-    fontSize: moderateScale(12),
+    fontSize: moderateScale(FontSize.sm),
     fontWeight: "500",
+    color: '#333'
   },
   value: {
-    fontSize: moderateScale(25),
+    fontSize: moderateScale(FontSize.xl), // Slightly smaller to prevent overflow
     fontWeight: "700",
-    marginLeft: scale(5),
     color: "black",
+    marginTop: verticalScale(4)
   },
   disabledText: {
     opacity: 0.5,
@@ -94,9 +104,11 @@ const styles = StyleSheet.create({
     tintColor: "#888",
   },
   arrow: {
-    height: scale(30),
-    width: scale(30),
-    alignSelf: "flex-end",
-    bottom: verticalScale(14),
+    height: scale(24),
+    width: scale(24),
+    position: 'absolute',
+    right: scale(8),
+    bottom: verticalScale(8),
+    tintColor: '#FF8A3C' // optional brand color or keep original
   },
 });

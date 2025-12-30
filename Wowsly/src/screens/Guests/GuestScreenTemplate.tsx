@@ -15,6 +15,7 @@ import {
   Alert,
   DeviceEventEmitter,
   ActivityIndicator,
+  useWindowDimensions,
 } from 'react-native';
 import { GestureHandlerRootView, Swipeable } from 'react-native-gesture-handler';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
@@ -26,7 +27,8 @@ import { scanStore, getMergedGuest } from '../../context/ScanStore';
 import GuestDetailsModal from '../../components/GuestDetailsModal';
 import BackButton from '../../components/BackButton';
 import Pagination from '../../components/Pagination';
-import { scale, verticalScale, moderateScale } from '../../utils/scaling';
+import { useScale } from '../../utils/useScale';
+import { FontSize } from '../../constants/fontSizes';
 
 export type GuestFilter = 'All' | GuestGroup;
 
@@ -70,7 +72,7 @@ const PREV_ICON = require('../../assets/img/common/previous.png');
 const NEXT_ICON = require('../../assets/img/common/next.png');
 
 // --- Optimization: Memoized Row Component ---
-const GuestRow = React.memo(({ item, onPress, showActions, onActionPress }: { item: any; onPress: (guest: any) => void; showActions: boolean; onActionPress: (guest: any) => void }) => {
+const GuestRow = React.memo(({ item, onPress, showActions, onActionPress, styles }: { item: any; onPress: (guest: any) => void; showActions: boolean; onActionPress: (guest: any) => void, styles: any }) => {
   const name = item.name || item.first_name + ' ' + item.last_name || 'Guest';
   const avatar = item.avatar || item.profile_photo;
   let displayStatus = item.status || 'Registered';
@@ -113,21 +115,21 @@ const GuestRow = React.memo(({ item, onPress, showActions, onActionPress }: { it
   }
 
   const renderRightActions = () => (
-    <View style={localStyles.rowActions}>
+    <View style={styles.rowActions}>
       <TouchableOpacity
         activeOpacity={0.8}
-        style={[localStyles.actionButton, localStyles.editButton]}
+        style={[styles.actionButton, styles.editButton]}
       >
-        <Text style={localStyles.actionText}>Edit</Text>
+        <Text style={styles.actionText}>Edit</Text>
       </TouchableOpacity>
     </View>
   );
 
   // Memoize dynamic style for status chip text
   const statusTextStyle = useMemo(() => ([
-    localStyles.statusChipText,
+    styles.statusChipText,
     { color: statusStyle.color },
-  ]), [statusStyle.color]);
+  ]), [statusStyle.color, styles.statusChipText]);
 
   const handlePress = useCallback(() => {
     onPress(item);
@@ -139,34 +141,34 @@ const GuestRow = React.memo(({ item, onPress, showActions, onActionPress }: { it
         activeOpacity={0.7}
         onPress={handlePress}
       >
-        <View style={localStyles.guestRow}>
+        <View style={styles.guestRow}>
           {avatar ? (
             <FastImage
               source={{ uri: avatar, priority: FastImage.priority.normal }}
-              style={localStyles.avatar}
+              style={styles.avatar}
               resizeMode={FastImage.resizeMode.cover}
             />
           ) : (
-            <View style={[localStyles.avatar, localStyles.avatarPlaceholder]}>
-              <Text style={localStyles.avatarPlaceholderText}>
+            <View style={[styles.avatar, styles.avatarPlaceholder]}>
+              <Text style={styles.avatarPlaceholderText}>
                 {name.charAt(0).toUpperCase()}
               </Text>
             </View>
           )}
 
-          <View style={localStyles.guestInfo}>
-            <Text style={localStyles.guestName}>{name}</Text>
+          <View style={styles.guestInfo}>
+            <Text style={styles.guestName}>{name}</Text>
           </View>
 
           {/* Info Icon */}
-          <TouchableOpacity onPress={handlePress} style={localStyles.arrowContainer}>
-            <Image source={require('../../assets/img/common/info.png')} style={[localStyles.arrowIcon, { tintColor: '#757575' }]} resizeMode="contain" />
+          <TouchableOpacity onPress={handlePress} style={styles.arrowContainer}>
+            <Image source={require('../../assets/img/common/info.png')} style={[styles.arrowIcon, { tintColor: '#757575' }]} resizeMode="contain" />
           </TouchableOpacity>
 
           {/* Action Arrow for Approval Basis */}
           {showActions && (
-            <TouchableOpacity onPress={() => onActionPress(item)} style={localStyles.arrowContainer}>
-              <Image source={require('../../assets/img/common/forwardarrow.png')} style={localStyles.arrowIcon} resizeMode="contain" />
+            <TouchableOpacity onPress={() => onActionPress(item)} style={styles.arrowContainer}>
+              <Image source={require('../../assets/img/common/forwardarrow.png')} style={styles.arrowIcon} resizeMode="contain" />
             </TouchableOpacity>
           )}
         </View>
@@ -189,6 +191,11 @@ const GuestScreenTemplate: React.FC<GuestScreenTemplateProps> = ({
   eventId,
 }) => {
   const navigation = useNavigation();
+
+  const { width } = useWindowDimensions();
+  const { scale, verticalScale, moderateScale } = useScale();
+  const styles = useMemo(() => makeStyles(scale, verticalScale, moderateScale), [scale, verticalScale, moderateScale]);
+
   const [activeFilter, setActiveFilter] = useState<GuestFilter>(initialFilter);
   const [searchQuery, setSearchQuery] = useState('');
   const [guests, setGuests] = useState<any[]>([]);
@@ -361,6 +368,11 @@ const GuestScreenTemplate: React.FC<GuestScreenTemplateProps> = ({
         setCurrentPage(page);
       }
 
+      // ⚡⚡⚡ Safety: If fetched count is small, assume end of list to prevent ghost pagination ⚡⚡⚡
+      if (fetchedGuests.length < 50) {
+        setLastPage(page);
+      }
+
       const normalizedGuests = fetchedGuests.map((g: any) => ({
         ...g,
         id: g.id || g.guest_id || g.event_user_id,
@@ -450,57 +462,58 @@ const GuestScreenTemplate: React.FC<GuestScreenTemplateProps> = ({
         onPress={handleGuestPress}
         showActions={isApprovalBasis}
         onActionPress={handleActionPress}
+        styles={styles}
       />
     );
-  }, [handleGuestPress, isApprovalBasis, handleActionPress]);
+  }, [handleGuestPress, isApprovalBasis, handleActionPress, styles]);
 
   // Styles memoization
-  const headerSpacerStyle = useMemo(() => ({ width: scale(36) }), []);
+  const headerSpacerStyle = useMemo(() => ({ width: scale(36) }), [scale]);
 
   // Optimization: getItemLayout
   const getItemLayout = useCallback((data: any, index: number) => ({
     length: verticalScale(86), // Approx height (GuestRow + Separator)
     offset: verticalScale(86) * index,
     index,
-  }), []);
+  }), [verticalScale]);
 
   return (
-    <SafeAreaView style={localStyles.safeArea}>
+    <SafeAreaView style={styles.safeArea}>
       <StatusBar barStyle="dark-content" backgroundColor="#ffffff" />
-      <View style={localStyles.header}>
+      <View style={styles.header}>
         <BackButton onPress={() => navigation.canGoBack() && navigation.goBack()} />
-        <Text style={localStyles.headerTitle}>Guest List</Text>
+        <Text style={styles.headerTitle}>Guest List</Text>
         <View style={headerSpacerStyle} />
       </View>
 
-      <View style={localStyles.tabRow}>
+      <View style={styles.tabRow}>
         {tabs.map((tab) => {
           const isActive = tab === activeFilter;
           return (
             <TouchableOpacity
               key={tab}
               activeOpacity={0.8}
-              style={localStyles.tabButton}
+              style={styles.tabButton}
               onPress={() => setActiveFilter(tab)}
             >
               <Text
                 style={[
-                  localStyles.tabLabel,
-                  isActive && localStyles.tabLabelActive,
+                  styles.tabLabel,
+                  isActive && styles.tabLabelActive,
                 ]}
               >
                 {tab}
               </Text>
-              {isActive ? <View style={localStyles.tabIndicator} /> : null}
+              {isActive ? <View style={styles.tabIndicator} /> : null}
             </TouchableOpacity>
           );
         })}
       </View>
 
-      <View style={localStyles.searchContainer}>
-        <Image source={SEARCH_ICON} style={localStyles.searchIcon} />
+      <View style={styles.searchContainer}>
+        <Image source={SEARCH_ICON} style={styles.searchIcon} />
         <TextInput
-          style={localStyles.searchInput}
+          style={styles.searchInput}
           placeholder="Search by name"
           placeholderTextColor="#A1A1A1"
           value={searchQuery}
@@ -508,17 +521,17 @@ const GuestScreenTemplate: React.FC<GuestScreenTemplateProps> = ({
         />
       </View>
 
-      <GestureHandlerRootView style={localStyles.listWrapper}>
+      <GestureHandlerRootView style={styles.listWrapper}>
         {loading ? (
-          <View style={localStyles.loadingContainer}>
+          <View style={styles.loadingContainer}>
             <ActivityIndicator size="large" color="#FF8A3C" />
           </View>
         ) : (
           <FlatList
             data={filteredGuests}
             keyExtractor={(item, index) => `${item.id}-${index}`}
-            contentContainerStyle={localStyles.listContent}
-            ItemSeparatorComponent={() => <View style={localStyles.separator} />}
+            contentContainerStyle={styles.listContent}
+            ItemSeparatorComponent={() => <View style={styles.separator} />}
             renderItem={renderItem}
             initialNumToRender={10}
             maxToRenderPerBatch={10}
@@ -526,10 +539,10 @@ const GuestScreenTemplate: React.FC<GuestScreenTemplateProps> = ({
             removeClippedSubviews={true}
             getItemLayout={getItemLayout}
             ListEmptyComponent={
-              <View style={localStyles.emptyState}>
-                <Image source={NOGUESTS_ICON} style={localStyles.emptyIcon} />
-                <Text style={localStyles.emptyTitle}>No guests found</Text>
-                <Text style={localStyles.emptySubtitle}>
+              <View style={styles.emptyState}>
+                <Image source={NOGUESTS_ICON} style={styles.emptyIcon} />
+                <Text style={styles.emptyTitle}>No guests found</Text>
+                <Text style={styles.emptySubtitle}>
                   Try a different name or category.
                 </Text>
               </View>
@@ -555,28 +568,28 @@ const GuestScreenTemplate: React.FC<GuestScreenTemplateProps> = ({
         onRequestClose={() => setActionModalVisible(false)}
       >
         <TouchableOpacity
-          style={localStyles.modalOverlay}
+          style={styles.modalOverlay}
           activeOpacity={1}
           onPress={() => setActionModalVisible(false)}
         >
-          <View style={localStyles.quickActionCard}>
-            <Text style={localStyles.quickActionTitle}>Action for Guest</Text>
+          <View style={styles.quickActionCard}>
+            <Text style={styles.quickActionTitle}>Action for Guest</Text>
             {actionGuest && (
-              <Text style={localStyles.quickActionsubtitle}>
+              <Text style={styles.quickActionsubtitle}>
                 {actionGuest.name || actionGuest.first_name + ' ' + actionGuest.last_name || "Guest"}
               </Text>
             )}
-            <TouchableOpacity style={localStyles.quickActionButton} onPress={() => performAction('accepted')}>
-              <Text style={localStyles.quickActionText}>Accept</Text>
+            <TouchableOpacity style={styles.quickActionButton} onPress={() => performAction('accepted')}>
+              <Text style={styles.quickActionText}>Accept</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={localStyles.quickActionButton} onPress={() => performAction('rejected')}>
-              <Text style={localStyles.quickActionText}>Reject</Text>
+            <TouchableOpacity style={styles.quickActionButton} onPress={() => performAction('rejected')}>
+              <Text style={styles.quickActionText}>Reject</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={[localStyles.quickActionButton]} onPress={() => performAction('blocked')}>
-              <Text style={[localStyles.quickActionText, { color: '#D32F2F' }]}>Reject & Block</Text>
+            <TouchableOpacity style={[styles.quickActionButton]} onPress={() => performAction('blocked')}>
+              <Text style={[styles.quickActionText, { color: '#D32F2F' }]}>Reject & Block</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={localStyles.cancelActionButton} onPress={() => setActionModalVisible(false)}>
-              <Text style={localStyles.cancelActionText}>Cancel</Text>
+            <TouchableOpacity style={styles.cancelActionButton} onPress={() => setActionModalVisible(false)}>
+              <Text style={styles.cancelActionText}>Cancel</Text>
             </TouchableOpacity>
           </View>
         </TouchableOpacity>
@@ -608,7 +621,7 @@ const GuestScreenTemplate: React.FC<GuestScreenTemplateProps> = ({
   );
 };
 
-const localStyles = StyleSheet.create({
+const makeStyles = (scale: (size: number) => number, verticalScale: (size: number) => number, moderateScale: (size: number, factor?: number) => number) => StyleSheet.create({
   safeArea: {
     flex: 1,
     backgroundColor: '#ffffff',
@@ -711,7 +724,7 @@ const localStyles = StyleSheet.create({
     backgroundColor: '#FF8A3C',
   },
   avatarPlaceholderText: {
-    fontSize: moderateScale(18),
+    fontSize: moderateScale(FontSize.lg), // 18 -> lg
     fontWeight: '600',
     color: '#FFFFFF',
   },
@@ -720,7 +733,7 @@ const localStyles = StyleSheet.create({
     justifyContent: 'center',
   },
   guestName: {
-    fontSize: moderateScale(16),
+    fontSize: moderateScale(FontSize.md), // 16 -> md
     color: '#333',
     fontWeight: '500',
   },
@@ -745,11 +758,11 @@ const localStyles = StyleSheet.create({
   },
   actionText: {
     color: '#000',
-    fontSize: moderateScale(12),
+    fontSize: moderateScale(FontSize.xs), // 12 -> xs
     fontWeight: '600',
   },
   statusChipText: {
-    fontSize: moderateScale(12),
+    fontSize: moderateScale(FontSize.xs), // 12 -> xs
     fontWeight: '600',
   },
   // Empty State
@@ -768,13 +781,13 @@ const localStyles = StyleSheet.create({
     opacity: 0.8,
   },
   emptyTitle: {
-    fontSize: moderateScale(18),
+    fontSize: moderateScale(FontSize.lg), // 18 -> lg
     fontWeight: '700',
     color: '#424242',
     marginBottom: verticalScale(8),
   },
   emptySubtitle: {
-    fontSize: moderateScale(14),
+    fontSize: moderateScale(FontSize.sm), // 14 -> sm
     color: '#9E9E9E',
     textAlign: 'center',
   },
@@ -807,13 +820,13 @@ const localStyles = StyleSheet.create({
     elevation: 5,
   },
   quickActionTitle: {
-    fontSize: moderateScale(18),
+    fontSize: moderateScale(FontSize.lg), // 18 -> lg
     fontWeight: 'bold',
     marginBottom: verticalScale(4),
     color: '#000',
   },
   quickActionsubtitle: {
-    fontSize: moderateScale(14),
+    fontSize: moderateScale(FontSize.sm), // 14 -> sm
     color: '#666',
     marginBottom: verticalScale(20),
     textAlign: 'center',
@@ -826,7 +839,7 @@ const localStyles = StyleSheet.create({
     alignItems: 'center',
   },
   quickActionText: {
-    fontSize: moderateScale(16),
+    fontSize: moderateScale(FontSize.md), // 16 -> md
     color: '#007AFF', // Standard Blue
     fontWeight: '500',
   },
@@ -837,7 +850,7 @@ const localStyles = StyleSheet.create({
     alignItems: 'center',
   },
   cancelActionText: {
-    fontSize: moderateScale(16),
+    fontSize: moderateScale(FontSize.md), // 16 -> md
     color: '#999',
     fontWeight: '500',
   },

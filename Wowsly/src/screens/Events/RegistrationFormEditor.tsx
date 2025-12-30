@@ -1,12 +1,13 @@
-import React, { useState, useEffect } from 'react'
-import { StyleSheet, Text, View, SafeAreaView, TouchableOpacity, ScrollView, TextInput, Platform, KeyboardAvoidingView, Switch, Modal, Image, Alert } from 'react-native'
+import React, { useState, useEffect, useMemo } from 'react'
+import { StyleSheet, Text, View, SafeAreaView, TouchableOpacity, ScrollView, TextInput, Platform, KeyboardAvoidingView, Switch, Modal, Image, Alert, useWindowDimensions } from 'react-native'
 import { useNavigation, useRoute } from '@react-navigation/native';
 import BackButton from '../../components/BackButton';
 import PencilIcon from '../../components/Icons/PencilIcon';
 import ChevronDownIcon from '../../components/Icons/ChevronDownIcon';
 import { insertOrUpdateRegistrationForm, deleteRegistrationFormFields, getRegistrationFormDetails, getEventDetails, getRegistrationFormStatus, createRegistrationForm } from '../../api/event';
 import Toast from 'react-native-toast-message';
-import { scale, verticalScale, moderateScale } from '../../utils/scaling';
+import { useScale } from '../../utils/useScale';
+import { FontSize } from '../../constants/fontSizes';
 
 // Types
 interface FormField {
@@ -26,6 +27,10 @@ const RegistrationFormEditor = ({ isEmbedded = false, eventId: propEventId }: { 
     const route = useRoute<any>();
     const { eventId: routeEventId, autoEdit } = route.params || {};
     const eventId = propEventId || routeEventId;
+
+    const { width } = useWindowDimensions();
+    const { scale, verticalScale, moderateScale } = useScale();
+    const styles = useMemo(() => makeStyles(scale, verticalScale, moderateScale), [scale, verticalScale, moderateScale]);
 
     // Mode State
     const [isEditing, setIsEditing] = useState(route.params?.autoEdit || false);
@@ -428,12 +433,10 @@ const RegistrationFormEditor = ({ isEmbedded = false, eventId: propEventId }: { 
 
     // --- RENDER HELPERS ---
 
-    // --- RENDER HELPERS ---
-
     const renderFieldPreview = (field: FormField) => {
         // Standard Layout: Label Above Field
         const Label = () => (
-            <Text style={{ fontSize: moderateScale(15), color: '#333', marginBottom: verticalScale(2), fontWeight: '500' }}>
+            <Text style={{ fontSize: moderateScale(FontSize.md), color: '#333', marginBottom: verticalScale(2), fontWeight: '500' }}>
                 {field.label} {!!field.mandatory && <Text style={{ color: 'red' }}>*</Text>}
             </Text>
         );
@@ -442,8 +445,8 @@ const RegistrationFormEditor = ({ isEmbedded = false, eventId: propEventId }: { 
             case 'switch':
                 return (
                     <View style={styles.fieldContainer}>
-                        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderWidth: 1, borderColor: '#E0E0E0', borderRadius: 8, padding: 12 }}>
-                            <Text style={{ fontSize: moderateScale(16), color: '#333' }}>{field.label}</Text>
+                        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderWidth: 1, borderColor: '#E0E0E0', borderRadius: scale(8), padding: scale(12) }}>
+                            <Text style={{ fontSize: moderateScale(FontSize.md), color: '#333' }}>{field.label}</Text>
                             <Switch
                                 trackColor={{ false: "#767577", true: "#FF8A3C" }}
                                 thumbColor={'#fff'}
@@ -458,16 +461,16 @@ const RegistrationFormEditor = ({ isEmbedded = false, eventId: propEventId }: { 
                 return (
                     <View style={styles.fieldContainer}>
                         <Label />
-                        <View style={{ gap: 10 }}>
+                        <View style={{ gap: verticalScale(10) }}>
                             {field.options && field.options.map((opt, idx) => (
-                                <View key={idx} style={{ flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: '#E0E0E0', borderRadius: 8, padding: 12 }}>
+                                <View key={idx} style={{ flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: '#E0E0E0', borderRadius: scale(8), padding: scale(12) }}>
                                     <View style={{
-                                        height: 20,
-                                        width: 20,
-                                        borderRadius: 10,
+                                        height: scale(20),
+                                        width: scale(20),
+                                        borderRadius: scale(10),
                                         borderWidth: 1.5,
                                         borderColor: '#666',
-                                        marginRight: 10
+                                        marginRight: scale(10)
                                     }} />
                                     <Text style={styles.optionText}>{opt}</Text>
                                 </View>
@@ -480,15 +483,15 @@ const RegistrationFormEditor = ({ isEmbedded = false, eventId: propEventId }: { 
                 return (
                     <View style={styles.fieldContainer}>
                         <Label />
-                        <View style={{ gap: 10 }}>
+                        <View style={{ gap: verticalScale(10) }}>
                             {field.options && field.options.map((opt, idx) => (
-                                <View key={idx} style={{ flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: '#E0E0E0', borderRadius: 8, padding: 12 }}>
+                                <View key={idx} style={{ flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: '#E0E0E0', borderRadius: scale(8), padding: scale(12) }}>
                                     <View style={{
-                                        height: 20,
-                                        width: 20,
+                                        height: scale(20),
+                                        width: scale(20),
                                         borderWidth: 1.5,
                                         borderColor: '#666',
-                                        marginRight: 10
+                                        marginRight: scale(10)
                                     }} />
                                     <Text style={styles.optionText}>{opt}</Text>
                                 </View>
@@ -515,7 +518,7 @@ const RegistrationFormEditor = ({ isEmbedded = false, eventId: propEventId }: { 
                     <View style={styles.fieldContainer}>
                         <Label />
                         <TextInput
-                            style={[styles.cleanInput, { height: 100, textAlignVertical: 'top', borderWidth: 1, borderColor: '#E0E0E0', borderRadius: 8, padding: 12, backgroundColor: 'white' }]}
+                            style={[styles.cleanInput, { height: verticalScale(100), textAlignVertical: 'top', borderWidth: 1, borderColor: '#E0E0E0', borderRadius: scale(8), padding: scale(12), backgroundColor: 'white' }]}
                             placeholder={"Your answer"}
                             placeholderTextColor="#999"
                             editable={false}
@@ -534,10 +537,10 @@ const RegistrationFormEditor = ({ isEmbedded = false, eventId: propEventId }: { 
                             style={{
                                 borderWidth: 1,
                                 borderColor: '#E0E0E0',
-                                borderRadius: 8,
-                                paddingHorizontal: 15,
-                                paddingVertical: 12,
-                                fontSize: 16,
+                                borderRadius: scale(8),
+                                paddingHorizontal: scale(15),
+                                paddingVertical: verticalScale(12),
+                                fontSize: moderateScale(FontSize.md),
                                 color: '#333',
                                 backgroundColor: 'white'
                             }}
@@ -614,16 +617,16 @@ const RegistrationFormEditor = ({ isEmbedded = false, eventId: propEventId }: { 
                 <View style={{ marginTop: 20, marginBottom: 40 }}>
                     <View style={{
                         backgroundColor: '#FF8A3C',
-                        borderRadius: 8,
-                        paddingVertical: 15,
+                        borderRadius: scale(8),
+                        paddingVertical: verticalScale(15),
                         alignItems: 'center',
                         shadowColor: "#000",
-                        shadowOffset: { width: 0, height: 2 },
+                        shadowOffset: { width: 0, height: verticalScale(2) },
                         shadowOpacity: 0.1,
-                        shadowRadius: 4,
+                        shadowRadius: scale(4),
                         elevation: 3
                     }}>
-                        <Text style={{ color: 'white', fontWeight: '700', fontSize: 18 }}>{buttonText || "Registration"}</Text>
+                        <Text style={{ color: 'white', fontWeight: '700', fontSize: moderateScale(FontSize.lg) }}>{buttonText || "Registration"}</Text>
                     </View>
                 </View>
             </ScrollView>
@@ -631,10 +634,10 @@ const RegistrationFormEditor = ({ isEmbedded = false, eventId: propEventId }: { 
             {/* Floating Edit Button if standard mode */}
             {!isEmbedded && (
                 <TouchableOpacity
-                    style={{ position: 'absolute', bottom: 30, right: 20, width: 56, height: 56, borderRadius: 28, backgroundColor: '#FF8A3C', elevation: 6, justifyContent: 'center', alignItems: 'center' }}
+                    style={{ position: 'absolute', bottom: verticalScale(30), right: scale(20), width: scale(56), height: scale(56), borderRadius: scale(28), backgroundColor: '#FF8A3C', elevation: 6, justifyContent: 'center', alignItems: 'center' }}
                     onPress={() => setIsEditing(true)}
                 >
-                    <Image source={require('../../assets/img/form/edit.png')} style={{ width: 24, height: 24, tintColor: 'white' }} resizeMode="contain" />
+                    <Image source={require('../../assets/img/form/edit.png')} style={{ width: scale(24), height: scale(24), tintColor: 'white' }} resizeMode="contain" />
                 </TouchableOpacity>
             )}
         </View>
@@ -646,7 +649,7 @@ const RegistrationFormEditor = ({ isEmbedded = false, eventId: propEventId }: { 
                 <View style={[styles.header, { backgroundColor: 'white', borderBottomWidth: 0, elevation: 2 }]}>
                     <BackButton onPress={() => setIsEditing(false)} />
                     <Text style={styles.headerTitle}>Edit Form</Text>
-                    <View style={{ width: 40 }} />
+                    <View style={{ width: scale(40) }} />
                 </View>
             )}
             <ScrollView contentContainerStyle={[styles.content, { paddingBottom: verticalScale(100) }]}>
@@ -678,7 +681,7 @@ const RegistrationFormEditor = ({ isEmbedded = false, eventId: propEventId }: { 
                                 onChangeText={setSuccessMessage}
                             />
                         </View>
-                        <Text style={[styles.helperText, { color: '#888', fontSize: 13 }]}>Basic contact fields are fixed and cannot be edited.</Text>
+                        <Text style={[styles.helperText, { color: '#888', fontSize: moderateScale(FontSize.sm) }]}>Basic contact fields are fixed and cannot be edited.</Text>
                     </View>
 
                     {/* Questions List */}
@@ -726,7 +729,7 @@ const RegistrationFormEditor = ({ isEmbedded = false, eventId: propEventId }: { 
                                 {/* Email Toggle */}
                                 {field.label === 'Email' && (
                                     <View style={[styles.toggleRow, { marginTop: verticalScale(15), marginBottom: 0, paddingHorizontal: 0, justifyContent: 'space-between' }]}>
-                                        <Text style={{ fontSize: 14, color: '#202124' }}>Collect strings (Email Validation)</Text>
+                                        <Text style={{ fontSize: moderateScale(FontSize.sm), color: '#202124' }}>Collect strings (Email Validation)</Text>
                                         <Switch
                                             trackColor={{ false: "#767577", true: "#FF8A3C" }}
                                             thumbColor={emailValidation ? "#white" : "#f4f3f4"}
@@ -742,16 +745,16 @@ const RegistrationFormEditor = ({ isEmbedded = false, eventId: propEventId }: { 
                     {/* Add Question UI */}
                     {/* Add Question UI - Standard Block */}
                     {showAddQuestionModal ? (
-                        <View style={{ borderWidth: 1, borderColor: '#FF8A3C', borderRadius: 12, padding: 20, marginTop: 20, backgroundColor: '#FFF5EB' }}>
+                        <View style={{ borderWidth: 1, borderColor: '#FF8A3C', borderRadius: scale(12), padding: scale(20), marginTop: verticalScale(20), backgroundColor: '#FFF5EB' }}>
                             {/* Question Type Selector */}
                             <View style={[styles.inputContainer, { zIndex: 2000 }]} >
-                                <Text style={{ fontSize: 13, color: '#666', marginBottom: 5, fontWeight: '500' }}>Question Type</Text>
+                                <Text style={{ fontSize: moderateScale(FontSize.xs), color: '#666', marginBottom: verticalScale(5), fontWeight: '500' }}>Question Type</Text>
                                 <TouchableOpacity
                                     style={[styles.textInput, { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }]}
                                     onPress={() => setShowTypeDropdown(!showTypeDropdown)}
                                 >
                                     <Text style={{ color: '#333' }}>{newQuestionType}</Text>
-                                    <ChevronDownIcon width={20} height={20} color="#666" />
+                                    <ChevronDownIcon width={scale(20)} height={scale(20)} color="#666" />
                                 </TouchableOpacity>
 
                                 {showTypeDropdown && (
@@ -786,7 +789,7 @@ const RegistrationFormEditor = ({ isEmbedded = false, eventId: propEventId }: { 
                             {/* Options Input for Multiple Choice */}
                             {(newQuestionType === 'Multiple Choice, Single Answer' || newQuestionType === 'Multiple Choice, Multiple Answer') && (
                                 <View>
-                                    <View style={[styles.inputContainer, { flexDirection: 'row', alignItems: 'center', gap: 10 }]}>
+                                    <View style={[styles.inputContainer, { flexDirection: 'row', alignItems: 'center', gap: scale(10) }]}>
                                         <TextInput
                                             style={[styles.textInput, { flex: 1 }]}
                                             placeholder="Add option"
@@ -795,23 +798,23 @@ const RegistrationFormEditor = ({ isEmbedded = false, eventId: propEventId }: { 
                                             onChangeText={setNewOptionText}
                                         />
                                         <TouchableOpacity onPress={handleAddOption}>
-                                            <Text style={{ fontSize: 30, color: '#FF8A3C', fontWeight: '500' }}>+</Text>
+                                            <Text style={{ fontSize: moderateScale(30), color: '#FF8A3C', fontWeight: '500' }}>+</Text>
                                         </TouchableOpacity>
                                     </View>
 
                                     {/* Chips */}
-                                    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginTop: 5, marginBottom: 15 }}>
+                                    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: scale(10), marginTop: verticalScale(5), marginBottom: verticalScale(15) }}>
                                         {newOptions.map((opt, idx) => (
                                             <View key={idx} style={{
                                                 flexDirection: 'row',
                                                 alignItems: 'center',
                                                 backgroundColor: '#FF8A3C',
-                                                borderRadius: 20,
-                                                paddingHorizontal: 15,
-                                                paddingVertical: 8,
-                                                gap: 8
+                                                borderRadius: scale(20),
+                                                paddingHorizontal: scale(15),
+                                                paddingVertical: verticalScale(8),
+                                                gap: scale(8)
                                             }}>
-                                                <Text style={{ color: 'white', fontSize: 14 }}>{opt}</Text>
+                                                <Text style={{ color: 'white', fontSize: moderateScale(FontSize.sm) }}>{opt}</Text>
                                                 <TouchableOpacity onPress={() => handleRemoveOption(idx)}>
                                                     <Text style={{ color: 'white', fontWeight: 'bold' }}>×</Text>
                                                 </TouchableOpacity>
@@ -865,7 +868,7 @@ const RegistrationFormEditor = ({ isEmbedded = false, eventId: propEventId }: { 
 
 export default RegistrationFormEditor
 
-const styles = StyleSheet.create({
+const makeStyles = (scale: (size: number) => number, verticalScale: (size: number) => number, moderateScale: (size: number, factor?: number) => number) => StyleSheet.create({
     container: {
         flex: 1,
         backgroundColor: 'white',
@@ -1003,7 +1006,7 @@ const styles = StyleSheet.create({
         left: scale(10),
         backgroundColor: 'white',
         paddingHorizontal: scale(5),
-        fontSize: moderateScale(12),
+        fontSize: moderateScale(FontSize.xs),
         color: '#666',
         zIndex: 1,
     },
@@ -1013,7 +1016,7 @@ const styles = StyleSheet.create({
         borderRadius: scale(12),
         paddingHorizontal: scale(15),
         paddingVertical: verticalScale(14),
-        fontSize: moderateScale(16),
+        fontSize: moderateScale(FontSize.md),
         color: '#333',
         backgroundColor: '#FCFCFC',
     },
@@ -1024,16 +1027,16 @@ const styles = StyleSheet.create({
         gap: scale(15),
     },
     toggleLabel: {
-        fontSize: moderateScale(16),
+        fontSize: moderateScale(FontSize.md),
         color: '#333',
     },
     helperText: {
-        fontSize: moderateScale(13),
+        fontSize: moderateScale(FontSize.xs), // 13 -> xs/sm? xs=12, sm=14. 13 is between. Let's use xs (12) scaling up slightly or sm. Let's use sm for helper text readability or xs if it's meant to be small. 13 is usually small. fontSizes.ts: xs:12, sm:14. I'll use xs for 12/13.
         color: '#888',
         marginTop: verticalScale(5),
     },
     sectionHeader: {
-        fontSize: moderateScale(18),
+        fontSize: moderateScale(FontSize.lg),
         fontWeight: '700',
         color: '#333',
         marginBottom: verticalScale(15),
@@ -1051,7 +1054,7 @@ const styles = StyleSheet.create({
     readOnlyInput: {
         paddingHorizontal: scale(15),
         paddingVertical: verticalScale(14),
-        fontSize: moderateScale(16),
+        fontSize: moderateScale(FontSize.md),
         color: '#333',
     },
     addQuestionButton: {
@@ -1067,7 +1070,7 @@ const styles = StyleSheet.create({
     },
     addQuestionText: {
         color: '#FF8A3C',
-        fontSize: moderateScale(16),
+        fontSize: moderateScale(FontSize.md),
         fontWeight: '700',
     },
     footerButtons: {
@@ -1088,7 +1091,7 @@ const styles = StyleSheet.create({
     },
     cancelButtonText: {
         color: '#FF8A3C',
-        fontSize: moderateScale(16),
+        fontSize: moderateScale(FontSize.md),
         fontWeight: '600',
     },
     saveFooterButton: {
@@ -1100,7 +1103,7 @@ const styles = StyleSheet.create({
     },
     saveFooterButtonText: {
         color: 'white',
-        fontSize: moderateScale(16),
+        fontSize: moderateScale(FontSize.md),
         fontWeight: '600',
     },
     // Action Icons Styles
@@ -1153,7 +1156,7 @@ const styles = StyleSheet.create({
         borderBottomColor: '#F5F5F5',
     },
     dropdownText: {
-        fontSize: moderateScale(15),
+        fontSize: moderateScale(FontSize.md), // 15 -> md (16)
         color: '#333',
     },
     modalButtons: {
@@ -1168,7 +1171,7 @@ const styles = StyleSheet.create({
     },
     modalCancelText: {
         color: '#888',
-        fontSize: moderateScale(15),
+        fontSize: moderateScale(FontSize.md), // 15 -> md
         fontWeight: '500',
     },
     modalAddButton: {
@@ -1185,7 +1188,7 @@ const styles = StyleSheet.create({
     modalAddText: {
         color: 'white',
         fontWeight: '600',
-        fontSize: moderateScale(15),
+        fontSize: moderateScale(FontSize.md),
     },
     summarySection: {
         marginTop: verticalScale(25),
@@ -1196,7 +1199,7 @@ const styles = StyleSheet.create({
         alignItems: 'flex-start',
     },
     summaryLabel: {
-        fontSize: moderateScale(15),
+        fontSize: moderateScale(FontSize.md), // 15 -> md
         fontWeight: '700', // bold label
         color: '#000',
     },
@@ -1243,7 +1246,7 @@ const styles = StyleSheet.create({
         marginRight: scale(8),
     },
     optionText: {
-        fontSize: moderateScale(15),
+        fontSize: moderateScale(FontSize.md),
         color: '#333',
     },
     fileUploadBox: {

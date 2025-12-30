@@ -1,7 +1,8 @@
-import React, { useState, useEffect } from 'react';
-import { StyleSheet, Text, View, TouchableOpacity, ScrollView, TextInput, Image, Switch, Alert, KeyboardAvoidingView, Platform, SafeAreaView } from 'react-native';
+import React, { useState, useEffect, useMemo } from 'react';
+import { StyleSheet, Text, View, TouchableOpacity, ScrollView, TextInput, Image, Switch, Alert, KeyboardAvoidingView, Platform, SafeAreaView, useWindowDimensions } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
-import { scale, verticalScale, moderateScale } from '../../utils/scaling';
+import { useScale } from '../../utils/useScale';
+import { FontSize } from '../../constants/fontSizes';
 import { getEventTickets, getRegistrationFormStatus, getRegistrationFormDetails, submitGuestRegistrationForm } from '../../api/event';
 import Toast from 'react-native-toast-message';
 import BackButton from '../../components/BackButton';
@@ -11,6 +12,11 @@ const GuestRegistration = () => {
     const navigation = useNavigation();
     const route = useRoute<any>();
     const { eventId, registeredBy } = route.params || {};
+
+    const { width } = useWindowDimensions();
+    const isTablet = width >= 768;
+    const { scale, verticalScale, moderateScale } = useScale();
+    const styles = useMemo(() => makeStyles(scale, verticalScale, moderateScale, isTablet), [scale, verticalScale, moderateScale, isTablet]);
 
     const [loading, setLoading] = useState(false);
     const [tickets, setTickets] = useState<any[]>([]);
@@ -276,7 +282,7 @@ const GuestRegistration = () => {
             // Based on user snippet: res has "QAs" array.
 
             if (tickets && tickets.length > 0) {
-                navigation.navigate("GuestTicketSelection", {
+                (navigation as any).navigate("GuestTicketSelection", {
                     eventId,
                     guestUuid: guestUuid,
                     registeredBy: null, // or current user id if needed
@@ -300,13 +306,13 @@ const GuestRegistration = () => {
         // Styles matching RegistrationFormEditor's renderFieldPreview
         // Changed: Always show * as all fields are now mandatory
         const Label = () => (
-            <Text style={{ fontSize: moderateScale(15), color: '#333', marginBottom: verticalScale(8), fontWeight: '500' }}>
+            <Text style={{ fontSize: moderateScale(FontSize.md), color: '#333', marginBottom: verticalScale(8), fontWeight: '500' }}>
                 {field.question} <Text style={{ color: 'red' }}>*</Text>
             </Text>
         );
 
         const ErrorMsg = () => (
-            errors[field.id] ? <Text style={{ color: 'red', fontSize: moderateScale(12), marginTop: 5 }}>{errors[field.id]}</Text> : null
+            errors[field.id] ? <Text style={{ color: 'red', fontSize: moderateScale(FontSize.xs), marginTop: verticalScale(5) }}>{errors[field.id]}</Text> : null
         );
 
         switch (field.type) {
@@ -314,8 +320,8 @@ const GuestRegistration = () => {
             case 'Yes/No Answer':
                 return (
                     <View style={styles.fieldContainer}>
-                        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderWidth: 1, borderColor: errors[field.id] ? 'red' : '#E0E0E0', borderRadius: 8, padding: 12 }}>
-                            <Text style={{ fontSize: moderateScale(16), color: '#333' }}>{field.question}</Text>
+                        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderWidth: 1, borderColor: errors[field.id] ? 'red' : '#E0E0E0', borderRadius: scale(8), padding: scale(12) }}>
+                            <Text style={{ fontSize: moderateScale(FontSize.md), color: '#333' }}>{field.question}</Text>
                             <Switch
                                 trackColor={{ false: "#767577", true: "#FF8A3C" }}
                                 thumbColor={formValues[field.id] ? "#white" : "#f4f3f4"}
@@ -331,30 +337,30 @@ const GuestRegistration = () => {
                 return (
                     <View style={styles.fieldContainer}>
                         <Label />
-                        <View style={{ gap: 10 }}>
+                        <View style={{ gap: verticalScale(10) }}>
                             {field.options && field.options.map((opt: any, idx: number) => {
                                 const isSelected = formValues[field.id] === opt;
                                 return (
                                     <TouchableOpacity
                                         key={idx}
-                                        style={{ flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: isSelected ? '#FF8A3C' : (errors[field.id] ? 'red' : '#E0E0E0'), borderRadius: 8, padding: 12 }}
+                                        style={{ flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: isSelected ? '#FF8A3C' : (errors[field.id] ? 'red' : '#E0E0E0'), borderRadius: scale(8), padding: scale(12) }}
                                         onPress={() => handleInputChange(field.id, opt)}
                                     >
                                         <View style={{
-                                            height: 20,
-                                            width: 20,
-                                            borderRadius: 10,
+                                            height: scale(20),
+                                            width: scale(20),
+                                            borderRadius: scale(10),
                                             borderWidth: 2,
                                             borderColor: isSelected ? '#FF8A3C' : '#666',
                                             alignItems: 'center',
                                             justifyContent: 'center',
-                                            marginRight: 10
+                                            marginRight: scale(10)
                                         }}>
                                             {isSelected && (
                                                 <View style={{
-                                                    height: 10,
-                                                    width: 10,
-                                                    borderRadius: 5,
+                                                    height: scale(10),
+                                                    width: scale(10),
+                                                    borderRadius: scale(5),
                                                     backgroundColor: '#FF8A3C',
                                                 }} />
                                             )}
@@ -373,13 +379,13 @@ const GuestRegistration = () => {
                 return (
                     <View style={styles.fieldContainer}>
                         <Label />
-                        <View style={{ gap: 10 }}>
+                        <View style={{ gap: verticalScale(10) }}>
                             {field.options && field.options.map((opt: any, idx: number) => {
                                 const isChecked = selected.includes(opt);
                                 return (
                                     <TouchableOpacity
                                         key={idx}
-                                        style={{ flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: isChecked ? '#FF8A3C' : (errors[field.id] ? 'red' : '#E0E0E0'), borderRadius: 8, padding: 12 }}
+                                        style={{ flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: isChecked ? '#FF8A3C' : (errors[field.id] ? 'red' : '#E0E0E0'), borderRadius: scale(8), padding: scale(12) }}
                                         onPress={() => handleInputChange(field.id, opt, true)}
                                     >
                                         <View style={[styles.checkboxSquare, {
@@ -389,7 +395,7 @@ const GuestRegistration = () => {
                                             alignItems: 'center',
                                             justifyContent: 'center'
                                         }]}>
-                                            {isChecked && <Text style={{ color: 'white', fontSize: 12, fontWeight: 'bold' }}>✓</Text>}
+                                            {isChecked && <Text style={{ color: 'white', fontSize: moderateScale(12), fontWeight: 'bold' }}>✓</Text>}
                                         </View>
                                         <Text style={styles.optionText}>{opt}</Text>
                                     </TouchableOpacity>
@@ -408,8 +414,8 @@ const GuestRegistration = () => {
                             style={{ flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: errors[field.id] ? 'red' : '#E0E0E0', borderRadius: 8, padding: 15, borderStyle: 'dashed' }}
                             onPress={() => handleFilePick(field.id)}
                         >
-                            <Text style={{ fontSize: 18, color: '#5F6368', marginRight: 10 }}>cloud_upload</Text>
-                            <Text style={{ color: '#333', fontSize: 14 }}>
+                            <Text style={{ fontSize: moderateScale(FontSize.lg), color: '#5F6368', marginRight: 10 }}>cloud_upload</Text>
+                            <Text style={{ color: '#333', fontSize: moderateScale(FontSize.sm) }}>
                                 {fileVal ? (fileVal.name || "File Selected") : "Upload File"}
                             </Text>
                         </TouchableOpacity>
@@ -421,7 +427,7 @@ const GuestRegistration = () => {
                     <View style={styles.fieldContainer}>
                         <Label />
                         <TextInput
-                            style={[styles.input, { height: 100, textAlignVertical: 'top', borderColor: errors[field.id] ? 'red' : '#E0E0E0' }]}
+                            style={[styles.input, { height: verticalScale(100), textAlignVertical: 'top', borderColor: errors[field.id] ? 'red' : '#E0E0E0' }]}
                             placeholder={field.question || "Your answer"}
                             placeholderTextColor="#999"
                             multiline={true}
@@ -457,7 +463,7 @@ const GuestRegistration = () => {
             <View style={styles.header}>
                 <BackButton onPress={() => navigation.goBack()} />
                 <Text style={styles.headerTitle}>Register a Guest</Text>
-                <View style={{ width: 40 }} />
+                <View style={{ width: scale(40) }} />
             </View>
 
             <ScrollView contentContainerStyle={styles.content}>
@@ -466,13 +472,13 @@ const GuestRegistration = () => {
                 <View />
 
                 {/* Form Title & Separator - MATCHING PREVIEW UI */}
-                <View style={{ marginBottom: 30, marginTop: 10 }}>
-                    <Text style={{ fontSize: 24, fontWeight: '700', color: '#000', textAlign: 'center' }}>{formTitle}</Text>
-                    <View style={{ height: 2, width: 40, backgroundColor: '#000', marginTop: 10, alignSelf: 'center' }} />
+                <View style={{ marginBottom: verticalScale(30), marginTop: verticalScale(10) }}>
+                    <Text style={{ fontSize: moderateScale(FontSize.xxl), fontWeight: '700', color: '#000', textAlign: 'center' }}>{formTitle}</Text>
+                    <View style={{ height: 2, width: scale(40), backgroundColor: '#000', marginTop: verticalScale(10), alignSelf: 'center' }} />
                 </View>
 
                 {/* Fields */}
-                <View style={{ gap: 20 }}>
+                <View style={{ gap: verticalScale(20) }}>
                     {formFields.map((field: any) => (
                         <View key={field.id}>
                             {renderField(field)}
@@ -481,7 +487,7 @@ const GuestRegistration = () => {
                 </View>
 
                 {/* Submit Button */}
-                <View style={{ marginTop: 40, marginBottom: 40 }}>
+                <View style={{ marginTop: verticalScale(40), marginBottom: verticalScale(40) }}>
                     <TouchableOpacity
                         style={styles.submitButton}
                         onPress={handleSubmit}
@@ -494,7 +500,7 @@ const GuestRegistration = () => {
     );
 };
 
-const styles = StyleSheet.create({
+const makeStyles = (scale: (size: number) => number, verticalScale: (size: number) => number, moderateScale: (size: number, factor?: number) => number, isTablet: boolean = false) => StyleSheet.create({
     header: {
         width: '100%',
         paddingVertical: scale(15),
@@ -503,9 +509,12 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         justifyContent: 'space-between',
         paddingHorizontal: scale(20),
+        borderBottomWidth: 1,
+        borderBottomColor: '#f0f0f0',
+        elevation: 2,
     },
     headerTitle: {
-        fontSize: moderateScale(20),
+        fontSize: moderateScale(FontSize.xl),
         fontWeight: '600',
         color: 'black',
         flex: 1,
@@ -514,6 +523,9 @@ const styles = StyleSheet.create({
     content: {
         padding: scale(20),
         paddingBottom: verticalScale(100),
+        width: '100%',
+        maxWidth: isTablet ? 600 : '100%',
+        alignSelf: 'center',
     },
     fieldContainer: {
         marginBottom: 0, // Handled by gap in parent
@@ -521,47 +533,47 @@ const styles = StyleSheet.create({
     input: {
         borderWidth: 1,
         borderColor: '#E0E0E0',
-        borderRadius: 8,
-        paddingHorizontal: 15,
-        paddingVertical: 12,
-        fontSize: 16,
+        borderRadius: scale(8),
+        paddingHorizontal: scale(15),
+        paddingVertical: verticalScale(12),
+        fontSize: moderateScale(FontSize.md),
         color: '#333',
         backgroundColor: 'white'
     },
     radioCircle: {
-        width: 18,
-        height: 18,
-        borderRadius: 9,
+        width: scale(18),
+        height: scale(18),
+        borderRadius: scale(9),
         borderWidth: 1.5,
         borderColor: '#666',
-        marginRight: 10,
+        marginRight: scale(10),
     },
     checkboxSquare: {
-        width: 18,
-        height: 18,
+        width: scale(18),
+        height: scale(18),
         borderWidth: 1.5,
         borderColor: '#666',
-        marginRight: 10,
+        marginRight: scale(10),
     },
     optionText: {
-        fontSize: moderateScale(16),
+        fontSize: moderateScale(FontSize.md),
         color: '#333',
     },
     submitButton: {
         backgroundColor: '#FF8A3C',
-        borderRadius: 8,
-        paddingVertical: 15,
+        borderRadius: scale(8),
+        paddingVertical: verticalScale(15),
         alignItems: 'center',
         shadowColor: "#000",
-        shadowOffset: { width: 0, height: 2 },
+        shadowOffset: { width: 0, height: verticalScale(2) },
         shadowOpacity: 0.1,
-        shadowRadius: 4,
+        shadowRadius: scale(4),
         elevation: 3
     },
     submitText: {
         color: 'white',
         fontWeight: '700',
-        fontSize: 18
+        fontSize: moderateScale(FontSize.lg)
     },
     ticketScroll: {
         flexGrow: 0,
@@ -580,13 +592,13 @@ const styles = StyleSheet.create({
         borderColor: '#FF8A3C',
     },
     ticketName: {
-        fontSize: moderateScale(14),
+        fontSize: moderateScale(FontSize.sm),
         fontWeight: '600',
         color: '#333',
         marginBottom: verticalScale(4),
     },
     ticketPrice: {
-        fontSize: moderateScale(12),
+        fontSize: moderateScale(FontSize.xs),
         color: '#666',
     },
 });

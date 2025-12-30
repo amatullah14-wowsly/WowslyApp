@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react'
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import {
   SafeAreaView,
   StatusBar,
@@ -11,11 +11,12 @@ import {
   Platform,
   Animated,
   PanResponder,
-  Dimensions,
   DeviceEventEmitter,
   ScrollView,
+  useWindowDimensions,
 } from 'react-native'
-import { scale, verticalScale, moderateScale } from '../../utils/scaling';
+import { useScale } from '../../utils/useScale';
+import { FontSize } from '../../constants/fontSizes';
 
 import { initDB, findTicketByQr, updateTicketStatusLocal, getTicketsForEvent, insertOrReplaceGuests, getFacilitiesForGuest, updateFacilityCheckInLocal, insertFacilityForGuest } from '../../db'
 import { RouteProp, useRoute, useNavigation, useFocusEffect } from '@react-navigation/native'
@@ -48,6 +49,8 @@ const TORCH_OFF_ICON = require('../../assets/img/common/torchoff.png')
 const QrCode = () => {
   const navigation = useNavigation()
   const route = useRoute<QrCodeRoute>()
+  const { height } = useWindowDimensions();
+  const { scale, verticalScale, moderateScale } = useScale();
 
   const [flashOn, setFlashOn] = useState(false)
   const [hasPermission, setHasPermission] = useState(false)
@@ -104,7 +107,7 @@ const QrCode = () => {
   };
 
   // Animation State
-  const SCREEN_HEIGHT = Dimensions.get('window').height;
+  const SCREEN_HEIGHT = height;
   const SHEET_MAX_HEIGHT = SCREEN_HEIGHT * 0.6; // Occupy 60% of screen when open
   const SHEET_MIN_HEIGHT = 220; // Visible part when collapsed
   const MAX_UPWARD_TRANSLATE = -(SHEET_MAX_HEIGHT - SHEET_MIN_HEIGHT); // Negative value to move up
@@ -112,7 +115,7 @@ const QrCode = () => {
   const panY = useRef(new Animated.Value(0)).current;
   const localScanHistory = useRef(new Map()).current;
 
-  const panResponder = useRef(
+  const panResponder = useMemo(() =>
     PanResponder.create({
       onStartShouldSetPanResponder: () => true,
       onMoveShouldSetPanResponder: (_, gestureState) => {
@@ -151,8 +154,8 @@ const QrCode = () => {
           });
         }
       }
-    })
-  ).current;
+    }), [MAX_UPWARD_TRANSLATE]
+  );
 
   const translateY = panY.interpolate({
     inputRange: [MAX_UPWARD_TRANSLATE - 50, 0],
@@ -305,7 +308,7 @@ const QrCode = () => {
         }
       } catch (e) { }
 
-      navigation.navigate('ClientConnection', {
+      (navigation as any).navigate('ClientConnection', {
         scannedHostIp: hostIp,
         scannedHostPort: hostPort,
         eventTitle,
@@ -360,7 +363,7 @@ const QrCode = () => {
           } catch (e) {
             if (responseStr.includes("count")) {
               showStatus(responseStr, 'success');
-              setGuestData({ name: "Host Verified", ticketId: "Remote", status: "VALID ENTRY", isValid: true, totalEntries: 1, usedEntries: 1, facilities: [], scanToken });
+              setGuestData({ name: "Host Verified", ticketId: "Remote", status: "VALID ENTRY", isValid: true, totalEntries: 1, usedEntries: 1, facilities: [], scanToken: scanLockRef.current });
             } else {
               showStatus(responseStr, 'error');
               setGuestData({ name: "Host Rejected", ticketId: "Remote", status: "INVALID", isValid: false, totalEntries: 0, usedEntries: 0, facilities: [] });
@@ -738,10 +741,10 @@ const QrCode = () => {
 
       // ⚡⚡⚡ ONLINE MODE DIRECT CHECK-IN ⚡⚡⚡
       const payload = {
-        event_id: parseInt(eventId),
+        event_id: parseInt(String(eventId)),
         guest_id: guestId,
         ticket_id: data.actualTicketId || 0,
-        check_in_count: checkInCount,
+        check_in_count: parseInt(String(checkInCount)),
         category_check_in_count: "",
         other_category_check_in_count: 0,
         // Direct check-in is typically MAIN ticket only
@@ -897,7 +900,7 @@ const QrCode = () => {
 
         try {
           const payload = {
-            event_id: parseInt(eventId),
+            event_id: parseInt(String(eventId)),
             guest_id: guestId,
             ticket_id: guestData.actualTicketId || 0,
             check_in_count: 1, // Fixed to 1
@@ -986,10 +989,10 @@ const QrCode = () => {
         // Fire single check-in with count
 
         const payload = {
-          event_id: parseInt(eventId),
+          event_id: parseInt(String(eventId)),
           guest_id: guestId,
           ticket_id: guestData.actualTicketId || 0, // 👈 Use numeric ID
-          check_in_count: checkInCount,
+          check_in_count: parseInt(String(checkInCount)),
           category_check_in_count: "",
           other_category_check_in_count: 0,
           guest_facility_id: ""
@@ -1141,6 +1144,380 @@ const QrCode = () => {
   const hasFacilities = Array.isArray(guestData?.facilities) && guestData.facilities.length > 0;
   const showQuantitySelector = !!guestData && !hasFacilities && (guestData.totalEntries || 1) > 1;
 
+  /* ⚡⚡⚡ DYNAMIC STYLES ⚡⚡⚡ */
+  const styles = useMemo(() => StyleSheet.create({
+    safeArea: {
+      flex: 1,
+      backgroundColor: '#0E110F',
+    },
+    container: {
+      flex: 1,
+      paddingHorizontal: moderateScale(FontSize.xl),
+      paddingTop: moderateScale(FontSize.xl),
+      backgroundColor: 'transparent',
+    },
+    topRow: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      zIndex: 10,
+    },
+    modeRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: scale(12),
+    },
+    modeIcon: {
+      width: scale(36),
+      height: scale(36),
+      tintColor: '#FFFFFF',
+    },
+    modeTitle: {
+      color: '#FFFFFF',
+      fontSize: moderateScale(FontSize.lg), // 18 -> lg
+      fontWeight: '700',
+    },
+    eventName: {
+      color: '#B0B0B0',
+      fontSize: moderateScale(FontSize.xs), // 12 -> xs
+      marginTop: verticalScale(2),
+    },
+    flashButton: {
+      width: scale(40),
+      height: scale(40),
+      borderRadius: scale(12),
+      borderWidth: 1,
+      borderColor: 'rgba(255,255,255,0.3)',
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    flashButtonActive: {
+      backgroundColor: 'rgba(255,255,255,0.15)',
+      borderColor: 'rgba(255,255,255,0.6)',
+    },
+    flashIcon: {
+      width: scale(20),
+      height: scale(20),
+      tintColor: '#FFFFFF',
+    },
+    scannerWrapper: {
+      flex: 1,
+      justifyContent: 'center',
+      alignItems: 'center',
+      zIndex: 10,
+    },
+    dashedBox: {
+      width: '80%',
+      aspectRatio: 1,
+      borderWidth: 1,
+      borderColor: 'rgba(255,255,255,0.2)',
+      borderStyle: 'dashed',
+      borderRadius: scale(24),
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    corner: {
+      position: 'absolute',
+      width: scale(48),
+      height: scale(48),
+      borderRadius: scale(12),
+      borderColor: '#FF8A3C',
+      borderWidth: 5,
+    },
+    cornerTopLeft: {
+      top: verticalScale(-5),
+      left: scale(-5),
+      borderRightWidth: 0,
+      borderBottomWidth: 0,
+    },
+    cornerTopRight: {
+      top: verticalScale(-5),
+      right: scale(-5),
+      borderLeftWidth: 0,
+      borderBottomWidth: 0,
+    },
+    cornerBottomLeft: {
+      bottom: verticalScale(-5),
+      left: scale(-5),
+      borderRightWidth: 0,
+      borderTopWidth: 0,
+    },
+    cornerBottomRight: {
+      bottom: verticalScale(-5),
+      right: scale(-5),
+      borderLeftWidth: 0,
+      borderTopWidth: 0,
+    },
+    scanHint: {
+      color: '#FFFFFF',
+      fontSize: moderateScale(FontSize.sm), // 14 -> sm
+      marginTop: verticalScale(24),
+    },
+    sheet: {
+      backgroundColor: '#121212',
+      borderTopLeftRadius: scale(32),
+      borderTopRightRadius: scale(32),
+      paddingHorizontal: scale(24),
+      paddingTop: verticalScale(24),
+      paddingBottom: verticalScale(32),
+      gap: verticalScale(16),
+      zIndex: 10,
+      position: 'absolute',
+      left: 0,
+      right: 0,
+    },
+    sheetHandle: {
+      alignSelf: 'center',
+      width: scale(60),
+      height: verticalScale(4),
+      borderRadius: scale(2),
+      backgroundColor: '#2A2A2A',
+      marginBottom: verticalScale(8),
+    },
+    guestRow: {
+      flexDirection: 'row',
+      flexWrap: 'wrap', // Responsive wrapping
+      rowGap: verticalScale(10), // Gap when wrapped
+      alignItems: 'center',
+      justifyContent: 'space-between',
+    },
+    guestName: {
+      color: '#FFFFFF',
+      fontSize: moderateScale(FontSize.xl), // 20 -> xl
+      fontWeight: '700',
+    },
+    ticketId: {
+      color: '#9C9C9C',
+      marginTop: verticalScale(4),
+    },
+    statusPill: {
+      backgroundColor: '#1FC566',
+      borderRadius: scale(20),
+      paddingHorizontal: scale(12),
+      paddingVertical: verticalScale(6),
+      marginLeft: scale(10),
+      // maxWidth: scale(120), // Removed for responsiveness
+      justifyContent: 'center',
+      alignItems: 'center',
+      marginTop: verticalScale(10),
+    },
+    statusPillInvalid: {
+      backgroundColor: '#E74C3C',
+    },
+    statusPillText: {
+      color: '#FFFFFF',
+      fontWeight: '700',
+      fontSize: moderateScale(10), // 10 -> no constant (xxs)
+      textAlign: 'center',
+    },
+    primaryButton: {
+      marginTop: verticalScale(8),
+      backgroundColor: '#FF8A3C',
+      borderRadius: scale(18),
+      alignItems: 'center',
+      justifyContent: 'center',
+      paddingVertical: verticalScale(14),
+    },
+    primaryButtonDisabled: {
+      backgroundColor: '#CCCCCC',
+    },
+    primaryButtonText: {
+      color: '#FFFFFF',
+      fontSize: moderateScale(FontSize.md), // 16 -> md
+      fontWeight: '700',
+    },
+    entriesText: {
+      color: '#9C9C9C',
+      marginTop: verticalScale(4),
+      fontSize: moderateScale(FontSize.sm), // 14 -> sm
+    },
+    facilitiesContainer: {
+      marginTop: verticalScale(8),
+    },
+    facilitiesTitle: {
+      color: '#FFFFFF',
+      fontSize: moderateScale(FontSize.sm), // 14 -> sm
+      fontWeight: '700',
+      marginBottom: verticalScale(8),
+    },
+    facilitiesList: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: scale(8),
+    },
+    facilityBadge: {
+      backgroundColor: 'rgba(255, 255, 255, 0.1)',
+      borderRadius: scale(8),
+      paddingHorizontal: scale(10),
+      paddingVertical: verticalScale(4),
+    },
+    facilityText: {
+      color: '#FFFFFF',
+      fontSize: moderateScale(FontSize.xs), // 12 -> xs
+    },
+    statsContainer: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      marginTop: verticalScale(8),
+      backgroundColor: 'rgba(255,255,255,0.1)',
+      borderRadius: scale(12),
+      padding: scale(8),
+    },
+    statItem: {
+      alignItems: 'center',
+      paddingHorizontal: scale(12),
+    },
+    statLabel: {
+      color: '#9C9C9C',
+      fontSize: moderateScale(10), // 10 -> no constant
+      textTransform: 'uppercase',
+      marginBottom: verticalScale(2),
+    },
+    statValue: {
+      color: '#FFFFFF',
+      fontSize: moderateScale(FontSize.md), // 16 -> md
+      fontWeight: '700',
+    },
+    statDivider: {
+      width: 1,
+      height: verticalScale(24),
+      backgroundColor: 'rgba(255,255,255,0.2)',
+    },
+    quantityContainer: {
+      marginTop: verticalScale(16),
+      backgroundColor: 'rgba(255,255,255,0.05)',
+      borderRadius: scale(12),
+      padding: scale(12),
+    },
+    quantityLabel: {
+      color: '#9C9C9C',
+      fontSize: moderateScale(FontSize.xs), // 12 -> xs
+      marginBottom: verticalScale(8),
+    },
+    quantityControls: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+    },
+    qtyButton: {
+      width: scale(40),
+      height: scale(40),
+      borderRadius: scale(20),
+      backgroundColor: 'rgba(255,255,255,0.1)',
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    qtyButtonText: {
+      color: '#FFFFFF',
+      fontSize: moderateScale(FontSize.xxl), // 24 -> xxl
+      fontWeight: '700',
+      lineHeight: moderateScale(28),
+    },
+    qtyValue: {
+      color: '#FFFFFF',
+      fontSize: moderateScale(FontSize.xxl), // 24 -> xxl
+      fontWeight: '700',
+    },
+    statusBanner: {
+      position: 'absolute',
+      top: verticalScale(120),
+      alignSelf: 'center',
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: scale(8),
+      paddingVertical: verticalScale(12),
+      paddingHorizontal: scale(24),
+      borderRadius: scale(30),
+      zIndex: 999,
+      elevation: 6,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: verticalScale(4) },
+      shadowOpacity: 0.3,
+      shadowRadius: scale(6),
+      maxWidth: '90%',
+    },
+    statusBannerSuccess: {
+      backgroundColor: '#4CAF50',
+    },
+    statusBannerError: {
+      backgroundColor: '#F44336',
+    },
+    statusBannerWarning: {
+      backgroundColor: '#FFC107',
+    },
+    statusBannerText: {
+      color: '#FFFFFF',
+      fontSize: moderateScale(FontSize.sm), // 14 -> sm
+      fontWeight: '700',
+      textAlign: 'left',
+      lineHeight: moderateScale(20),
+      flex: 1,
+      flexWrap: 'wrap',
+      flexShrink: 1,
+      textShadowColor: 'rgba(0, 0, 0, 0.25)',
+      textShadowOffset: { width: 0, height: 1 },
+      textShadowRadius: 2,
+    },
+    statusIconWrapper: {
+      width: scale(28),
+      height: scale(28),
+      borderRadius: scale(14),
+      backgroundColor: 'rgba(255,255,255,0.2)',
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    statusIconText: {
+      color: '#FFFFFF',
+      fontSize: moderateScale(FontSize.md), // 16 -> md
+      fontWeight: '900',
+    },
+    scanningOptionsContainer: {
+      marginTop: verticalScale(16),
+    },
+    scanningForTitle: {
+      color: '#9C9C9C',
+      fontSize: moderateScale(FontSize.xs), // 12 -> xs
+      marginBottom: verticalScale(10),
+      textTransform: 'uppercase'
+    },
+    radioGroup: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: scale(16),
+      marginBottom: verticalScale(10)
+    },
+    radioItem: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      marginBottom: verticalScale(10),
+      marginRight: scale(10)
+    },
+    radioOuter: {
+      width: scale(20),
+      height: scale(20),
+      borderRadius: scale(10),
+      borderWidth: 2,
+      borderColor: '#FF8A3C',
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginRight: scale(8)
+    },
+    radioInner: {
+      width: scale(10),
+      height: scale(10),
+      borderRadius: scale(5),
+      backgroundColor: '#FF8A3C'
+    },
+    radioLabel: {
+      color: '#FFFFFF',
+      fontSize: moderateScale(FontSize.sm), // 14 -> sm
+      fontWeight: '600'
+    },
+    disabledText: {
+      color: '#555'
+    }
+  }), [scale, verticalScale, moderateScale]);
+
   return (
     <SafeAreaView style={styles.safeArea}>
       <StatusBar barStyle="light-content" />
@@ -1160,7 +1537,7 @@ const QrCode = () => {
         )}
 
         <View style={styles.topRow}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 30 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: scale(30) }}>
             <BackButton onPress={() => navigation.goBack()} />
             <View style={styles.modeRow}>
               <Image
@@ -1215,7 +1592,6 @@ const QrCode = () => {
         </View>
 
         {guestData && (
-          console.log("DEBUG: Rendering Sheet with guestData:", JSON.stringify(guestData)) ||
           <Animated.View
             style={[
               styles.sheet,
@@ -1467,7 +1843,7 @@ const QrCode = () => {
 export default QrCode
 
 // ----------------- STYLES (UNCHANGED) -----------------
-const styles = StyleSheet.create({
+/* const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
     backgroundColor: '#0E110F',
@@ -1836,4 +2212,4 @@ const styles = StyleSheet.create({
   disabledText: {
     color: '#555'
   }
-})
+}) */

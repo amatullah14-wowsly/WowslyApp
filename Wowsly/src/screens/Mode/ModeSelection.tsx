@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import {
   SafeAreaView,
   StyleSheet,
@@ -11,12 +11,14 @@ import {
   Platform,
   UIManager,
   Animated,
+  useWindowDimensions,
 } from 'react-native';
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
 import BackButton from '../../components/BackButton';
 import { getGuestCount } from '../../db';
 import Toast from 'react-native-toast-message';
-import { scale, verticalScale, moderateScale } from '../../utils/scaling';
+import { useScale } from '../../utils/useScale';
+import { FontSize } from '../../constants/fontSizes';
 
 type ModeInfo = {
   id: string;
@@ -43,9 +45,7 @@ const MODES: ModeInfo[] = [
     icon: require('../../assets/img/Mode/offlinemode.png'),
     accent: '#FFF3EB',
     accentTint: '#FF8A3C',
-
   },
-
 ];
 
 type ModeSelectionRoute = RouteProp<
@@ -63,14 +63,15 @@ const CLIENT_ICON = require('../../assets/img/Mode/client.png');
 const SCANNER_ICON = require('../../assets/img/Mode/scanner.png');
 const GUEST_LIST_ICON = require('../../assets/img/eventdashboard/guests.png');
 
-const StaggeredItem = ({ children, index, duration = 600 }: any) => {
+const StaggeredItem = ({ children, index, duration = 600, verticalScale }: { children: any, index: number, duration?: number, verticalScale: (size: number) => number }) => {
+  const initialOffset = verticalScale(-20);
   const fadeAnim = useRef(new Animated.Value(0)).current;
-  const translateY = useRef(new Animated.Value(verticalScale(-20))).current;
+  const translateY = useRef(new Animated.Value(initialOffset)).current;
 
   useEffect(() => {
-    // Reset values immediately on mount to ensure clean state
+    // Reset values immediately on mount/update to ensure clean state
     fadeAnim.setValue(0);
-    translateY.setValue(verticalScale(-20));
+    translateY.setValue(initialOffset);
 
     const delay = index * 100; // 100ms delay per item
 
@@ -95,7 +96,7 @@ const StaggeredItem = ({ children, index, duration = 600 }: any) => {
     return () => {
       animation.stop();
     };
-  }, [duration, fadeAnim, index, translateY]);
+  }, [duration, fadeAnim, index, translateY, initialOffset]);
 
   return (
     <Animated.View
@@ -113,6 +114,11 @@ const ModeSelection = () => {
   const navigation = useNavigation<any>();
   const route = useRoute<ModeSelectionRoute>();
 
+  const { width } = useWindowDimensions();
+  const isTablet = width >= 768; // Tablet breakpoint
+  const { scale, verticalScale, moderateScale } = useScale();
+  const styles = useMemo(() => makeStyles(scale, verticalScale, moderateScale, isTablet), [scale, verticalScale, moderateScale, isTablet]);
+
   // Track which mode is currently expanded
   const [expandedMode, setExpandedMode] = useState<string | null>(null);
 
@@ -125,8 +131,6 @@ const ModeSelection = () => {
 
   const eventTitle = route.params?.eventTitle ?? 'Selected Event';
   const eventId = route.params?.eventId;
-
-
 
   const handleModePress = async (modeId: string) => {
     // Use a standard preset or a simpler configuration to avoid conflicts
@@ -175,7 +179,7 @@ const ModeSelection = () => {
     if (modeId === 'online') {
       return (
         <View style={styles.subOptionsContainer}>
-          <StaggeredItem index={0}>
+          <StaggeredItem index={0} verticalScale={verticalScale}>
             <TouchableOpacity
               style={styles.subOptionCard}
               onPress={() => handleOnlineOptionPick('QR_SCAN')}
@@ -191,7 +195,7 @@ const ModeSelection = () => {
             </TouchableOpacity>
           </StaggeredItem>
 
-          <StaggeredItem index={1}>
+          <StaggeredItem index={1} verticalScale={verticalScale}>
             <TouchableOpacity
               style={styles.subOptionCard}
               onPress={() => handleOnlineOptionPick('GUEST_LIST')}
@@ -211,7 +215,7 @@ const ModeSelection = () => {
     } else if (modeId === 'connection') {
       return (
         <View style={styles.subOptionsContainer}>
-          <StaggeredItem index={0}>
+          <StaggeredItem index={0} verticalScale={verticalScale}>
             <TouchableOpacity
               style={styles.subOptionCard}
               onPress={() => handleRolePick('Host')}
@@ -227,7 +231,7 @@ const ModeSelection = () => {
             </TouchableOpacity>
           </StaggeredItem>
 
-          <StaggeredItem index={1}>
+          <StaggeredItem index={1} verticalScale={verticalScale}>
             <TouchableOpacity
               style={styles.subOptionCard}
               onPress={() => handleRolePick('Client')}
@@ -305,9 +309,7 @@ const ModeSelection = () => {
   );
 };
 
-export default ModeSelection;
-
-const styles = StyleSheet.create({
+const makeStyles = (scale: (size: number) => number, verticalScale: (size: number) => number, moderateScale: (size: number, factor?: number) => number, isTablet: boolean = false) => StyleSheet.create({
   safeArea: {
     flex: 1,
     backgroundColor: '#FAFAFA', // Slightly off-white for better contrast
@@ -315,19 +317,22 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     paddingHorizontal: scale(20),
-    paddingTop: 30, // Fixed top padding
-    paddingBottom: 32, // Fixed bottom padding
+    paddingTop: verticalScale(30), // Fixed top padding
+    paddingBottom: verticalScale(32), // Fixed bottom padding
+    width: '100%',
+    maxWidth: isTablet ? 600 : '100%',
+    alignSelf: 'center',
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 32, // Fixed margin bottom
+    marginBottom: verticalScale(32), // Fixed margin bottom
   },
   title: {
     flex: 1,
     marginHorizontal: scale(16),
-    fontSize: moderateScale(22),
+    fontSize: moderateScale(FontSize.xl), // 22 -> xl
     fontWeight: '700',
     color: '#1F1F1F',
     textAlign: 'center',
@@ -344,22 +349,22 @@ const styles = StyleSheet.create({
     shadowRadius: scale(12),
     shadowOffset: { width: 0, height: verticalScale(4) },
     elevation: 3,
-    marginBottom: 4, // Fixed Spacing between cards
+    marginBottom: verticalScale(4), // Fixed Spacing between cards
   },
   card: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: scale(20),
-    paddingVertical: 18, // Fixed padding
+    paddingVertical: verticalScale(18), // Fixed padding
   },
   cardExpanded: {
     borderBottomWidth: 1,
     borderBottomColor: '#F5F5F5',
   },
   modeIconWrapper: {
-    width: 56, // Fixed size
-    height: 56, // Fixed size
-    borderRadius: 18, // Fixed radius preferred for icons
+    width: scale(56), // Fixed size
+    height: scale(56), // Fixed size
+    borderRadius: scale(18), // Fixed radius preferred for icons
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -373,18 +378,18 @@ const styles = StyleSheet.create({
     marginHorizontal: scale(16),
   },
   cardTitle: {
-    fontSize: moderateScale(17),
+    fontSize: moderateScale(FontSize.lg), // 17 -> lg (18)
     fontWeight: '700',
     color: '#1F1F1F',
   },
   cardSubtitle: {
     marginTop: verticalScale(4),
-    fontSize: moderateScale(13),
+    fontSize: moderateScale(FontSize.xs), // 13 -> xs (12)
     color: '#807A74',
     lineHeight: verticalScale(18),
   },
   chevron: {
-    fontSize: moderateScale(24),
+    fontSize: moderateScale(FontSize.xxl), // 24 -> xxl
     color: '#B8B1AA',
     transform: [{ rotate: '0deg' }],
   },
@@ -415,7 +420,7 @@ const styles = StyleSheet.create({
     marginRight: scale(14),
   },
   subOptionEmoji: {
-    fontSize: moderateScale(20),
+    fontSize: moderateScale(FontSize.xl), // 20 -> xl
   },
   subOptionIcon: {
     width: scale(22),
@@ -427,24 +432,26 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   subOptionTitle: {
-    fontSize: moderateScale(15),
+    fontSize: moderateScale(FontSize.md), // 15 -> md (16)
     fontWeight: '600',
     color: '#1F1F1F',
   },
   subOptionSubtitle: {
-    fontSize: moderateScale(12),
+    fontSize: moderateScale(FontSize.xs), // 12 -> xs
     color: '#888888',
     marginTop: verticalScale(2),
   },
   subOptionArrow: {
-    fontSize: moderateScale(18),
+    fontSize: moderateScale(FontSize.lg), // 18 -> lg
     color: '#FF8A3C',
     fontWeight: '600',
   },
   footerNote: {
     marginTop: 'auto',
     textAlign: 'center',
-    fontSize: moderateScale(14),
+    fontSize: moderateScale(FontSize.sm), // 14 -> sm
     color: '#A8734A',
   },
 });
+
+export default ModeSelection;

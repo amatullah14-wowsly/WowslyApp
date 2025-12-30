@@ -1,21 +1,22 @@
-import React from 'react';
-import { Image, StyleSheet, Text, TouchableOpacity, View, ImageBackground } from 'react-native'
-import { scale, verticalScale, moderateScale } from '../utils/scaling'
+import React, { useMemo } from 'react';
+import { StyleSheet, Text, TouchableOpacity, View } from 'react-native'
+import { FontSize } from '../constants/fontSizes'
+import { useScale } from '../utils/useScale'
+import FastImage from 'react-native-fast-image'
 
 export type EventCardProps = {
   title: string
   date: string
   location: string
-  image: any // Changed to any to support both { uri: string } and require('...')
+  image: any
   selected?: boolean
   onPress?: () => void
   isPlaceholder?: boolean
 }
 
-import FastImage from 'react-native-fast-image'
-
 const EventCard = ({ title, date, location, image, selected, onPress, isPlaceholder = false }: EventCardProps) => {
-
+  const { scale, verticalScale, moderateScale } = useScale();
+  const styles = useMemo(() => makeStyles(scale, verticalScale, moderateScale), [scale, verticalScale, moderateScale]);
 
   return (
     <TouchableOpacity activeOpacity={0.9} onPress={onPress}>
@@ -30,9 +31,9 @@ const EventCard = ({ title, date, location, image, selected, onPress, isPlacehol
         {/* Overlay Content */}
         <View style={styles.overlay}>
           <View style={styles.cardContent}>
-            <Text style={styles.cardTitle}>{title}</Text>
-            <Text style={styles.cardMeta}>{date}</Text>
-            <Text style={styles.cardLocation}>{location}</Text>
+            <Text style={styles.cardTitle} numberOfLines={2}>{title}</Text>
+            <Text style={styles.cardMeta} numberOfLines={1}>{date}</Text>
+            <Text style={styles.cardLocation} numberOfLines={1}>{location}</Text>
           </View>
         </View>
       </View>
@@ -40,21 +41,20 @@ const EventCard = ({ title, date, location, image, selected, onPress, isPlacehol
   )
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (scale: (size: number) => number, verticalScale: (size: number) => number, moderateScale: (size: number, factor?: number) => number) => StyleSheet.create({
   card: {
     backgroundColor: 'white',
     borderRadius: scale(24),
     marginBottom: verticalScale(18),
     borderWidth: 1,
     borderColor: '#FFE0CC',
-    height: 200, // Fixed height for the card
+    height: verticalScale(200), // Dynamic height
     overflow: 'hidden',
-    position: 'relative' // Ensure relative positioning for absolute children
+    position: 'relative'
   },
   cardSelected: {
     borderColor: '#FF8A3C',
   },
-  // imageBackground removed as FastImage uses absoluteFill
   overlay: {
     ...StyleSheet.absoluteFillObject,
     backgroundColor: 'rgba(0,0,0,0.3)',
@@ -65,17 +65,22 @@ const styles = StyleSheet.create({
     padding: scale(18),
   },
   cardTitle: {
-    fontSize: moderateScale(18),
+    fontSize: moderateScale(FontSize.lg),
     fontWeight: '700',
     color: '#FFFFFF',
+    marginBottom: verticalScale(4),
+    textShadowColor: 'rgba(0, 0, 0, 0.3)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 3,
   },
   cardMeta: {
-    fontSize: moderateScale(14),
+    fontSize: moderateScale(FontSize.sm),
     color: '#E0E0E0',
-    marginTop: verticalScale(4),
+    marginTop: verticalScale(2),
+    fontWeight: '500',
   },
   cardLocation: {
-    fontSize: moderateScale(12),
+    fontSize: moderateScale(FontSize.xs),
     color: '#D0D0D0',
     marginTop: verticalScale(2),
   },

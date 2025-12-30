@@ -11,6 +11,7 @@ import {
   DeviceEventEmitter,
   Modal,
   BackHandler,
+  useWindowDimensions,
 } from 'react-native';
 import { useNavigation, useRoute, useFocusEffect } from '@react-navigation/native';
 import OfflineCard from '../../components/OfflineCard';
@@ -31,6 +32,7 @@ import {
 
 import BackButton from '../../components/BackButton';
 import { scale, verticalScale, moderateScale } from '../../utils/scaling';
+import { FontSize } from '../../constants/fontSizes';
 
 const OFFLINE_ICON = require('../../assets/img/Mode/offlinemode.png');
 const QR_ICON = require('../../assets/img/common/qrcode.png');
@@ -46,6 +48,15 @@ const OfflineDashboard = () => {
   const navigation = useNavigation<any>();
   const route = useRoute<any>();
   const { eventId } = route.params || {};
+
+  // Responsive Layout
+  const { width } = useWindowDimensions();
+  const isTablet = width >= 768;
+  const numColumns = isTablet ? 3 : 2;
+  const gap = scale(16);
+  const paddingH = scale(20);
+  const cardWidth = (width - (paddingH * 2) - (gap * (numColumns - 1))) / numColumns;
+
 
   const [downloading, setDownloading] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -299,11 +310,10 @@ const OfflineDashboard = () => {
           Last synced: Just now | {totals.unique} guests downloaded
         </Text>
 
-        {/* CARDS */}
         <View style={styles.cardGrid}>
 
           {/* Download card */}
-          <View style={styles.cardItem}>
+          <View style={[styles.cardItem, { width: cardWidth }]}>
             <OfflineCard
               icon={DOWNLOAD_ICON}
               title="Download Data"
@@ -319,7 +329,7 @@ const OfflineDashboard = () => {
           </View>
 
           {/* Scan */}
-          <View style={styles.cardItem}>
+          <View style={[styles.cardItem, { width: cardWidth }]}>
             <OfflineCard
               icon={QR_ICON}
               title="Scan Ticket"
@@ -337,7 +347,7 @@ const OfflineDashboard = () => {
           </View>
 
           {/* Upload */}
-          <View style={styles.cardItem}>
+          <View style={[styles.cardItem, { width: cardWidth }]}>
             <OfflineCard
               icon={UPLOAD_ICON}
               title="Upload Data"
@@ -353,7 +363,7 @@ const OfflineDashboard = () => {
           </View>
 
           {/* Guests */}
-          <View style={styles.cardItem}>
+          <View style={[styles.cardItem, { width: cardWidth }]}>
             <OfflineCard
               icon={GUEST_ICON}
               title="Guest List"
@@ -370,7 +380,7 @@ const OfflineDashboard = () => {
         </View>
 
         {/* SUMMARY */}
-        <View style={styles.summaryCard}>
+        <View style={[styles.summaryCard, isTablet && { marginHorizontal: scale(100) }]}>
           <Text style={styles.summaryTitle}>Offline Guest Summary</Text>
 
           <View style={styles.summaryRow}>
@@ -406,7 +416,7 @@ const OfflineDashboard = () => {
         onRequestClose={() => setShowExitWarning(false)}
       >
         <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
+          <View style={[styles.modalContent, isTablet && { maxWidth: scale(500) }]}>
             <Text style={styles.modalTitle}>Pending Uploads</Text>
             <Text style={styles.modalText}>
               Your uploads are remaining. If you exit, your scanned data will be lost.
@@ -467,24 +477,25 @@ const styles = StyleSheet.create({
     zIndex: 10,
   },
   headerTitle: {
-    fontSize: moderateScale(20),
+    fontSize: moderateScale(FontSize.xl),
     fontWeight: '700',
     color: '#1F1F1F',
   },
   subHeader: {
     textAlign: 'center',
-    fontSize: moderateScale(12),
+    fontSize: moderateScale(FontSize.xs),
     color: '#666',
     marginBottom: verticalScale(20),
   },
   cardGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    justifyContent: 'space-between',
+    // justifyContent: 'space-between',
+    gap: scale(16), // Use gap for simpler spacing
     paddingHorizontal: scale(20),
   },
   cardItem: {
-    width: '48%',
+    // width: '48%', // Removed fixed width
     marginBottom: verticalScale(16),
     position: 'relative',
   },
@@ -505,7 +516,7 @@ const styles = StyleSheet.create({
     borderColor: '#E5E7EB',
   },
   summaryTitle: {
-    fontSize: moderateScale(16),
+    fontSize: moderateScale(FontSize.md),
     fontWeight: '600',
     color: '#111827',
     marginBottom: verticalScale(12),
@@ -516,7 +527,7 @@ const styles = StyleSheet.create({
     marginBottom: verticalScale(16),
   },
   summaryStat: {
-    fontSize: moderateScale(12),
+    fontSize: moderateScale(FontSize.xs),
     color: '#6B7280',
   },
   summaryValue: {
@@ -539,17 +550,17 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   bucketTitle: {
-    fontSize: moderateScale(12),
+    fontSize: moderateScale(FontSize.xs),
     fontWeight: '600',
     color: '#374151',
     marginBottom: verticalScale(4),
   },
   bucketMeta: {
-    fontSize: moderateScale(10),
+    fontSize: moderateScale(FontSize.xs),
     color: '#6B7280',
   },
   bucketRemaining: {
-    fontSize: moderateScale(10),
+    fontSize: moderateScale(FontSize.xs),
     color: '#EF4444',
     fontWeight: '500',
     marginTop: verticalScale(2),
@@ -561,12 +572,12 @@ const styles = StyleSheet.create({
     marginBottom: verticalScale(4),
   },
   pendingText: {
-    fontSize: moderateScale(12),
+    fontSize: moderateScale(FontSize.xs),
     fontWeight: '600',
     color: '#F59E0B',
   },
   storageText: {
-    fontSize: moderateScale(10),
+    fontSize: moderateScale(FontSize.xs),
     color: '#9CA3AF',
     marginTop: verticalScale(2),
   },
@@ -591,14 +602,14 @@ const styles = StyleSheet.create({
     shadowRadius: scale(4),
   },
   modalTitle: {
-    fontSize: moderateScale(18),
+    fontSize: moderateScale(FontSize.lg),
     fontWeight: '700',
     color: '#111827',
     marginBottom: verticalScale(8),
     textAlign: 'center',
   },
   modalText: {
-    fontSize: moderateScale(14),
+    fontSize: moderateScale(FontSize.sm),
     color: '#4B5563',
     marginBottom: verticalScale(24),
     textAlign: 'center',
@@ -623,7 +634,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#EF4444',
   },
   modalButtonText: {
-    fontSize: moderateScale(14),
+    fontSize: moderateScale(FontSize.sm),
     fontWeight: '600',
     color: '#374151',
   },

@@ -15,6 +15,7 @@ import {
     ImageSourcePropType,
     TouchableWithoutFeedback,
     Platform,
+    useWindowDimensions,
 } from 'react-native';
 import FastImage from 'react-native-fast-image';
 import { RouteProp, useNavigation, useRoute, useFocusEffect } from '@react-navigation/native';
@@ -25,7 +26,8 @@ import BackButton from '../../components/BackButton';
 import GuestDetailsModal from '../../components/GuestDetailsModal';
 import RNFS from 'react-native-fs';
 import { getLocalCheckedInGuests } from '../../db';
-import { scale, verticalScale, moderateScale } from '../../utils/scaling';
+import { useScale } from '../../utils/useScale';
+import { FontSize } from '../../constants/fontSizes';
 
 type OfflineGuestListRoute = RouteProp<
     {
@@ -57,6 +59,10 @@ const OfflineGuestList = () => {
     const navigation = useNavigation<any>();
     const route = useRoute<OfflineGuestListRoute>();
     const { eventId, offlineData: initialData } = route.params;
+
+    const { width } = useWindowDimensions();
+    const { scale, verticalScale, moderateScale } = useScale();
+    const styles = useMemo(() => makeStyles(scale, verticalScale, moderateScale), [scale, verticalScale, moderateScale]);
 
     const [guests, setGuests] = useState<any[]>(initialData || []);
     const [searchQuery, setSearchQuery] = useState('');
@@ -296,9 +302,10 @@ const OfflineGuestList = () => {
                     setSelectedGuest(item);
                     setModalVisible(true);
                 }}
+                styles={styles}
             />
         );
-    }, []);
+    }, [styles]);
 
     return (
         <SafeAreaView style={styles.safeArea}>
@@ -415,8 +422,8 @@ const OfflineGuestList = () => {
                     renderItem={renderGuestItem}
                     contentContainerStyle={styles.listContent}
                     getItemLayout={(data, index) => ({
-                        length: 80, // Approx height + marginBottom(12)
-                        offset: 80 * index,
+                        length: verticalScale(80), // Approx height + marginBottom(12)
+                        offset: verticalScale(80) * index,
                         index,
                     })}
                     refreshControl={
@@ -485,7 +492,7 @@ const OfflineGuestList = () => {
 };
 
 // ⚡⚡⚡ MEMOIZED GUEST ROW COMPONENT ⚡⚡⚡
-const MemoizedGuestRow = React.memo(({ item, onPress }: { item: any, onPress: () => void }) => {
+const MemoizedGuestRow = React.memo(({ item, onPress, styles }: { item: any, onPress: () => void, styles: any }) => {
     const name = item.guest_name || item.name || item.first_name + ' ' + item.last_name || 'Guest';
     const avatar = item.avatar || item.profile_photo;
 
@@ -519,7 +526,7 @@ const MemoizedGuestRow = React.memo(({ item, onPress }: { item: any, onPress: ()
 
 export default OfflineGuestList;
 
-const styles = StyleSheet.create({
+const makeStyles = (scale: (size: number) => number, verticalScale: (size: number) => number, moderateScale: (size: number, factor?: number) => number) => StyleSheet.create({
     safeArea: {
         flex: 1,
         backgroundColor: 'white',
@@ -598,7 +605,7 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
     },
     avatarPlaceholderText: {
-        fontSize: moderateScale(18),
+        fontSize: moderateScale(FontSize.lg), // 18 -> lg
         fontWeight: '600',
         color: '#FFFFFF',
     },
@@ -606,12 +613,12 @@ const styles = StyleSheet.create({
         flex: 1,
     },
     guestName: {
-        fontSize: moderateScale(16),
+        fontSize: moderateScale(FontSize.md), // 16 -> md
         fontWeight: '700',
         color: '#111111',
     },
     guestDetails: {
-        fontSize: moderateScale(12),
+        fontSize: moderateScale(FontSize.xs), // 12 -> xs
         color: '#7A7A7A',
         marginTop: verticalScale(2),
     },
@@ -622,12 +629,12 @@ const styles = StyleSheet.create({
         borderRadius: scale(12),
     },
     statusChipText: {
-        fontSize: moderateScale(12),
+        fontSize: moderateScale(FontSize.xs), // 12 -> xs
         fontWeight: '600',
         color: '#16794C',
     },
     entryCountText: {
-        fontSize: moderateScale(10),
+        fontSize: moderateScale(FontSize.xs), // 10 -> xs(12) or 10. Let's stick to xs for consistency or keep if really small needed. Instruction says "systematically apply moderateScale(FontSize.X)". So I should use constants.
         color: '#16794C',
         marginTop: verticalScale(2),
         textAlign: 'center',
@@ -643,7 +650,7 @@ const styles = StyleSheet.create({
         resizeMode: 'contain',
     },
     emptyText: {
-        fontSize: moderateScale(16),
+        fontSize: moderateScale(FontSize.md), // 16 -> md
         fontWeight: '600',
         color: '#111111',
     },
@@ -727,7 +734,7 @@ const styles = StyleSheet.create({
         paddingHorizontal: scale(8),
     },
     menuItemText: {
-        fontSize: moderateScale(15),
+        fontSize: moderateScale(FontSize.md), // 15 -> md (16)
         fontWeight: '500',
         color: '#333',
     },
@@ -776,7 +783,7 @@ const styles = StyleSheet.create({
         justifyContent: 'space-between',
     },
     filterItemText: {
-        fontSize: moderateScale(14),
+        fontSize: moderateScale(FontSize.sm), // 14 -> sm
         color: '#333',
         fontWeight: '500',
     },

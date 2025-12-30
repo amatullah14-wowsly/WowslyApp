@@ -10,10 +10,12 @@ import {
   Modal,
   RefreshControl,
   BackHandler,
+  useWindowDimensions,
 } from "react-native";
 import FastImage from 'react-native-fast-image';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { scale, verticalScale, moderateScale } from '../../utils/scaling';
+import { FontSize } from '../../constants/fontSizes';
+import { useScale } from '../../utils/useScale';
 import React, { useEffect, useMemo, useState, useCallback } from "react";
 import EventCard from "../../components/EventCard";
 import { useNavigation, useFocusEffect } from "@react-navigation/native";
@@ -26,6 +28,17 @@ import Pagination from '../../components/Pagination';
 
 const EventListing = () => {
   const navigation = useNavigation<any>();
+
+  // Use Dynamic Scaling
+  const { width } = useWindowDimensions();
+  const { scale, verticalScale, moderateScale } = useScale();
+  const styles = useMemo(() => makeStyles(scale, verticalScale, moderateScale), [scale, verticalScale, moderateScale]);
+
+  // Responsive Grid Logic
+  const isTablet = width >= 768; // Simple breakpoint
+  const numColumns = isTablet ? 3 : 1;
+  // Force re-render when columns change
+  const listKey = `event-list-${numColumns}`;
 
   // 🔥 Live events from API
   const [events, setEvents] = useState<any[]>([]);
@@ -91,7 +104,7 @@ const EventListing = () => {
         while (hasMore) {
           currentPage++;
           const nextRes = await getEventsPage(currentPage, type);
-          // console.log("nextRes:", nextRes) 
+          // console.log("nextRes:", nextRes)
           const nextEvents = nextRes?.data || [];
 
           // Check for next page info immediately
@@ -186,40 +199,42 @@ const EventListing = () => {
         : require('../../assets/img/common/noimage.png');
 
     return (
-      <EventCard
-        title={item.title}
-        date={item.start_date_display || "No Date"}
-        location={item.address || item.city || "—"}
-        image={imageSource}
-        isPlaceholder={!item.event_main_photo || item.event_main_photo === ""}
-        selected={isSelected}
-        onPress={async () => {
-          setSelectedEventId(item.id);
-          let role = null;
+      <View style={numColumns > 1 ? { flex: 1, maxWidth: `${100 / numColumns}%` } : { width: '100%' }}>
+        <EventCard
+          title={item.title}
+          date={item.start_date_display || "No Date"}
+          location={item.address || item.city || "—"}
+          image={imageSource}
+          isPlaceholder={!item.event_main_photo || item.event_main_photo === ""}
+          selected={isSelected}
+          onPress={async () => {
+            setSelectedEventId(item.id);
+            let role = null;
 
-          if (activeTab === 'joined') {
-            try {
-              const guestUuid = item.guest_uuid || item.uuid; // Defensive check
-              if (guestUuid) {
-                // Show simple loading feedback if desired later, for now proceeding.
-                console.log(`Checking role for guest UUID: ${guestUuid}`);
-                const res = await getEventWebLink(guestUuid);
-                console.log("Role check response:", res);
+            if (activeTab === 'joined') {
+              try {
+                const guestUuid = item.guest_uuid || item.uuid; // Defensive check
+                if (guestUuid) {
+                  // Show simple loading feedback if desired later, for now proceeding.
+                  console.log(`Checking role for guest UUID: ${guestUuid}`);
+                  const res = await getEventWebLink(guestUuid);
+                  console.log("Role check response:", res);
 
-                role = res?.data?.current_user_role?.toLowerCase();
-              } else {
-                // console.warn("No guest UUID found for joined event:", item);
+                  role = res?.data?.current_user_role?.toLowerCase();
+                } else {
+                  // console.warn("No guest UUID found for joined event:", item);
+                }
+              } catch (e) {
+                console.log('Error checking manager role:', e);
               }
-            } catch (e) {
-              console.log('Error checking manager role:', e);
             }
-          }
 
-          navigation.navigate('EventDashboard' as never, { eventData: item, userRole: role } as never);
-        }}
-      />
+            navigation.navigate('EventDashboard' as never, { eventData: item, userRole: role } as never);
+          }}
+        />
+      </View>
     );
-  }, [selectedEventId, navigation]);
+  }, [selectedEventId, navigation, activeTab, numColumns]); // Added activeTab & numColumns to dependency
 
   // 🔄 Loading UI
   if (loading) {
@@ -291,7 +306,7 @@ const EventListing = () => {
                     await AsyncStorage.clear();
                     console.log('AsyncStorage cleared');
                   } catch (e) {
-                    console.error('Error clearing storage:', e);
+                    console.log('Failed to clear async storage');
                   }
 
                   setLogoutModalVisible(false);
@@ -310,24 +325,34 @@ const EventListing = () => {
       </Modal>
 
       {/* Tab Selectors */}
-      {/* Tab Selectors (Orange Pill Style) */}
+      {/* TABS (Joined / Created) */}
       <View style={styles.tabContainer}>
         <TouchableOpacity
           style={[styles.tabButton, activeTab === 'joined' && styles.activeTabButton]}
-          onPress={() => setActiveTab('joined')}
+          onPress={() => {
+            setActiveTab('joined');
+            setPage(1);
+          }}
           activeOpacity={0.8}
         >
-          <Text style={[styles.tabText, activeTab === 'joined' && styles.activeTabText]}>Joined Events</Text>
+          <Text style={[styles.tabText, activeTab === 'joined' && styles.activeTabText]}>
+            Joined Events
+          </Text>
         </TouchableOpacity>
+
         <TouchableOpacity
           style={[styles.tabButton, activeTab === 'created' && styles.activeTabButton]}
-          onPress={() => setActiveTab('created')}
+          onPress={() => {
+            setActiveTab('created');
+            setPage(1);
+          }}
           activeOpacity={0.8}
         >
-          <Text style={[styles.tabText, activeTab === 'created' && styles.activeTabText]}>Created Events</Text>
+          <Text style={[styles.tabText, activeTab === 'created' && styles.activeTabText]}>
+            Created Events
+          </Text>
         </TouchableOpacity>
       </View>
-
       {/* Search Bar */}
       <View style={styles.searchWrapper}>
         <View style={styles.searchField}>
@@ -347,10 +372,12 @@ const EventListing = () => {
         </View>
       </View>
 
-      {/* Events List */}
+      {/* EVENT LIST */}
       <FlatList
+        key={listKey} // Key forces re-render when columns change
+        numColumns={numColumns} // Responsive Columns
+        columnWrapperStyle={numColumns > 1 ? { justifyContent: 'space-between', gap: scale(10) } : undefined}
         data={paginatedEvents}
-        keyExtractor={(item) => item.id.toString()}
         renderItem={renderCard}
         contentContainerStyle={[styles.listContent, paginatedEvents.length === 0 && { flexGrow: 1 }]}
         ListEmptyComponent={renderEmptyComponent}
@@ -360,15 +387,13 @@ const EventListing = () => {
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#FF8A3C']} />
         }
         // Optimization Props
-        // Optimization Props
         initialNumToRender={8}
         maxToRenderPerBatch={8}
         windowSize={5}
         removeClippedSubviews={true}
         getItemLayout={(data, index) => (
-          // Fixed height 200 + margin 18 = 218 approx.
-          // Adjust to match actual EventCard height + margin
-          { length: 218, offset: 218 * index, index }
+          // Dynamic height: verticalScale(200) + verticalScale(18) margin
+          { length: verticalScale(218), offset: verticalScale(218) * index, index }
         )}
       />
 
@@ -381,7 +406,9 @@ const EventListing = () => {
     </View>
   );
 };
-const styles = StyleSheet.create({
+export default EventListing;
+
+const makeStyles = (scale: (size: number) => number, verticalScale: (size: number) => number, moderateScale: (size: number, factor?: number) => number) => StyleSheet.create({
   container: {
     backgroundColor: 'white',
     flex: 1,
@@ -390,13 +417,13 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     backgroundColor: '#FF8A3C',
     width: '100%',
-    paddingVertical: 20, // Dynamic height based on content + padding
+    paddingVertical: moderateScale(20),
     paddingTop: verticalScale(25), // Keep status bar padding
     borderBottomLeftRadius: scale(15),
     borderBottomRightRadius: scale(15),
     shadowColor: '#FF8A3C',
     shadowOpacity: 0.2,
-    shadowOffset: { width: 0, height: 6 }, // Fixed shadow
+    shadowOffset: { width: 0, height: verticalScale(6) },
     elevation: 6,
   },
   headingRow: {
@@ -407,23 +434,22 @@ const styles = StyleSheet.create({
   },
   headingtxt: {
     color: 'white',
-    fontSize: moderateScale(20),
+    fontSize: moderateScale(FontSize.xl),
     fontWeight: '700',
   },
   logoutIcon: {
     width: scale(23),
     height: scale(23),
-    // Removed top: verticalScale(5) to rely on flex alignment
   },
   searchWrapper: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: 'white',
     marginHorizontal: scale(20),
-    marginTop: 20, // Fixed margin
+    marginTop: verticalScale(20),
     borderRadius: scale(20),
     paddingHorizontal: scale(20),
-    height: 55, // Fixed height OK for input
+    height: verticalScale(55),
     shadowColor: '#999',
     shadowOpacity: 0.1,
     shadowOffset: { width: 0, height: verticalScale(4) },
@@ -438,7 +464,7 @@ const styles = StyleSheet.create({
   },
   searchInput: {
     flex: 1,
-    fontSize: moderateScale(15),
+    fontSize: moderateScale(FontSize.md),
     color: '#333',
     paddingLeft: scale(8),
   },
@@ -448,18 +474,17 @@ const styles = StyleSheet.create({
   },
   listContent: {
     paddingHorizontal: scale(20),
-    paddingTop: 18,
-    paddingBottom: 90,
+    paddingTop: verticalScale(18),
+    paddingBottom: verticalScale(90),
   },
   pagination: {
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
     gap: scale(16),
-    gap: scale(16),
-    paddingBottom: 10,
+    paddingBottom: verticalScale(10),
     backgroundColor: 'white',
-    height: 60, // Fixed height container for touch targets
+    height: verticalScale(60),
   },
   pageIcon: {
     width: scale(28),
@@ -492,8 +517,8 @@ const styles = StyleSheet.create({
   },
   modalCard: {
     backgroundColor: '#FFFFFF',
-    borderRadius: scale(20),
-    padding: scale(24),
+    borderRadius: moderateScale(20),
+    padding: moderateScale(24),
     width: '100%',
     maxWidth: scale(340),
     shadowColor: '#000',
@@ -503,14 +528,14 @@ const styles = StyleSheet.create({
     elevation: 8,
   },
   modalTitle: {
-    fontSize: moderateScale(22),
+    fontSize: moderateScale(FontSize.xl),
     fontWeight: '700',
     color: '#1C1C1C',
     marginBottom: verticalScale(12),
     textAlign: 'center',
   },
   modalMessage: {
-    fontSize: moderateScale(15),
+    fontSize: moderateScale(FontSize.md),
     color: '#6F6F6F',
     textAlign: 'center',
     marginBottom: verticalScale(24),
@@ -523,7 +548,7 @@ const styles = StyleSheet.create({
   modalButton: {
     flex: 1,
     paddingVertical: verticalScale(14),
-    borderRadius: scale(12),
+    borderRadius: moderateScale(12),
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -536,12 +561,12 @@ const styles = StyleSheet.create({
     backgroundColor: '#FF8A3C',
   },
   modalButtonTextCancel: {
-    fontSize: moderateScale(16),
+    fontSize: moderateScale(FontSize.md),
     fontWeight: '600',
     color: '#6F6F6F',
   },
   modalButtonTextConfirm: {
-    fontSize: moderateScale(16),
+    fontSize: moderateScale(FontSize.md),
     fontWeight: '600',
     color: '#FFFFFF',
   },
@@ -571,7 +596,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#FF8A3C',
   },
   tabText: {
-    fontSize: moderateScale(14),
+    fontSize: moderateScale(FontSize.sm),
     fontWeight: '600',
     color: '#FF8A3C', // Inactive text is orange
   },
@@ -579,7 +604,3 @@ const styles = StyleSheet.create({
     color: '#FFFFFF', // Active text is white
   },
 })
-
-
-export default EventListing
-

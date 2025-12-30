@@ -1,9 +1,10 @@
 import { StyleSheet, Text, View, TouchableOpacity, Image, KeyboardAvoidingView, Platform, ScrollView, Linking, ImageBackground } from 'react-native'
 import Toast from 'react-native-toast-message';
-import React, { useRef, useState } from 'react'
+import React, { useRef, useState, useMemo } from 'react'
 import { useNavigation } from '@react-navigation/native';
 import PhoneNumberInput from 'react-native-phone-number-input';
-import { scale, verticalScale, moderateScale } from '../../utils/scaling';
+import { useScale } from '../../utils/useScale';
+import { FontSize } from '../../constants/fontSizes';
 import { sendOTP } from '../../api/api';  // ✅ API IMPORT
 
 const Number = () => {
@@ -14,6 +15,192 @@ const Number = () => {
   const [countryCode, setCountryCode] = useState('91'); // Default to India
 
   const navigation = useNavigation<any>();
+  const { scale, verticalScale, moderateScale } = useScale();
+
+  const styles = useMemo(() => StyleSheet.create({
+    bgImage: {
+      flex: 1,
+    },
+    container: {
+      flex: 1,
+    },
+    scrollContent: {
+      flexGrow: 1,
+      justifyContent: 'center',
+      alignItems: 'center',
+      paddingBottom: moderateScale(20),
+      paddingTop: moderateScale(50),
+    },
+    mainbox: {
+      width: '90%',
+      paddingVertical: moderateScale(10),
+      backgroundColor: '#fff',
+      borderRadius: scale(25),
+      alignSelf: 'center',
+      justifyContent: 'center',
+      alignItems: 'center',
+      gap: moderateScale(5),
+    },
+    logo: {
+      width: scale(80),
+      height: undefined,
+      aspectRatio: 80 / 55, // Maintaining aspect ratio
+      resizeMode: 'contain',
+    },
+    heading: {
+      gap: verticalScale(4),
+      flexDirection: 'column',
+      alignItems: 'center',
+    },
+    headingText: {
+      fontWeight: '600',
+      fontSize: moderateScale(FontSize.xxl),
+      marginTop: moderateScale(10),
+      color: '#000',
+    },
+    organizer: {
+      fontWeight: '600',
+      fontSize: moderateScale(FontSize.xxl),
+      color: '#000',
+    },
+    manage: {
+      color: 'grey',
+      fontSize: moderateScale(FontSize.xs),
+      marginTop: moderateScale(10),
+    },
+    number: {
+      alignSelf: 'flex-start',
+      marginLeft: '8%',
+      marginTop: moderateScale(10),
+      width: '100%', // Ensure container takes width
+    },
+    mobile: {
+      color: 'black',
+      fontSize: moderateScale(FontSize.sm),
+      fontWeight: '500',
+    },
+    phoneContainer: {
+      width: '90%',
+      marginTop: moderateScale(10),
+      borderWidth: 1,
+      borderColor: '#E0E0E0',
+      borderRadius: scale(15),
+      backgroundColor: '#fff',
+      paddingHorizontal: scale(5),
+      paddingVertical: 0,
+      height: moderateScale(50),
+      alignItems: 'center',
+    },
+    phoneTextContainer: {
+      backgroundColor: '#fff',
+      borderRadius: scale(15),
+      paddingVertical: 0,
+      height: '100%',
+      justifyContent: 'center',
+    },
+    phoneInput: {
+      fontSize: moderateScale(FontSize.md),
+      color: '#000',
+      paddingVertical: 0,
+      height: '100%',
+    },
+    phoneCodeText: {
+      fontSize: moderateScale(FontSize.sm),
+      fontWeight: '600',
+      color: '#000',
+    },
+    phoneFlagButton: {
+      marginLeft: scale(5),
+    },
+    phoneCountryButton: {
+      paddingRight: scale(10),
+      borderRightWidth: 1,
+      borderRightColor: '#E0E0E0',
+    },
+    smsPrompt: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: scale(6),
+      marginTop: verticalScale(12),
+    },
+    smsPromptLabel: {
+      color: '#7E7E7E',
+      fontSize: moderateScale(FontSize.xs),
+    },
+    smsPromptAction: {
+      color: '#FF8A3C',
+      fontSize: moderateScale(FontSize.xs),
+      fontWeight: '700',
+    },
+    smsPromptDisabled: {
+      opacity: 0.4,
+    },
+    checkboxRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: scale(8),
+      alignSelf: 'flex-start',
+      marginLeft: '7%',
+      marginTop: verticalScale(15),
+    },
+    checkbox: {
+      width: scale(20),
+      height: scale(20),
+      borderRadius: scale(6),
+      borderWidth: 1,
+      borderColor: '#E0E0E0',
+      justifyContent: 'center',
+      alignItems: 'center',
+      backgroundColor: '#fff',
+    },
+    checkboxChecked: {
+      borderColor: '#FF8A3C',
+    },
+    checkboxIndicator: {
+      width: scale(12),
+      height: scale(12),
+      borderRadius: scale(4),
+      backgroundColor: '#FF8A3C',
+    },
+    checkboxLabel: {
+      color: '#7E7E7E',
+      fontSize: moderateScale(FontSize.xs),
+      bottom: verticalScale(1),
+    },
+    button: {
+      width: '90%',
+      height: moderateScale(50),
+      borderRadius: scale(15),
+      backgroundColor: '#FF8A3C',
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginTop: moderateScale(20),
+    },
+    buttonDisabled: {
+      backgroundColor: '#CCCCCC',
+    },
+    buttonText: {
+      color: '#fff',
+      fontSize: moderateScale(FontSize.md),
+      fontWeight: '700'
+    },
+    footer: {
+      flexDirection: 'row',
+      justifyContent: 'center',
+      alignItems: 'center',
+      gap: scale(8),
+      marginTop: verticalScale(40),
+    },
+    footerText: {
+      color: '#FF8A3C',
+      fontSize: moderateScale(FontSize.xs)
+    },
+    dot: {
+      color: '#FF8A3C',
+      fontSize: moderateScale(FontSize.xs),
+      marginHorizontal: scale(6)
+    }
+  }), [scale, verticalScale, moderateScale]);
 
   const triggerOtp = async (method: 'whatsapp' | 'sms') => {
     const checkValid = phoneInput.current?.isValidNumber(value);
@@ -136,9 +323,9 @@ const Number = () => {
                 textInputProps={{
                   returnKeyType: 'done',
                   onSubmitEditing: handleSendOTP,
-                      allowFontScaling: false,
-    placeholder: 'Mobile Number',
-    placeholderTextColor: '#9E9E9E',
+                  placeholder: 'Mobile Number',
+                  placeholderTextColor: '#9E9E9E',
+                  style: styles.phoneInput // Ensure internal input also gets style if needed, though usually dealt with via props
                 }}
               />
               {countryCode === '91' && (
@@ -206,190 +393,5 @@ const Number = () => {
     </ImageBackground>
   )
 }
-
-const styles = StyleSheet.create({
-  bgImage: {
-    flex: 1,
-  },
-  container: {
-    flex: 1,
-    // backgroundColor: '#FFF3E0', // Replaced with ImageBackground
-  },
-  scrollContent: {
-    flexGrow: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingBottom: 20,
-    paddingTop: 50,
-  },
-  mainbox: {
-    width: '90%',
-    // height: '48%', // Removed fixed height to allow content to determine size
-    paddingVertical: 10,
-    backgroundColor: '#fff',
-    borderRadius: scale(25),
-    alignSelf: 'center',
-    justifyContent: 'center',
-    alignItems: 'center',
-    gap: 5,
-  },
-  logo: {
-    width: scale(80),
-    height: scale(55),
-  },
-  heading: {
-    gap: verticalScale(4),
-    color: '#000',
-    flexDirection: 'column',
-    alignItems: 'center',
-  },
-  headingText: {
-    fontWeight: '600',
-    fontSize: moderateScale(25),
-    marginTop: 10,
-    color: '#000',
-  },
-  organizer: {
-    fontWeight: '600',
-    fontSize: moderateScale(25),
-    color: '#000',
-  },
-  manage: {
-    color: 'grey',
-    fontSize: moderateScale(12),
-    marginTop: 10,
-  },
-  number: {
-    alignSelf: 'flex-start',
-    marginLeft: '8%',
-    marginTop: 10,
-  },
-  mobile: {
-    color: 'black',
-    fontSize: moderateScale(14),
-    fontWeight: '500',
-  },
-  phoneContainer: {
-    width: '90%',
-    marginTop: 10,
-    borderWidth: 1,
-    borderColor: '#E0E0E0',
-    borderRadius: scale(15),
-    backgroundColor: '#fff',
-    paddingHorizontal: scale(5),
-    paddingVertical: 0,
-    height: 50,
-    alignItems: 'center',
-  },
-  phoneTextContainer: {
-    backgroundColor: '#fff',
-    borderRadius: scale(15),
-    paddingVertical: 0,
-    height: '100%',
-    justifyContent: 'center',
-  },
-  phoneInput: {
-    fontSize: moderateScale(15),
-    color: '#000',
-    paddingVertical: 0,
-  },
-  phoneCodeText: {
-    fontSize: moderateScale(14),
-    fontWeight: '600',
-    color: '#000',
-  },
-  phoneFlagButton: {
-    marginLeft: scale(5),
-  },
-  phoneCountryButton: {
-    paddingRight: scale(10),
-    borderRightWidth: 1,
-    borderRightColor: '#E0E0E0',
-  },
-  smsPrompt: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: scale(6),
-    marginTop: verticalScale(12),
-  },
-  smsPromptLabel: {
-    color: '#7E7E7E',
-    fontSize: moderateScale(12),
-  },
-  smsPromptAction: {
-    color: '#FF8A3C',
-    fontSize: moderateScale(12),
-    fontWeight: '700',
-  },
-  smsPromptDisabled: {
-    opacity: 0.4,
-  },
-  checkboxRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: scale(8),
-    alignSelf: 'flex-start',
-    marginLeft: '7%',
-    marginTop: verticalScale(15),
-  },
-  checkbox: {
-    width: scale(20),
-    height: scale(20),
-    borderRadius: scale(6),
-    borderWidth: 1,
-    borderColor: '#E0E0E0',
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#fff',
-  },
-  checkboxChecked: {
-    borderColor: '#FF8A3C',
-  },
-  checkboxIndicator: {
-    width: scale(12),
-    height: scale(12),
-    borderRadius: scale(4),
-    backgroundColor: '#FF8A3C',
-  },
-  checkboxLabel: {
-    color: '#7E7E7E',
-    fontSize: moderateScale(12),
-    bottom: verticalScale(1),
-
-  },
-  button: {
-    width: '90%',
-    height: 50,
-    borderRadius: scale(15),
-    backgroundColor: '#FF8A3C',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: 20,
-  },
-  buttonDisabled: {
-    backgroundColor: '#CCCCCC',
-  },
-  buttonText: {
-    color: '#fff',
-    fontSize: moderateScale(16),
-    fontWeight: '700'
-  },
-  footer: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-    gap: scale(8),
-    marginTop: verticalScale(40),
-  },
-  footerText: {
-    color: '#FF8A3C',
-    fontSize: moderateScale(13)
-  },
-  dot: {
-    color: '#FF8A3C',
-    fontSize: moderateScale(13),
-    marginHorizontal: scale(6)
-  }
-});
 
 export default Number;

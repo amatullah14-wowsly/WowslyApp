@@ -9,6 +9,7 @@ import {
   TextInput,
   StatusBar,
   RefreshControl,
+  useWindowDimensions,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -19,10 +20,15 @@ import {
   getEventWebLink
 } from '../../api/event';
 import Pagination from '../../components/Pagination';
-import { scale, verticalScale, moderateScale } from '../../utils/scaling';
+import { useScale } from '../../utils/useScale';
+import { FontSize } from '../../constants/fontSizes';
 
 const Past = () => {
   const navigation = useNavigation<any>();
+  const { width } = useWindowDimensions();
+  const { scale, verticalScale, moderateScale } = useScale();
+  const styles = useMemo(() => makeStyles(scale, verticalScale, moderateScale), [scale, verticalScale, moderateScale]);
+
   const [events, setEvents] = useState<any[]>([]);
   const [allEvents, setAllEvents] = useState<any[]>([]); // Store all fetched events
   const [loading, setLoading] = useState(true);
@@ -270,9 +276,7 @@ const Past = () => {
   );
 };
 
-export default Past;
-
-const styles = StyleSheet.create({
+const makeStyles = (scale: (size: number) => number, verticalScale: (size: number) => number, moderateScale: (size: number, factor?: number) => number) => StyleSheet.create({
   container: {
     backgroundColor: 'white',
     flex: 1,
@@ -328,7 +332,7 @@ const styles = StyleSheet.create({
   },
   searchInput: {
     flex: 1,
-    fontSize: moderateScale(15),
+    fontSize: moderateScale(FontSize.md), // 15 -> md (16)
     color: '#333',
     paddingLeft: scale(8),
   },
@@ -399,7 +403,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#FF8A3C',
   },
   tabText: {
-    fontSize: moderateScale(14),
+    fontSize: moderateScale(FontSize.sm),
     fontWeight: '600',
     color: '#FF8A3C', // Inactive text is orange
   },
@@ -407,3 +411,5 @@ const styles = StyleSheet.create({
     color: '#FFFFFF', // Active text is white
   },
 });
+
+export default Past;

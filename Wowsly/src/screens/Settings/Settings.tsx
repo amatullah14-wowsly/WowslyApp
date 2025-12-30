@@ -1,15 +1,16 @@
-import React, { useState, useEffect } from 'react';
-import { StyleSheet, Text, View, SafeAreaView, TouchableOpacity, ScrollView, Image, Switch, TextInput } from 'react-native';
+import React, { useState, useEffect, useMemo } from 'react';
+import { StyleSheet, Text, View, SafeAreaView, TouchableOpacity, ScrollView, Image, Switch, TextInput, useWindowDimensions } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 import BackButton from '../../components/BackButton';
-import { scale, verticalScale, moderateScale } from '../../utils/scaling';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { generateEventToken, updateEventSettings } from '../../api/event';
 import { Alert } from 'react-native';
+import { useScale } from '../../utils/useScale';
+import { FontSize } from '../../constants/fontSizes';
 
 const THEME_COLOR = '#FF8A3C';
 
-const CustomSwitch = ({ value, onValueChange, disabled }: { value: boolean, onValueChange: () => void, disabled?: boolean }) => {
+const CustomSwitch = ({ value, onValueChange, disabled, styles, scale }: { value: boolean, onValueChange: () => void, disabled?: boolean, styles: any, scale: (size: number) => number }) => {
     return (
         <TouchableOpacity
             activeOpacity={0.8}
@@ -33,6 +34,10 @@ const Settings = () => {
     const navigation = useNavigation();
     const route = useRoute<any>();
     const { eventData } = route.params || {};
+
+    const { width } = useWindowDimensions();
+    const { scale, verticalScale, moderateScale } = useScale();
+    const styles = useMemo(() => makeStyles(scale, verticalScale, moderateScale), [scale, verticalScale, moderateScale]);
 
     const [eventType, setEventType] = useState<'public' | 'invite' | null>(null);
     const [ticketType, setTicketType] = useState<'free' | 'paid'>('free');
@@ -385,30 +390,38 @@ const Settings = () => {
                         value={settings.registrationRequired}
                         onToggle={() => toggleSetting('registrationRequired')}
                         disabled={ticketType === 'paid'}
+                        styles={styles}
+                        scale={scale}
                     />
-                    <SettingItem label="Self Check-in" value={settings.selfCheckIn} onToggle={() => toggleSetting('selfCheckIn')} />
+                    <SettingItem label="Self Check-in" value={settings.selfCheckIn} onToggle={() => toggleSetting('selfCheckIn')} styles={styles} scale={scale} />
                     <SettingItem
                         label="Has Polls"
                         value={settings.hasPolls}
                         onToggle={() => toggleSetting('hasPolls')}
                         disabled={settings.registerAgain}
+                        styles={styles}
+                        scale={scale}
                     />
                     <SettingItem
                         label="Registration On Approval Basis"
                         value={settings.approvalBasis}
                         onToggle={() => toggleSetting('approvalBasis')}
                         disabled={settings.registerAgain}
+                        styles={styles}
+                        scale={scale}
                     />
-                    <SettingItem label="Guest Can Exchange Details" value={settings.exchangeDetails} onToggle={() => toggleSetting('exchangeDetails')} />
-                    <SettingItem label="Buy Multiple Tickets" value={settings.buyMultipleTickets} onToggle={() => toggleSetting('buyMultipleTickets')} />
+                    <SettingItem label="Guest Can Exchange Details" value={settings.exchangeDetails} onToggle={() => toggleSetting('exchangeDetails')} styles={styles} scale={scale} />
+                    <SettingItem label="Buy Multiple Tickets" value={settings.buyMultipleTickets} onToggle={() => toggleSetting('buyMultipleTickets')} styles={styles} scale={scale} />
                     <SettingItem
                         label="Enable User to Register Again"
                         value={settings.registerAgain}
                         onToggle={() => toggleSetting('registerAgain')}
                         disabled={settings.hasPolls || settings.approvalBasis}
+                        styles={styles}
+                        scale={scale}
                     />
-                    <SettingItem label="Has Exhibitors" value={settings.hasExhibitors} onToggle={() => toggleSetting('hasExhibitors')} />
-                    <SettingItem label="OTP On Registration Form" value={settings.otpOnRegistration} onToggle={() => toggleSetting('otpOnRegistration')} last />
+                    <SettingItem label="Has Exhibitors" value={settings.hasExhibitors} onToggle={() => toggleSetting('hasExhibitors')} styles={styles} scale={scale} />
+                    <SettingItem label="OTP On Registration Form" value={settings.otpOnRegistration} onToggle={() => toggleSetting('otpOnRegistration')} last styles={styles} scale={scale} />
                 </View>
 
                 {/* WhatsApp Integration Section */}
@@ -518,7 +531,7 @@ const Settings = () => {
                         activeOpacity={0.8}
                         style={[
                             styles.generateButton,
-                            (apiToken && apiToken !== 'Your API Token') && { backgroundColor: '#ccc', opacity: 0.7 }
+                            (!!apiToken && apiToken !== 'Your API Token') ? { backgroundColor: '#ccc', opacity: 0.7 } : undefined
                         ]}
                         onPress={handleGenerateToken}
                         disabled={!!apiToken && apiToken !== 'Your API Token'}
@@ -534,7 +547,7 @@ const Settings = () => {
                 <View style={styles.advancedSection}>
                     <View style={styles.advancedHeader}>
                         <Text style={styles.settingLabel}>Add Sender Email ID</Text>
-                        <CustomSwitch value={advancedSettings.senderEmail} onValueChange={() => toggleAdvancedSetting('senderEmail')} />
+                        <CustomSwitch value={advancedSettings.senderEmail} onValueChange={() => toggleAdvancedSetting('senderEmail')} styles={styles} scale={scale} />
                     </View>
 
                     {advancedSettings.senderEmail && (
@@ -561,7 +574,7 @@ const Settings = () => {
                 <View style={styles.advancedSection}>
                     <View style={styles.advancedHeader}>
                         <Text style={styles.settingLabel}>Owner Notified When Ticket Booked</Text>
-                        <CustomSwitch value={advancedSettings.ownerNotified} onValueChange={() => toggleAdvancedSetting('ownerNotified')} />
+                        <CustomSwitch value={advancedSettings.ownerNotified} onValueChange={() => toggleAdvancedSetting('ownerNotified')} styles={styles} scale={scale} />
                     </View>
 
                     {advancedSettings.ownerNotified && (
@@ -581,7 +594,7 @@ const Settings = () => {
                 <View style={styles.advancedSection}>
                     <View style={styles.advancedHeader}>
                         <Text style={styles.settingLabel}>Add Print Dimensions</Text>
-                        <CustomSwitch value={advancedSettings.printDimensions} onValueChange={() => toggleAdvancedSetting('printDimensions')} />
+                        <CustomSwitch value={advancedSettings.printDimensions} onValueChange={() => toggleAdvancedSetting('printDimensions')} styles={styles} scale={scale} />
                     </View>
 
                     {advancedSettings.printDimensions && (
@@ -620,20 +633,18 @@ const Settings = () => {
                 </View>
 
             </ScrollView>
-        </SafeAreaView>
+        </SafeAreaView >
     );
 };
 
-const SettingItem = ({ label, value, onToggle, last, disabled }: { label: string, value: boolean, onToggle: () => void, last?: boolean, disabled?: boolean }) => (
+const SettingItem = ({ label, value, onToggle, last, disabled, styles, scale }: { label: string, value: boolean, onToggle: () => void, last?: boolean, disabled?: boolean, styles: any, scale: (size: number) => number }) => (
     <View style={[styles.settingItem, last && { borderBottomWidth: 0 }]}>
         <Text style={[styles.settingLabel, disabled && { color: '#AAA' }]}>{label}</Text>
-        <CustomSwitch value={value} onValueChange={onToggle} disabled={disabled} />
+        <CustomSwitch value={value} onValueChange={onToggle} disabled={disabled} styles={styles} scale={scale} />
     </View>
 );
 
-export default Settings;
-
-const styles = StyleSheet.create({
+const makeStyles = (scale: (size: number) => number, verticalScale: (size: number) => number, moderateScale: (size: number, factor?: number) => number) => StyleSheet.create({
     container: {
         flex: 1,
         backgroundColor: 'white', // Slight off-white for background
@@ -651,7 +662,7 @@ const styles = StyleSheet.create({
         // elevation: 2,
     },
     headerTitle: {
-        fontSize: moderateScale(18),
+        fontSize: moderateScale(FontSize.lg), // 18 -> lg
         fontWeight: '600',
         flex: 1,
         textAlign: 'center',
@@ -693,13 +704,13 @@ const styles = StyleSheet.create({
         marginLeft: scale(15),
     },
     profileName: {
-        fontSize: moderateScale(16),
+        fontSize: moderateScale(FontSize.md), // 16 -> md
         fontWeight: '700',
         color: '#1C1C1C',
         marginBottom: verticalScale(4),
     },
     profileEmail: {
-        fontSize: moderateScale(13),
+        fontSize: moderateScale(FontSize.sm), // 13 -> sm
         color: '#888',
     },
     editButton: {
@@ -715,7 +726,7 @@ const styles = StyleSheet.create({
 
     // Section Titles
     sectionTitle: {
-        fontSize: moderateScale(16),
+        fontSize: moderateScale(FontSize.md), // 16 -> md
         fontWeight: '700',
         color: '#1C1C1C',
         marginBottom: verticalScale(15),
@@ -760,7 +771,7 @@ const styles = StyleSheet.create({
         backgroundColor: THEME_COLOR,
     },
     radioLabel: {
-        fontSize: moderateScale(14),
+        fontSize: moderateScale(FontSize.sm), // 14 -> sm
         fontWeight: '500',
         color: '#333',
     },
@@ -786,7 +797,7 @@ const styles = StyleSheet.create({
         borderBottomColor: '#F5F5F5',
     },
     settingLabel: {
-        fontSize: moderateScale(14),
+        fontSize: moderateScale(FontSize.sm), // 14 -> sm
         fontWeight: '500',
         color: '#333',
         flex: 1,
@@ -829,7 +840,7 @@ const styles = StyleSheet.create({
         elevation: 2,
     },
     whatsappLabel: {
-        fontSize: moderateScale(14),
+        fontSize: moderateScale(FontSize.sm), // 14 -> sm
         color: '#333',
         fontWeight: '500',
     },
@@ -853,12 +864,12 @@ const styles = StyleSheet.create({
         marginBottom: verticalScale(15),
     },
     inputLabel: {
-        fontSize: moderateScale(14),
+        fontSize: moderateScale(FontSize.sm), // 14 -> sm
         color: '#666',
         marginBottom: verticalScale(8),
     },
     groupLabel: {
-        fontSize: moderateScale(15),
+        fontSize: moderateScale(FontSize.md), // 15 -> md
         color: '#1C1C1C',
         fontWeight: '600',
         marginTop: verticalScale(10),
@@ -873,7 +884,7 @@ const styles = StyleSheet.create({
         borderRadius: scale(8),
         paddingHorizontal: scale(12),
         paddingVertical: verticalScale(12),
-        fontSize: moderateScale(14),
+        fontSize: moderateScale(FontSize.sm), // 14 -> sm
         color: '#333',
         backgroundColor: 'white',
     },
@@ -884,7 +895,7 @@ const styles = StyleSheet.create({
         marginTop: verticalScale(20),
     },
     cancelText: {
-        fontSize: moderateScale(14),
+        fontSize: moderateScale(FontSize.sm), // 14 -> sm
         color: '#FF8A3C',
         fontWeight: '500',
         paddingHorizontal: scale(20),
@@ -898,7 +909,7 @@ const styles = StyleSheet.create({
     saveButtonText: {
         color: 'white',
         fontWeight: '700',
-        fontSize: moderateScale(14),
+        fontSize: moderateScale(FontSize.sm), // 14 -> sm
     },
 
     // API Token Section
@@ -920,7 +931,7 @@ const styles = StyleSheet.create({
         paddingHorizontal: scale(12),
     },
     tokenText: {
-        fontSize: moderateScale(14),
+        fontSize: moderateScale(FontSize.sm), // 14 -> sm
         color: '#333',
         flex: 1,
     },
@@ -943,7 +954,7 @@ const styles = StyleSheet.create({
     generateButtonText: {
         color: 'white',
         fontWeight: '700',
-        fontSize: moderateScale(12),
+        fontSize: moderateScale(FontSize.xs), // 12 -> xs
     },
 
     // Advanced Settings
@@ -972,7 +983,7 @@ const styles = StyleSheet.create({
         borderRadius: scale(8),
         paddingHorizontal: scale(12),
         paddingVertical: verticalScale(10), // Slightly reduced for compact fit
-        fontSize: moderateScale(14),
+        fontSize: moderateScale(FontSize.sm), // 14 -> sm
         color: '#333',
     },
 
@@ -998,6 +1009,8 @@ const styles = StyleSheet.create({
     mainSaveButtonText: {
         color: 'white',
         fontWeight: '700',
-        fontSize: moderateScale(16),
+        fontSize: moderateScale(FontSize.md), // 16 -> md
     },
 });
+
+export default Settings;

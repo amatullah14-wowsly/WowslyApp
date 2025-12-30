@@ -1,10 +1,15 @@
-import React, { useState, useEffect } from 'react';
-import { StyleSheet, Text, View, Modal, TouchableOpacity, ScrollView, TextInput, Image, Switch, Alert, KeyboardAvoidingView, Platform } from 'react-native';
-import { scale, verticalScale, moderateScale } from '../../utils/scaling';
+import React, { useState, useEffect, useMemo } from 'react';
+import { StyleSheet, Text, View, Modal, TouchableOpacity, ScrollView, TextInput, Image, Switch, Alert, KeyboardAvoidingView, Platform, useWindowDimensions } from 'react-native';
+import { useScale } from '../../utils/useScale';
+import { FontSize } from '../../constants/fontSizes';
 import { getEventTickets, getRegistrationFormStatus, getRegistrationFormDetails, getEventDetails, manualCheckInGuest } from '../../api/event';
 import Toast from 'react-native-toast-message';
 
 const GuestRegistrationModal = ({ visible, onClose, eventId }: { visible: boolean; onClose: () => void; eventId: string | number }) => {
+    const { width } = useWindowDimensions();
+    const { scale, verticalScale, moderateScale } = useScale();
+    const styles = useMemo(() => makeStyles(scale, verticalScale, moderateScale), [scale, verticalScale, moderateScale]);
+
     const [loading, setLoading] = useState(false);
     const [tickets, setTickets] = useState<any[]>([]);
     const [selectedTicketId, setSelectedTicketId] = useState<number | string | null>(null);
@@ -281,7 +286,7 @@ const GuestRegistrationModal = ({ visible, onClose, eventId }: { visible: boolea
     );
 };
 
-const styles = StyleSheet.create({
+const makeStyles = (scale: (size: number) => number, verticalScale: (size: number) => number, moderateScale: (size: number, factor?: number) => number) => StyleSheet.create({
     modalBackdrop: {
         flex: 1,
         backgroundColor: 'rgba(0,0,0,0.5)',
@@ -303,7 +308,7 @@ const styles = StyleSheet.create({
         borderBottomColor: '#EEE',
     },
     headerTitle: {
-        fontSize: moderateScale(18),
+        fontSize: moderateScale(FontSize.lg),
         fontWeight: '700',
         color: '#333',
     },
@@ -320,7 +325,7 @@ const styles = StyleSheet.create({
         paddingBottom: verticalScale(100),
     },
     sectionTitle: {
-        fontSize: moderateScale(16),
+        fontSize: moderateScale(FontSize.md),
         fontWeight: '600',
         marginBottom: verticalScale(10),
         color: '#333',
@@ -343,13 +348,13 @@ const styles = StyleSheet.create({
         borderColor: '#FF8A3C',
     },
     ticketName: {
-        fontSize: moderateScale(14),
+        fontSize: moderateScale(FontSize.sm),
         fontWeight: '600',
         color: '#333',
         marginBottom: verticalScale(4),
     },
     ticketPrice: {
-        fontSize: moderateScale(12),
+        fontSize: moderateScale(FontSize.xs),
         color: '#666',
     },
     divider: {
@@ -361,7 +366,7 @@ const styles = StyleSheet.create({
         marginBottom: verticalScale(15),
     },
     label: {
-        fontSize: moderateScale(15),
+        fontSize: moderateScale(FontSize.md), // 15 -> md (16)
         color: '#333',
         marginBottom: verticalScale(8),
         fontWeight: '500',
@@ -372,7 +377,7 @@ const styles = StyleSheet.create({
         borderRadius: scale(8),
         paddingHorizontal: scale(15),
         paddingVertical: verticalScale(12),
-        fontSize: moderateScale(16),
+        fontSize: moderateScale(FontSize.md),
         color: '#333',
         backgroundColor: 'white',
     },
@@ -393,7 +398,7 @@ const styles = StyleSheet.create({
         marginRight: scale(10),
     },
     optionText: {
-        fontSize: moderateScale(16),
+        fontSize: moderateScale(FontSize.md),
         color: '#333',
     },
     footer: {
@@ -409,7 +414,7 @@ const styles = StyleSheet.create({
     },
     submitText: {
         color: 'white',
-        fontSize: moderateScale(16),
+        fontSize: moderateScale(FontSize.md),
         fontWeight: '700',
     }
 });

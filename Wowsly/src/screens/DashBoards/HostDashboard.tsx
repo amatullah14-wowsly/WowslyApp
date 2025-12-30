@@ -10,6 +10,7 @@ import {
   Modal,
   Alert,
   DeviceEventEmitter,
+  useWindowDimensions,
 } from 'react-native';
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
 import BackButton from '../../components/BackButton';
@@ -19,6 +20,7 @@ import Toast from 'react-native-toast-message';
 import QRCode from 'react-native-qrcode-svg';
 import { findTicketByQr, updateTicketStatusLocal } from '../../db';
 import { scale, verticalScale, moderateScale } from '../../utils/scaling';
+import { FontSize } from '../../constants/fontSizes';
 
 type HostDashboardRoute = RouteProp<
   {
@@ -104,6 +106,16 @@ const INFO_ICON = require('../../assets/img/common/info.png');
 const HostDashboard = () => {
   const navigation = useNavigation<any>();
   const route = useRoute<HostDashboardRoute>();
+
+  // Responsive / Dimension Logic
+  const { width } = useWindowDimensions();
+  const isTablet = width >= 768;
+  const numColumns = isTablet ? 3 : 2;
+  const gap = scale(12);
+  const horizontalPadding = scale(20);
+  // Calculate item width: (totalWidth - padding - (gaps)) / columns
+  const itemWidth = (width - (horizontalPadding * 2) - (gap * (numColumns - 1))) / numColumns;
+
   const [infoModal, setInfoModal] = useState<{ visible: boolean; text?: string }>(
     { visible: false, text: undefined },
   );
@@ -359,11 +371,11 @@ const HostDashboard = () => {
           <View style={{ width: scale(40) }} />
         </View>
 
-        <View style={styles.qrCard}>
+        <View style={[styles.qrCard, isTablet && { width: '60%', alignSelf: 'center' }]}>
           {hostIp && hostIp !== 'Loading...' && hostIp !== 'Unknown' ? (
             <QRCode
               value={qrValue}
-              size={scale(200)}
+              size={isTablet ? scale(150) : scale(200)}
               color="black"
               backgroundColor="white"
             />
@@ -375,7 +387,8 @@ const HostDashboard = () => {
         <View style={{ alignItems: 'center', marginTop: 10 }}>
           <Text style={{
             color: serverStatus === 'Running' ? 'green' : 'red',
-            fontWeight: 'bold'
+            fontWeight: 'bold',
+            fontSize: moderateScale(FontSize.sm)
           }}>
             Server Status: {serverStatus} {serverStatus === 'Running' ? `(Port: ${serverPort})` : ''}
           </Text>
@@ -409,11 +422,11 @@ const HostDashboard = () => {
           })}
         </View>
 
-        <View style={styles.actionGrid}>
+        <View style={[styles.actionGrid, { gap }]}>
           {actionRows.map((action) => (
             <TouchableOpacity
               key={action.id}
-              style={styles.actionCard}
+              style={[styles.actionCard, { width: itemWidth }]}
               onPress={() => handleAction(action.id)}
             >
               <TouchableOpacity
@@ -438,7 +451,7 @@ const HostDashboard = () => {
         onRequestClose={closeInfo}
       >
         <View style={styles.modalBackdrop}>
-          <View style={styles.modalCard}>
+          <View style={[styles.modalCard, isTablet && { maxWidth: scale(500) }]}>
             <Text style={styles.modalTitle}>More Info</Text>
             <Text style={styles.modalBody}>{infoModal.text}</Text>
             <TouchableOpacity style={styles.modalButton} onPress={closeInfo}>
@@ -477,7 +490,7 @@ const styles = StyleSheet.create({
   headerTitle: {
     flex: 1,
     textAlign: 'center',
-    fontSize: moderateScale(18),
+    fontSize: moderateScale(FontSize.lg),
     fontWeight: '700',
     color: '#1F1F1F',
   },
@@ -501,7 +514,7 @@ const styles = StyleSheet.create({
     marginTop: 16, // Fixed
     textAlign: 'center',
     color: '#8A8A8A',
-    fontSize: moderateScale(14),
+    fontSize: moderateScale(FontSize.sm),
   },
   infoStack: {
     marginTop: 20, // Fixed
@@ -535,23 +548,23 @@ const styles = StyleSheet.create({
   },
   infoLabel: {
     flex: 1,
-    fontSize: moderateScale(16),
+    fontSize: moderateScale(FontSize.md),
     color: '#1F1F1F',
     fontWeight: '600',
   },
   infoValue: {
-    fontSize: moderateScale(16),
+    fontSize: moderateScale(FontSize.md),
     color: '#666666',
     fontWeight: '500',
   },
   actionGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: scale(12),
+    // Gap handled dynamically in inline styles
     marginTop: verticalScale(10),
   },
   actionCard: {
-    width: '48%',
+    // Width handled dynamically
     backgroundColor: '#FFFFFF',
     borderRadius: scale(24),
     padding: scale(16),
@@ -564,9 +577,9 @@ const styles = StyleSheet.create({
     position: 'relative',
   },
   actionIconCircle: {
-    width: 56, // Fixed
-    height: 56, // Fixed
-    borderRadius: 28, // Fixed
+    width: scale(56),
+    height: scale(56),
+    borderRadius: scale(28),
     backgroundColor: '#F5F5F5',
     alignItems: 'center',
     justifyContent: 'center',
@@ -579,7 +592,7 @@ const styles = StyleSheet.create({
     tintColor: '#FF5A5F',
   },
   actionLabel: {
-    fontSize: moderateScale(15),
+    fontSize: moderateScale(FontSize.md),
     fontWeight: '600',
     color: '#1F1F1F',
     textAlign: 'center',
@@ -611,13 +624,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   modalTitle: {
-    fontSize: moderateScale(20),
+    fontSize: moderateScale(FontSize.xl),
     fontWeight: '700',
     color: '#1F1F1F',
     marginBottom: verticalScale(12),
   },
   modalBody: {
-    fontSize: moderateScale(16),
+    fontSize: moderateScale(FontSize.md),
     color: '#666666',
     textAlign: 'center',
     marginBottom: verticalScale(24),
@@ -631,7 +644,7 @@ const styles = StyleSheet.create({
   },
   modalButtonText: {
     color: 'white',
-    fontSize: moderateScale(16),
+    fontSize: moderateScale(FontSize.md),
     fontWeight: '600',
   },
 });

@@ -1,10 +1,11 @@
 import { Image, StyleSheet, Text, View, TouchableOpacity, KeyboardAvoidingView, Platform, ScrollView, ImageBackground } from 'react-native'
 import Toast from 'react-native-toast-message';
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useMemo } from 'react'
 import { OtpInput } from 'react-native-otp-entry'
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native'
 import { verifyOTP, sendOTP } from '../../api/api'
-import { scale, verticalScale, moderateScale } from '../../utils/scaling';
+import { useScale } from '../../utils/useScale';
+import { FontSize } from '../../constants/fontSizes';
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
@@ -18,8 +19,127 @@ const Otp = () => {
     const [resendTimer, setResendTimer] = useState(30)
     const navigation = useNavigation<any>();
     const route = useRoute<RouteProp<{ params: OtpRouteParams }, 'params'>>();
+    const { scale, verticalScale, moderateScale } = useScale();
 
     const { dialing_code = "91", mobile = "" } = route.params || {};
+
+    const styles = useMemo(() => StyleSheet.create({
+        bgImage: {
+            flex: 1,
+        },
+        container: {
+            flex: 1,
+        },
+        scrollContent: {
+            flexGrow: 1,
+            justifyContent: 'center',
+            alignItems: 'center',
+            paddingBottom: moderateScale(20),
+            paddingTop: moderateScale(50),
+        },
+        wowsly: {
+            flexDirection: 'column',
+            gap: moderateScale(6),
+            marginBottom: '6%',
+            alignItems: 'center',
+        },
+        logo: {
+            width: scale(80),
+            height: undefined,
+            aspectRatio: 80 / 55,
+            alignSelf: 'center',
+            resizeMode: 'contain',
+        },
+        heading: {
+            fontSize: moderateScale(FontSize.xxl),
+            fontWeight: '600',
+            color: '#000'
+        },
+        box: {
+            backgroundColor: 'white',
+            width: '85%',
+            borderRadius: scale(25),
+            padding: scale(20),
+            alignItems: 'center',
+        },
+        title: {
+            fontSize: moderateScale(FontSize.lg),
+            fontWeight: '700',
+            color: '#000',
+            marginTop: verticalScale(6),
+            textAlign: 'center',
+        },
+        instructionText: {
+            fontSize: moderateScale(FontSize.sm),
+            color: '#7E7E7E',
+            marginTop: verticalScale(10),
+            textAlign: 'center',
+        },
+        phoneNumber: {
+            fontSize: moderateScale(FontSize.sm),
+            color: '#7E7E7E',
+            marginTop: verticalScale(4),
+            textAlign: 'center',
+        },
+        otpContainer: {
+            width: '100%',
+            marginTop: verticalScale(25),
+            alignItems: 'center',
+        },
+        otpInputContainer: {
+            gap: scale(6),
+            alignSelf: 'center',
+        },
+        otpBox: {
+            width: moderateScale(45), // Increased size slightly and made responsive
+            height: moderateScale(50),
+            borderWidth: 1,
+            borderColor: '#E0E0E0',
+            borderRadius: scale(8),
+        },
+        otpText: {
+            fontSize: moderateScale(FontSize.lg),
+            fontWeight: '600',
+            color: '#000',
+        },
+        resendContainer: {
+            flexDirection: 'row',
+            alignItems: 'center',
+            marginTop: verticalScale(20),
+        },
+        resendText: {
+            fontSize: moderateScale(FontSize.xs),
+            color: '#7E7E7E',
+        },
+        resendLink: {
+            fontSize: moderateScale(FontSize.xs),
+            color: '#FF8A3C',
+            fontWeight: '600',
+        },
+        resendLinkDisabled: {
+            opacity: 0.5,
+            color: '#FFF3E0', // Matching previous disabled color or keeping consistent
+        },
+        timerText: {
+            fontSize: moderateScale(FontSize.xs),
+            color: '#7E7E7E',
+            marginTop: verticalScale(4),
+        },
+        verifyButton: {
+            width: '100%',
+            height: moderateScale(45),
+            backgroundColor: '#FF8A3C',
+            borderRadius: scale(15),
+            alignItems: 'center',
+            justifyContent: 'center',
+            marginTop: verticalScale(25),
+        },
+        verifyButtonText: {
+            color: '#fff',
+            fontSize: moderateScale(FontSize.md),
+            fontWeight: '700',
+        },
+    }), [scale, verticalScale, moderateScale]);
 
     // ------------------------------
     // RESEND TIMER
@@ -157,123 +277,5 @@ const Otp = () => {
         </ImageBackground>
     )
 }
-const styles = StyleSheet.create({
-    bgImage: {
-        flex: 1,
-    },
-    container: {
-        flex: 1,
-        // backgroundColor: '#FFF3E0', // Replaced with ImageBackground
-    },
-    scrollContent: {
-        flexGrow: 1,
-        justifyContent: 'center',
-        alignItems: 'center',
-        paddingBottom: 20,
-        paddingTop: 50,
-    },
-    wowsly: {
-        flexDirection: 'column',
-        gap: 6,
-        marginBottom: '6%',
-
-
-    },
-    logo: {
-        width: scale(80),
-        height: scale(55),
-        alignSelf: 'center',
-    },
-    heading: {
-        fontSize: moderateScale(25),
-        fontWeight: '600',
-        color: '#000'
-    },
-    box: {
-        backgroundColor: 'white',
-        // height: '40%', // Removed fixed height
-        width: '85%',
-        borderRadius: scale(25),
-        padding: scale(20),
-        alignItems: 'center',
-    },
-    title: {
-        fontSize: moderateScale(18),
-        fontWeight: '700',
-        color: '#000',
-        marginTop: verticalScale(6),
-        textAlign: 'center',
-    },
-    instructionText: {
-        fontSize: moderateScale(14),
-        color: '#7E7E7E',
-        marginTop: verticalScale(10),
-        textAlign: 'center',
-    },
-    phoneNumber: {
-        fontSize: moderateScale(14),
-        color: '#7E7E7E',
-        marginTop: verticalScale(4),
-        textAlign: 'center',
-    },
-    otpContainer: {
-        width: '100%',
-        marginTop: verticalScale(25),
-        alignItems: 'center',
-    },
-    otpInputContainer: {
-        gap: scale(6),
-        alignSelf: 'center',
-    },
-    otpBox: {
-        width: 35,
-        height: 40,
-        borderWidth: 1,
-        borderColor: '#E0E0E0',
-        borderRadius: scale(8),
-    },
-    otpText: {
-        fontSize: moderateScale(18),
-        fontWeight: '600',
-        color: '#000',
-    },
-    resendContainer: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        marginTop: verticalScale(20),
-    },
-    resendText: {
-        fontSize: moderateScale(12),
-        color: '#7E7E7E',
-    },
-    resendLink: {
-        fontSize: moderateScale(12),
-        color: '#FF8A3C',
-        fontWeight: '600',
-    },
-    resendLinkDisabled: {
-        opacity: 0.5,
-        color: '#FFF3E0',
-    },
-    timerText: {
-        fontSize: moderateScale(12),
-        color: '#7E7E7E',
-        marginTop: verticalScale(4),
-    },
-    verifyButton: {
-        width: '100%',
-        height: 45,
-        backgroundColor: '#FF8A3C',
-        borderRadius: scale(15),
-        alignItems: 'center',
-        justifyContent: 'center',
-        marginTop: 25,
-    },
-    verifyButtonText: {
-        color: '#fff',
-        fontSize: moderateScale(16),
-        fontWeight: '700',
-    },
-})
 
 export default Otp

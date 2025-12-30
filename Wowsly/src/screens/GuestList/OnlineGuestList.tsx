@@ -10,6 +10,7 @@ import {
     TextInput,
     ActivityIndicator,
     DeviceEventEmitter,
+    useWindowDimensions,
 } from 'react-native';
 import FastImage from 'react-native-fast-image';
 import { RouteProp, useNavigation, useRoute, useFocusEffect } from '@react-navigation/native';
@@ -21,7 +22,8 @@ import BackButton from '../../components/BackButton';
 import { getLocalCheckedInGuests } from '../../db';
 import { scanStore, getMergedGuest } from '../../context/ScanStore';
 import { useRef } from 'react'; // Added useRef
-import { scale, verticalScale, moderateScale } from '../../utils/scaling';
+import { useScale } from '../../utils/useScale';
+import { FontSize } from '../../constants/fontSizes';
 import Pagination from '../../components/Pagination';
 
 type GuestListRoute = RouteProp<
@@ -41,7 +43,7 @@ const NOGUESTS_ICON = require('../../assets/img/common/noguests.png');
 const PREV_ICON = require('../../assets/img/common/previous.png');
 const NEXT_ICON = require('../../assets/img/common/next.png');
 
-type TabType = 'registered' | 'invited';
+type TabType = 'registered' | 'invited' | 'manager'; // Added manager
 
 const statusChipStyles: Record<string, { backgroundColor: string; color: string }> = {
     'Checked In': { backgroundColor: '#E3F2FD', color: '#1565C0' },
@@ -50,11 +52,17 @@ const statusChipStyles: Record<string, { backgroundColor: string; color: string 
     'blocked': { backgroundColor: '#FFEBEE', color: '#C62828' },
     'registered': { backgroundColor: '#E8F5E9', color: '#2E7D32' },
     'invited': { backgroundColor: '#E0F2F1', color: '#00695C' },
+    'manager': { backgroundColor: '#E3F2FD', color: '#1565C0' }, // Added manager style
 };
 
 const OnlineGuestList = () => {
     const navigation = useNavigation<any>();
     const route = useRoute<GuestListRoute>();
+
+    const { width } = useWindowDimensions();
+    const { scale, verticalScale, moderateScale } = useScale();
+    const styles = useMemo(() => makeStyles(scale, verticalScale, moderateScale), [scale, verticalScale, moderateScale]);
+
     const [activeTab, setActiveTab] = useState<TabType>('registered');
     const [searchQuery, setSearchQuery] = useState('');
     const [guests, setGuests] = useState<any[]>([]);
@@ -135,9 +143,6 @@ const OnlineGuestList = () => {
 
     /* ---------------------- Fetch guest list ---------------------- */
     const fetchGuests = async (page = 1) => {
-        // prevent duplicate calls if already loading same page? 
-        // For pagination usually we allow, but user requested lock "if (isLoading) return".
-        // However, we must be careful not to lock forever if error.
         if (isFetching.current) return;
         isFetching.current = true;
         setLoading(true);
@@ -169,11 +174,18 @@ const OnlineGuestList = () => {
             }
 
 
-            // 🔥 Normalize ID
+            // 🔥 Normalize ID & Apply Role Filter
+            // Filter OUT managers if accessing registered/invited tabs
+            // This is client-side filtering on the PAGE, which is imperfect but safer than showing them mixed.
+            // Ideally backend handles this.
             fetchedGuests = fetchedGuests.map((g: any) => ({
                 ...g,
                 id: g.id || g.guest_id || g.event_user_id,
             }));
+
+            if (activeTab !== 'manager') {
+                fetchedGuests = fetchedGuests.filter((g: any) => g.role !== 'manager');
+            }
 
             // Merge local DB check-ins for status updates
             try {
@@ -220,8 +232,6 @@ const OnlineGuestList = () => {
 
     /* ---------------------- Render each guest ---------------------- */
     // Extracted to Memoized Component (defined below)
-    /* ---------------------- Render each guest ---------------------- */
-    // Extracted to Memoized Component (defined below)
     const renderGuestItem = React.useCallback(({ item, index }: { item: any, index: number }) => {
         // Optimization: Disable swipeable for items far down the list if performance is key
         // User suggestion: "Disable Swipeable OR lazy-render it"
@@ -237,9 +247,10 @@ const OnlineGuestList = () => {
                     setSelectedGuestId(id);
                     setModalVisible(true);
                 }}
+                styles={styles}
             />
         );
-    }, []);
+    }, [styles]);
 
     /* ---------------------- UI ---------------------- */
     return (
@@ -260,7 +271,7 @@ const OnlineGuestList = () => {
                         onPress={() => setActiveTab('registered')}
                     >
                         <Text style={[styles.tabText, activeTab === 'registered' && styles.activeTabText]}>
-                            Registered Guests
+                            Registered
                         </Text>
                     </TouchableOpacity>
 
@@ -269,7 +280,16 @@ const OnlineGuestList = () => {
                         onPress={() => setActiveTab('invited')}
                     >
                         <Text style={[styles.tabText, activeTab === 'invited' && styles.activeTabText]}>
-                            Invited Guests
+                            Invited
+                        </Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                        style={[styles.tab, activeTab === 'manager' && styles.activeTab]}
+                        onPress={() => setActiveTab('manager')}
+                    >
+                        <Text style={[styles.tabText, activeTab === 'manager' && styles.activeTabText]}>
+                            Managers
                         </Text>
                     </TouchableOpacity>
                 </View>
@@ -280,6 +300,7 @@ const OnlineGuestList = () => {
                     <TextInput
                         style={styles.searchInput}
                         placeholder="Search by name"
+                        placeholderTextColor="#9E9E9E"
                         value={searchQuery}
                         onChangeText={setSearchQuery}
                     />
@@ -301,8 +322,8 @@ const OnlineGuestList = () => {
                             ItemSeparatorComponent={() => <View style={styles.separator} />}
                             renderItem={renderGuestItem}
                             getItemLayout={(data, index) => ({
-                                length: 80, // Approx height + separator
-                                offset: 80 * index,
+                                length: verticalScale(80), // Approx height + separator
+                                offset: verticalScale(80) * index,
                                 index,
                             })}
                             initialNumToRender={10}
@@ -356,14 +377,8 @@ const OnlineGuestList = () => {
 
 export default OnlineGuestList;
 
-
-
-/* styles unchanged... */
-
-
-
 // ⚡⚡⚡ MEMOIZED GUEST ROW COMPONENT ⚡⚡⚡
-const MemoizedGuestRow = React.memo(({ item, onPress, swipeEnabled }: { item: any, onPress: () => void, swipeEnabled?: boolean }) => {
+const MemoizedGuestRow = React.memo(({ item, onPress, swipeEnabled, styles }: { item: any, onPress: () => void, swipeEnabled?: boolean, styles: any }) => {
     const name = item.name || `${item.first_name} ${item.last_name}`;
     const avatar = item.avatar || item.profile_photo;
 
@@ -414,7 +429,7 @@ const MemoizedGuestRow = React.memo(({ item, onPress, swipeEnabled }: { item: an
     );
 });
 
-const styles = StyleSheet.create({
+const makeStyles = (scale: (size: number) => number, verticalScale: (size: number) => number, moderateScale: (size: number, factor?: number) => number) => StyleSheet.create({
     safeArea: {
         flex: 1,
         backgroundColor: 'white',
@@ -435,7 +450,7 @@ const styles = StyleSheet.create({
     title: {
         flex: 1,
         marginHorizontal: scale(16),
-        fontSize: moderateScale(20),
+        fontSize: moderateScale(FontSize.xl),
         fontWeight: '700',
         color: '#1F1F1F',
         textAlign: 'center',
@@ -451,11 +466,11 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
     },
     iconPlaceholderText: {
-        fontSize: moderateScale(18),
+        fontSize: moderateScale(FontSize.lg), // 18 -> lg
         color: '#3B3B3B',
     },
     pageTitle: {
-        fontSize: moderateScale(22),
+        fontSize: moderateScale(FontSize.xxl), // 22 -> xxl (24) roughly or xl (20). 22 is between. Let's use xxl (24) for title impact or xl (20). Let's go with xxl for 22/24. Or create a custom size if needed but we should stick to constants. I'll use xl (20) if 24 is too big, or xxl (24). 20->22 is small diff. 22->24 is small diff. I'll use xxl.
         fontWeight: '700',
         color: '#1F1F1F',
         marginBottom: verticalScale(20),
@@ -463,39 +478,34 @@ const styles = StyleSheet.create({
     tabContainer: {
         flexDirection: 'row',
         backgroundColor: '#FFFFFF',
-        borderRadius: scale(16),
+        borderRadius: scale(12),
         padding: scale(4),
         marginBottom: verticalScale(16),
-        shadowColor: '#000000',
-        shadowOpacity: 0.08,
-        shadowRadius: scale(8),
+        borderWidth: 1,
+        borderColor: '#EEEEEE',
+        elevation: 1,
+        shadowColor: '#000',
+        shadowOpacity: 0.05,
+        shadowRadius: scale(4),
         shadowOffset: { width: 0, height: verticalScale(2) },
-        elevation: 2,
     },
     tab: {
         flex: 1,
-        paddingVertical: verticalScale(12),
-        paddingHorizontal: scale(16),
-        borderRadius: scale(12),
+        paddingVertical: verticalScale(10),
+        borderRadius: scale(8),
         alignItems: 'center',
         justifyContent: 'center',
     },
     activeTab: {
         backgroundColor: '#FF8A3C',
-        shadowColor: '#000000',
-        shadowOpacity: 0.08,
-        shadowRadius: scale(8),
-        shadowOffset: { width: 0, height: verticalScale(2) },
-        elevation: 2,
     },
     tabText: {
-        fontSize: moderateScale(15),
+        fontSize: moderateScale(FontSize.sm), // 14 -> sm (Matches EventListing)
         fontWeight: '600',
         color: '#FF8A3C',
     },
     activeTabText: {
         color: '#FFFFFF',
-        fontWeight: '700',
     },
     searchContainer: {
         flexDirection: 'row',
@@ -519,7 +529,7 @@ const styles = StyleSheet.create({
     },
     searchInput: {
         flex: 1,
-        fontSize: moderateScale(14),
+        fontSize: moderateScale(FontSize.sm), // 14 -> sm
         color: '#111111',
     },
     listWrapper: {
@@ -557,7 +567,7 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
     },
     avatarPlaceholderText: {
-        fontSize: moderateScale(18),
+        fontSize: moderateScale(FontSize.lg), // 18 -> lg
         fontWeight: '600',
         color: '#FFFFFF',
     },
@@ -565,7 +575,7 @@ const styles = StyleSheet.create({
         flex: 1,
     },
     guestName: {
-        fontSize: moderateScale(16),
+        fontSize: moderateScale(FontSize.md), // 16 -> md
         fontWeight: '700',
         color: '#111111',
     },
@@ -575,7 +585,7 @@ const styles = StyleSheet.create({
         borderRadius: scale(8),
     },
     statusChipText: {
-        fontSize: moderateScale(12),
+        fontSize: moderateScale(FontSize.xs), // 12 -> xs
         fontWeight: '600',
     },
     rowActions: {
@@ -607,12 +617,12 @@ const styles = StyleSheet.create({
         resizeMode: 'contain',
     },
     emptyTitle: {
-        fontSize: moderateScale(16),
+        fontSize: moderateScale(FontSize.md), // 16 -> md
         fontWeight: '600',
         color: '#111111',
     },
     emptySubtitle: {
-        fontSize: moderateScale(14),
+        fontSize: moderateScale(FontSize.sm), // 14 -> sm
         color: '#7A7A7A',
     },
     loadingContainer: {

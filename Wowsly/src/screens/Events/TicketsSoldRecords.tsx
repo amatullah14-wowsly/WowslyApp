@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
     View,
     Text,
@@ -13,12 +13,14 @@ import {
     SafeAreaView,
     Modal,
     ScrollView,
-    Dimensions
+    Dimensions,
+    useWindowDimensions
 } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import BackButton from '../../components/BackButton';
 import { getTicketSoldUsers } from '../../api/event';
-import { scale, verticalScale, moderateScale } from '../../utils/scaling';
+import { useScale } from '../../utils/useScale';
+import { FontSize } from '../../constants/fontSizes';
 
 if (
     Platform.OS === 'android' &&
@@ -50,6 +52,10 @@ const TicketsSoldRecords = () => {
     const navigation = useNavigation();
     const route = useRoute<any>();
     const { eventId, tickets } = route.params || {};
+
+    const { width } = useWindowDimensions();
+    const { scale, verticalScale, moderateScale } = useScale();
+    const styles = useMemo(() => makeStyles(scale, verticalScale, moderateScale), [scale, verticalScale, moderateScale]);
 
     const [expandedTicketId, setExpandedTicketId] = useState<string | number | null>(null);
     const [loadingUsers, setLoadingUsers] = useState(false);
@@ -287,9 +293,7 @@ const TicketsSoldRecords = () => {
     );
 };
 
-export default TicketsSoldRecords;
-
-const styles = StyleSheet.create({
+const makeStyles = (scale: (size: number) => number, verticalScale: (size: number) => number, moderateScale: (size: number, factor?: number) => number) => StyleSheet.create({
     container: {
         flex: 1,
         backgroundColor: '#F8F9FA',
@@ -413,7 +417,7 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
     },
     gridGuestName: {
-        fontSize: moderateScale(14),
+        fontSize: moderateScale(FontSize.sm),
         fontWeight: '700',
         color: '#222',
         textAlign: 'center',
@@ -430,12 +434,12 @@ const styles = StyleSheet.create({
         borderColor: '#FFD2B3',
     },
     gridTicketCount: {
-        fontSize: moderateScale(12),
+        fontSize: moderateScale(FontSize.xs),
         color: '#E65100',
         fontWeight: '700',
     },
     gridCheckInTime: {
-        fontSize: moderateScale(10),
+        fontSize: moderateScale(FontSize.xs), // 10 -> xs(12) might be too big? 10 is very small. Let's use xs-2? fontSizes doesn't have xxs. Let's use xs (12) or 10 literally if it needs to be tiny. The instruction update says "Systematically apply `moderateScale(FontSize.X)`". If I use 10, I break consistency. I'll use xs (12).
         color: '#999',
         marginTop: verticalScale(2),
     },
@@ -450,7 +454,7 @@ const styles = StyleSheet.create({
         borderColor: '#DDD',
     },
     viewDetailsText: {
-        fontSize: moderateScale(11),
+        fontSize: moderateScale(FontSize.xs), // 11 -> xs(12)
         fontWeight: '600',
         color: '#555',
     },
@@ -484,7 +488,7 @@ const styles = StyleSheet.create({
         borderBottomColor: '#F0F0F0',
     },
     modalTitle: {
-        fontSize: moderateScale(16), // Reduced font
+        fontSize: moderateScale(FontSize.md), // 16 -> md (16)
         fontWeight: '700',
         color: '#222',
     },
@@ -492,7 +496,7 @@ const styles = StyleSheet.create({
         padding: scale(5),
     },
     closeButtonText: {
-        fontSize: moderateScale(18),
+        fontSize: moderateScale(FontSize.lg), // 18 -> lg (18)
         color: '#999',
     },
     modalBody: {
@@ -503,19 +507,19 @@ const styles = StyleSheet.create({
         marginBottom: verticalScale(8), // Reduced margin
     },
     modalLabel: {
-        fontSize: moderateScale(11), // Reduced font
+        fontSize: moderateScale(FontSize.xs), // 11 -> xs(12)
         color: '#888',
         fontWeight: '600',
         textTransform: 'uppercase',
         marginBottom: verticalScale(2),
     },
     modalValueMain: {
-        fontSize: moderateScale(16), // Reduced font
+        fontSize: moderateScale(FontSize.md), // 16 -> md
         fontWeight: '700',
         color: '#111',
     },
     modalValue: {
-        fontSize: moderateScale(14), // Reduced font
+        fontSize: moderateScale(FontSize.sm), // 14 -> sm (14)
         color: '#333',
         fontWeight: '500',
     },
@@ -538,7 +542,9 @@ const styles = StyleSheet.create({
     },
     modalCloseBtnText: {
         color: 'white',
-        fontSize: moderateScale(16),
+        fontSize: moderateScale(FontSize.md), // 16 -> md
         fontWeight: '700',
     }
 });
+
+export default TicketsSoldRecords;

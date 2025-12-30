@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import {
     View,
     Text,
@@ -9,7 +9,7 @@ import {
     TouchableOpacity,
     Platform,
     Alert,
-    Dimensions
+    useWindowDimensions
 } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import BackButton from '../../components/BackButton';
@@ -17,9 +17,8 @@ import { getEventTicketCheckins, downloadTicketCsv } from '../../api/event';
 import RNFS from 'react-native-fs';
 import Toast from 'react-native-toast-message';
 import { PermissionsAndroid } from 'react-native';
-import { scale, verticalScale, moderateScale } from '../../utils/scaling';
-
-const { width } = Dimensions.get('window');
+import { useScale } from '../../utils/useScale';
+import { FontSize } from '../../constants/fontSizes';
 
 type FacilityStat = {
     facility_name: string;
@@ -41,7 +40,7 @@ const INFO_ICON = require('../../assets/img/common/info.png');
 // Using a generic download icon if specific asset isn't available, or keep existing url
 const DOWNLOAD_ICON = { uri: 'https://img.icons8.com/ios-glyphs/30/000000/download.png' };
 
-const CustomProgressBar = ({ current, total, color = '#FF8A3C', height }: { current: number, total: number, color?: string, height?: number }) => {
+const CustomProgressBar = ({ current, total, color = '#FF8A3C', height, styles }: { current: number, total: number, color?: string, height?: number, styles: any }) => {
     const barHeight = height || 6;
     const percentage = total > 0 ? (current / total) * 100 : 0;
     const clampedPercentage = Math.min(100, Math.max(0, percentage));
@@ -59,6 +58,10 @@ const CheckInRecords = () => {
     const { eventId } = route.params || {};
     const [loading, setLoading] = useState(true);
     const [checkInStats, setCheckInStats] = useState<TicketStat[]>([]);
+
+    const { width } = useWindowDimensions();
+    const { scale, verticalScale, moderateScale } = useScale();
+    const styles = useMemo(() => makeStyles(scale, verticalScale, moderateScale, width), [scale, verticalScale, moderateScale, width]);
 
     useEffect(() => {
         if (eventId) {
@@ -183,7 +186,7 @@ const CheckInRecords = () => {
                             <Text style={styles.totalValue}> / {total}</Text>
                         </Text>
                     </View>
-                    <CustomProgressBar current={checkedIn} total={total} height={8} />
+                    <CustomProgressBar current={checkedIn} total={total} height={8} styles={styles} />
                 </View>
 
                 {/* Separator if facilities exist */}
@@ -202,7 +205,7 @@ const CheckInRecords = () => {
                                         <Text style={styles.facilityName} numberOfLines={1}>{facility.facility_name}</Text>
                                         <Text style={styles.facilityCount}>{fCheckedIn}/{fTotal}</Text>
                                     </View>
-                                    <CustomProgressBar current={fCheckedIn} total={fTotal} height={4} color="#4CAF50" />
+                                    <CustomProgressBar current={fCheckedIn} total={fTotal} height={4} color="#4CAF50" styles={styles} />
                                 </View>
                             );
                         })}
@@ -244,7 +247,7 @@ const CheckInRecords = () => {
 
 export default CheckInRecords;
 
-const styles = StyleSheet.create({
+const makeStyles = (scale: (size: number) => number, verticalScale: (size: number) => number, moderateScale: (size: number, factor?: number) => number, width: number) => StyleSheet.create({
     container: {
         flex: 1,
         backgroundColor: '#F8F9FA', // Slightly gray background for better card contrast
@@ -303,13 +306,13 @@ const styles = StyleSheet.create({
         marginRight: scale(10),
     },
     ticketName: {
-        fontSize: moderateScale(18),
+        fontSize: moderateScale(FontSize.lg),
         fontWeight: '700',
         color: '#222',
         marginBottom: verticalScale(4),
     },
     ticketPercentage: {
-        fontSize: moderateScale(12),
+        fontSize: moderateScale(FontSize.sm), // 12 -> sm? or xs(12). xs is 12 in fontSizes.ts.
         color: '#888',
         fontWeight: '600',
         backgroundColor: '#F0F0F0',
@@ -343,12 +346,12 @@ const styles = StyleSheet.create({
         marginBottom: verticalScale(6),
     },
     progressLabel: {
-        fontSize: moderateScale(14),
+        fontSize: moderateScale(FontSize.sm),
         color: '#555',
         fontWeight: '500',
     },
     progressValue: {
-        fontSize: moderateScale(14),
+        fontSize: moderateScale(FontSize.sm),
         fontWeight: '600',
     },
     highlightValue: {
@@ -357,7 +360,7 @@ const styles = StyleSheet.create({
     },
     totalValue: {
         color: '#999',
-        fontSize: moderateScale(12),
+        fontSize: moderateScale(FontSize.xs),
     },
     progressBarBackground: {
         width: '100%',
@@ -377,7 +380,7 @@ const styles = StyleSheet.create({
         gap: verticalScale(10),
     },
     facilitiesHeader: {
-        fontSize: moderateScale(13),
+        fontSize: moderateScale(FontSize.xs),
         fontWeight: '700',
         color: '#444',
         marginBottom: verticalScale(4),
@@ -393,12 +396,12 @@ const styles = StyleSheet.create({
         marginBottom: verticalScale(4),
     },
     facilityName: {
-        fontSize: moderateScale(13),
+        fontSize: moderateScale(FontSize.xs),
         color: '#555',
         flex: 1,
     },
     facilityCount: {
-        fontSize: moderateScale(12),
+        fontSize: moderateScale(FontSize.xs),
         color: '#777',
         fontWeight: '500',
     },
@@ -408,7 +411,6 @@ const styles = StyleSheet.create({
     },
     emptyText: {
         color: '#888',
-        fontSize: moderateScale(16),
+        fontSize: moderateScale(FontSize.md),
     }
 });
-
