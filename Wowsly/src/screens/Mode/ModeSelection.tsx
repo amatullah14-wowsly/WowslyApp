@@ -119,6 +119,9 @@ const ModeSelection = () => {
   const { scale, verticalScale, moderateScale } = useScale();
   const styles = useMemo(() => makeStyles(scale, verticalScale, moderateScale, isTablet), [scale, verticalScale, moderateScale, isTablet]);
 
+  // Header Spacer for alignment
+  const headerSpacerStyle = useMemo(() => ({ width: scale(36) }), [scale]);
+
   // Track which mode is currently expanded
   const [expandedMode, setExpandedMode] = useState<string | null>(null);
 
@@ -254,14 +257,14 @@ const ModeSelection = () => {
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <View style={styles.container}>
-        <View style={styles.header}>
-          <BackButton onPress={() => navigation.goBack()} />
+      {/* Standard Header */}
+      <View style={styles.header}>
+        <BackButton onPress={() => navigation.goBack()} />
+        <Text style={styles.headerTitle} numberOfLines={1}>{eventTitle}</Text>
+        <View style={headerSpacerStyle} />
+      </View>
 
-          <Text style={styles.title} numberOfLines={1}>
-            {eventTitle}
-          </Text>
-        </View>
+      <View style={styles.container}>
 
         <View style={styles.cardStack}>
           {MODES.map((mode) => {
@@ -312,30 +315,30 @@ const ModeSelection = () => {
 const makeStyles = (scale: (size: number) => number, verticalScale: (size: number) => number, moderateScale: (size: number, factor?: number) => number, isTablet: boolean = false) => StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#FAFAFA', // Slightly off-white for better contrast
+    backgroundColor: '#FFFFFF', // Changed to white to match others
   },
-  container: {
-    flex: 1,
-    paddingHorizontal: scale(20),
-    paddingTop: verticalScale(30), // Fixed top padding
-    paddingBottom: verticalScale(32), // Fixed bottom padding
-    width: '100%',
-    maxWidth: isTablet ? 600 : '100%',
-    alignSelf: 'center',
-  },
+  // Standard Header
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: verticalScale(32), // Fixed margin bottom
+    paddingHorizontal: scale(16),
+    paddingVertical: verticalScale(14),
+    backgroundColor: '#fff',
   },
-  title: {
+  headerTitle: {
+    fontSize: moderateScale(18),
+    fontWeight: '600',
+    color: '#000',
+  },
+  container: {
     flex: 1,
-    marginHorizontal: scale(16),
-    fontSize: moderateScale(FontSize.xl), // 22 -> xl
-    fontWeight: '700',
-    color: '#1F1F1F',
-    textAlign: 'center',
+    paddingHorizontal: scale(20),
+    paddingTop: verticalScale(20), // Adjusted top padding
+    paddingBottom: verticalScale(32),
+    width: '100%',
+    maxWidth: isTablet ? 600 : '100%',
+    alignSelf: 'center',
   },
   cardStack: {
     gap: verticalScale(16),

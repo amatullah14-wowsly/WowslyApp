@@ -1,10 +1,11 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { StyleSheet, Text, View, SafeAreaView, TouchableOpacity, ScrollView, Image, Switch, TextInput, useWindowDimensions } from 'react-native';
+import { StyleSheet, Text, View, SafeAreaView, TouchableOpacity, ScrollView, Image, Switch, TextInput, useWindowDimensions, Alert } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 import BackButton from '../../components/BackButton';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { generateEventToken, updateEventSettings } from '../../api/event';
-import { Alert } from 'react-native';
+import EditEventModal from '../Events/Modals/EditEventModal';
+
 import { useScale } from '../../utils/useScale';
 import { FontSize } from '../../constants/fontSizes';
 
@@ -35,6 +36,9 @@ const Settings = () => {
     const route = useRoute<any>();
     const { eventData } = route.params || {};
 
+    // Local state to manage event data updates
+    const [localEventData, setLocalEventData] = useState<any>(eventData);
+
     const { width } = useWindowDimensions();
     const { scale, verticalScale, moderateScale } = useScale();
     const styles = useMemo(() => makeStyles(scale, verticalScale, moderateScale), [scale, verticalScale, moderateScale]);
@@ -42,6 +46,7 @@ const Settings = () => {
     const [eventType, setEventType] = useState<'public' | 'invite' | null>(null);
     const [ticketType, setTicketType] = useState<'free' | 'paid'>('free');
     const [selectedBank, setSelectedBank] = useState<string>(''); // Placeholder for bank selection
+    const [editModalVisible, setEditModalVisible] = useState(false);
 
     const [settings, setSettings] = useState({
         registrationRequired: true,
@@ -89,53 +94,53 @@ const Settings = () => {
         }
     }, [ticketType]);
 
-    // Initialize state from eventData
+    // Initialize state from localEventData
     useEffect(() => {
-        if (eventData) {
-            setEventType(eventData.is_private ? 'invite' : 'public');
-            setTicketType(eventData.is_paid ? 'paid' : 'free');
+        if (localEventData) {
+            setEventType(localEventData.is_private ? 'invite' : 'public');
+            setTicketType(localEventData.is_paid ? 'paid' : 'free');
             // Assuming we might have bank info in future updates, currently no field in provided payload map for bank.
 
             setSettings({
-                registrationRequired: !!eventData.has_registration,
-                selfCheckIn: !!eventData.is_self_check_in,
-                hasPolls: !!eventData.is_poll,
-                approvalBasis: !!eventData.registration_on_approval_basis,
-                exchangeDetails: !!eventData.has_share_guest_detail,
+                registrationRequired: !!localEventData.has_registration,
+                selfCheckIn: !!localEventData.is_self_check_in,
+                hasPolls: !!localEventData.is_poll,
+                approvalBasis: !!localEventData.registration_on_approval_basis,
+                exchangeDetails: !!localEventData.has_share_guest_detail,
                 // buyMultipleTickets mapping unclear from payload provided, assuming default or existing property if any
                 buyMultipleTickets: false,
-                registerAgain: !!eventData.user_register_again,
-                hasExhibitors: !!eventData.has_exhibitors,
-                otpOnRegistration: !!eventData.has_otp_on_registration,
+                registerAgain: !!localEventData.user_register_again,
+                hasExhibitors: !!localEventData.has_exhibitors,
+                otpOnRegistration: !!localEventData.has_otp_on_registration,
             });
 
             setWhatsappSettings({
-                key: eventData.whatsapp_key || '',
-                phoneNumberId: eventData.phone_number_id || '',
+                key: localEventData.whatsapp_key || '',
+                phoneNumberId: localEventData.phone_number_id || '',
                 templateId: '', // These template fields might need specific mapping if provided in `templates` array
                 detailsTemplateId: '',
                 newUserTemplateId: '',
             });
 
-            if (eventData.event_token) {
-                setApiToken(eventData.event_token);
+            if (localEventData.event_token) {
+                setApiToken(localEventData.event_token);
             }
 
             setAdvancedSettings({
-                senderEmail: !!eventData.event_mail_id, // If email exists, assume toggle ON
-                ownerNotified: !!eventData.is_owner_notification_enabled,
-                printDimensions: !!(eventData.event_print_height || eventData.event_print_width),
+                senderEmail: !!localEventData.event_mail_id, // If email exists, assume toggle ON
+                ownerNotified: !!localEventData.is_owner_notification_enabled,
+                printDimensions: !!(localEventData.event_print_height || localEventData.event_print_width),
             });
 
             setAdvancedValues({
-                senderEmail: eventData.event_mail_id || '',
-                senderName: eventData.sender_name || '',
-                ownerEmail: eventData.owner_notification_email || '',
-                printHeight: eventData.event_print_height || '',
-                printWidth: eventData.event_print_width || '',
+                senderEmail: localEventData.event_mail_id || '',
+                senderName: localEventData.sender_name || '',
+                ownerEmail: localEventData.owner_notification_email || '',
+                printHeight: localEventData.event_print_height || '',
+                printWidth: localEventData.event_print_width || '',
             });
         }
-    }, [eventData]);
+    }, [localEventData]);
 
     const toggleSetting = (key: keyof typeof settings) => {
         setSettings(prev => {
@@ -165,18 +170,18 @@ const Settings = () => {
     };
 
     const handleGenerateToken = async () => {
-        if (!eventData?.id) {
+        if (!localEventData?.id) {
             Alert.alert("Error", "Event ID not found");
             return;
         }
 
         // Generate random string (similar format to user example: 173293ov1an424l)
         const randomStr = Math.random().toString(36).substring(2, 15);
-        const newToken = `${eventData.id}${randomStr}`;
+        const newToken = `${localEventData.id}${randomStr}`;
 
         try {
             const payload = { token: newToken };
-            const response = await generateEventToken(eventData.id, payload);
+            const response = await generateEventToken(localEventData.id, payload);
 
             if (response && (response.data || response.message)) {
                 setApiToken(newToken);
@@ -191,14 +196,14 @@ const Settings = () => {
     };
 
     const handleSaveSettings = async () => {
-        if (!eventData?.id) {
+        if (!localEventData?.id) {
             Alert.alert("Error", "Event ID not found");
             return;
         }
 
         // Construct payload based on user requirements
         const payload = {
-            eventId: eventData.id,
+            eventId: localEventData.id,
             has_exhibitors: settings.hasExhibitors ? 1 : 0,
             has_otp_on_registration: settings.otpOnRegistration ? 1 : 0,
             has_registration: settings.registrationRequired ? 1 : 0,
@@ -243,7 +248,7 @@ const Settings = () => {
         };
 
         try {
-            const response = await updateEventSettings(eventData.id, payload);
+            const response = await updateEventSettings(localEventData.id, payload);
             if (response && (response.data || response.id)) { // Response structure might vary, example shows data object
                 Alert.alert("Success", "Event settings updated successfully");
             } else {
@@ -252,6 +257,43 @@ const Settings = () => {
         } catch (error) {
             console.error("Update settings error:", error);
             Alert.alert("Error", "Something went wrong");
+        }
+    };
+
+    const handleUpdateEventDetails = async (modalData: any) => {
+        if (!localEventData?.id) return;
+
+        try {
+            // Merge existing fields with new updates to avoid data loss if needed, 
+            // though the API payload provided by user suggests sending specific fields is enough.
+            // But we must respect the payload structure provided by the user:
+            /*
+            payload: 
+            {start_date: "2026-01-14", title: "NSS", end_date: "2026-01-16", address: "", city: "", zip: "",…}
+            */
+
+            // Construct payload for detail update
+            const payload = {
+                ...modalData,
+                _method: "PUT"
+            };
+
+            const response = await updateEventSettings(localEventData.id, payload);
+            if (response && (response.data || response.id)) {
+                Alert.alert("Success", "Event details updated successfully");
+
+                // Update local state to reflect changes immediately in the modal and UI
+                setLocalEventData((prev: any) => ({
+                    ...prev,
+                    ...modalData
+                }));
+
+            } else {
+                Alert.alert("Error", "Failed to update event details");
+            }
+        } catch (error) {
+            console.error("Update event details error:", error);
+            Alert.alert("Error", "Something went wrong while updating details");
         }
     };
 
@@ -271,15 +313,18 @@ const Settings = () => {
                 <View style={styles.profileCard}>
                     <View style={styles.avatarContainer}>
                         <Image
-                            source={eventData?.image ? { uri: eventData.image } : require('../../assets/img/common/noimage.png')}
+                            source={localEventData?.image ? { uri: localEventData.image } : require('../../assets/img/common/noimage.png')}
                             style={styles.avatar}
                         />
                     </View>
                     <View style={styles.profileInfo}>
-                        <Text style={styles.profileName} numberOfLines={1}>{eventData?.title || "Event Name"}</Text>
-                        <Text style={styles.profileEmail} numberOfLines={1}>{eventData?.date || "Event Date"}</Text>
+                        <Text style={styles.profileName} numberOfLines={1}>{localEventData?.title || "Event Name"}</Text>
+                        <Text style={styles.profileEmail} numberOfLines={1}>{localEventData?.date || "Event Date"}</Text>
                     </View>
-                    <TouchableOpacity style={styles.editButton}>
+                    <TouchableOpacity
+                        style={styles.editButton}
+                        onPress={() => setEditModalVisible(true)}
+                    >
                         <Image
                             source={require('../../assets/img/form/edit.png')}
                             style={styles.editIcon}
@@ -633,6 +678,13 @@ const Settings = () => {
                 </View>
 
             </ScrollView>
+
+            <EditEventModal
+                visible={editModalVisible}
+                onClose={() => setEditModalVisible(false)}
+                onSubmit={handleUpdateEventDetails}
+                eventData={localEventData}
+            />
         </SafeAreaView >
     );
 };

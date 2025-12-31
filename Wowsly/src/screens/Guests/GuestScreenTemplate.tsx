@@ -17,6 +17,7 @@ import {
   ActivityIndicator,
   useWindowDimensions,
 } from 'react-native';
+import Toast from 'react-native-toast-message';
 import { GestureHandlerRootView, Swipeable } from 'react-native-gesture-handler';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import FastImage from 'react-native-fast-image';
@@ -206,9 +207,16 @@ const GuestScreenTemplate: React.FC<GuestScreenTemplateProps> = ({
   const [lastUpdate, setLastUpdate] = useState(0);
 
   // Pagination State
+  // Pagination State
   const [currentPage, setCurrentPage] = useState(1);
   const [lastPage, setLastPage] = useState(1);
   const [totalGuests, setTotalGuests] = useState(0);
+
+  // Ref to track latest page for focus effect without triggering re-runs
+  const currentPageRef = useRef(currentPage);
+  useEffect(() => {
+    currentPageRef.current = currentPage;
+  }, [currentPage]);
 
   // Approval Basis State
   const [isApprovalBasis, setIsApprovalBasis] = useState(false);
@@ -243,18 +251,17 @@ const GuestScreenTemplate: React.FC<GuestScreenTemplateProps> = ({
         // MERGE LOCAL SCANS FROM GLOBAL STORE
         return getMergedGuest(g);
       }).filter((guest) => {
-        // CATEGORY FILTERING (Restored Logic)
-        if (activeFilter !== 'All') {
-          if (activeFilter === 'Manager') {
-            if (!(guest.type === 'manager' || guest.is_manager || guest.group === 'Manager' || guest.role === 'manager')) return false;
-          } else if (activeFilter === 'Invited') {
-            const isInvited = guest.generated_by_owner == 1;
-            if (!isInvited) return false;
-          } else if (activeFilter === 'Registered') {
-            const isRegistered = guest.generated_by_owner == 0;
-            if (!isRegistered) return false;
-          }
+        // FILTERING LOGIC
+        // 1. Manager: Strict check because API might return mixed results or we want to be safe.
+        if (activeFilter === 'Manager') {
+          // Check common variations of manager status
+          const isManager = guest.role === 'manager' || guest.type === 'manager' || guest.is_manager === 1 || guest.is_manager === true;
+          if (!isManager) return false;
         }
+
+        // 2. Invited/Registered: Trust the API 'type' param filter.
+        // Previous client-side logic (generated_by_owner) was flaky and hid valid guests.
+        // If API returns them, we show them.
 
         const query = searchQuery.trim().toLowerCase();
         if (!query) return true;
@@ -289,10 +296,11 @@ const GuestScreenTemplate: React.FC<GuestScreenTemplateProps> = ({
     React.useCallback(() => {
       if (eventId) {
         // console.log('GuestScreenTemplate focused - refreshing guest data');
-        fetchGuests(currentPage);
+        // Use ref to avoid dependency loop with currentPage
+        fetchGuests(currentPageRef.current);
         setLastUpdate(Date.now());
       }
-    }, [eventId, activeFilter, currentPage])
+    }, [eventId, activeFilter]) // Removed currentPage from dependency
   );
 
   // REAL-TIME UPDATE LISTENERS
@@ -360,8 +368,15 @@ const GuestScreenTemplate: React.FC<GuestScreenTemplateProps> = ({
       }
 
       if (meta) {
-        setLastPage(meta.last_page || 1);
-        setTotalGuests(meta.total || 0);
+        // ⚡⚡⚡ Fix: Manager API meta returns total of ALL guests, causing ghost pagination. 
+        // Force single page for Manager tab (assuming <100 managers).
+        if (activeFilter === 'Manager') {
+          setLastPage(1);
+          setTotalGuests(fetchedGuests.length);
+        } else {
+          setLastPage(meta.last_page || 1);
+          setTotalGuests(meta.total || 0);
+        }
         setCurrentPage(meta.current_page || page);
       } else {
         setLastPage(1);
@@ -369,9 +384,10 @@ const GuestScreenTemplate: React.FC<GuestScreenTemplateProps> = ({
       }
 
       // ⚡⚡⚡ Safety: If fetched count is small, assume end of list to prevent ghost pagination ⚡⚡⚡
-      if (fetchedGuests.length < 50) {
-        setLastPage(page);
-      }
+      // REMOVED: API returns 25 items, so 50 check is wrong. Rely on meta.last_page.
+      // if (fetchedGuests.length < 50) {
+      //   setLastPage(page);
+      // }
 
       const normalizedGuests = fetchedGuests.map((g: any) => ({
         ...g,
@@ -606,14 +622,24 @@ const GuestScreenTemplate: React.FC<GuestScreenTemplateProps> = ({
         guest={guests.find(g => (g.id || '').toString() === selectedGuestId?.toString())}
         onMakeManager={async (guestId) => {
           const res = await makeGuestManager(eventId || '', guestId);
-          if (res.success) {
-            fetchGuests(currentPage);
+          if (res && res.data) {
+            Toast.show({ type: 'success', text1: 'Success', text2: 'User is now a Manager' });
+            setModalVisible(false); // Close Modal
+            setSelectedGuestId(null);
+            fetchGuests(currentPageRef.current);
+          } else {
+            Toast.show({ type: 'error', text1: 'Error', text2: res.message || 'Failed to update role' });
           }
         }}
         onMakeGuest={async (guestId) => {
           const res = await makeGuestUser(eventId || '', guestId);
-          if (res.success) {
-            fetchGuests(currentPage);
+          if (res && res.data) {
+            Toast.show({ type: 'success', text1: 'Success', text2: 'User is now a Guest' });
+            setModalVisible(false); // Close Modal
+            setSelectedGuestId(null);
+            fetchGuests(currentPageRef.current);
+          } else {
+            Toast.show({ type: 'error', text1: 'Error', text2: res.message || 'Failed to update role' });
           }
         }}
       />
@@ -631,7 +657,7 @@ const makeStyles = (scale: (size: number) => number, verticalScale: (size: numbe
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: scale(16),
-    paddingVertical: verticalScale(12),
+    paddingVertical: verticalScale(14),
     backgroundColor: '#fff',
   },
   headerTitle: {

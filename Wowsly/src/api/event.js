@@ -539,11 +539,13 @@ export const getEventUsers = async (eventId, page = 1, type = 'all') => {
                     allGuests = [...allGuests, ...data];
                     console.log(`Page ${currentPage} (Direct Array) fetched ${data.length} guests.`);
 
-                    if (data.length < 50) {
-                        hasMore = false;
-                    } else {
-                        currentPage++;
-                    }
+                    // Safety break
+                    // REMOVED: API returns 25 items, so 50 check is wrong. Rely on meta.last_page.
+                    // if (data.length < 50) {
+                    //    hasMore = false;
+                    // } else {
+                    currentPage++;
+                    // }
                 } else {
                     hasMore = false;
                 }
