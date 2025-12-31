@@ -63,9 +63,6 @@ const OnlineGuestList = () => {
     const { scale, verticalScale, moderateScale } = useScale();
     const styles = useMemo(() => makeStyles(scale, verticalScale, moderateScale), [scale, verticalScale, moderateScale]);
 
-    // Header Spacer for alignment (same as GuestScreenTemplate)
-    const headerSpacerStyle = useMemo(() => ({ width: scale(36) }), [scale]);
-
     const [activeTab, setActiveTab] = useState<TabType>('registered');
     const [searchQuery, setSearchQuery] = useState('');
     const [guests, setGuests] = useState<any[]>([]);
@@ -365,24 +362,12 @@ const OnlineGuestList = () => {
                     guest={guests.find(g => String(g.id) === String(selectedGuestId))}
 
                     onMakeManager={async (guestId) => {
-                        const res = await makeGuestManager(eventId, guestId);
-                        if (res && res.data) {
-                            Toast.show({ type: 'success', text1: 'Success', text2: 'User is now a Manager' });
-                            setSelectedGuestId(null); // Close Modal
-                            fetchGuests();
-                        } else {
-                            Toast.show({ type: 'error', text1: 'Error', text2: res.message || 'Failed to update role' });
-                        }
+                        await makeGuestManager(eventId, guestId);
+                        fetchGuests();
                     }}
                     onMakeGuest={async (guestId) => {
-                        const res = await makeGuestUser(eventId, guestId, activeTab);
-                        if (res && res.data) {
-                            Toast.show({ type: 'success', text1: 'Success', text2: 'User is now a Guest' });
-                            setSelectedGuestId(null); // Close Modal
-                            fetchGuests();
-                        } else {
-                            Toast.show({ type: 'error', text1: 'Error', text2: res.message || 'Failed to update role' });
-                        }
+                        await makeGuestUser(eventId, guestId, activeTab);
+                        fetchGuests();
                     }}
                 />
             </View>
