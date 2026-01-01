@@ -26,10 +26,14 @@ const ActionMenu = React.memo(({ onSelect, styles }: { onSelect: (status: 'accep
     </View>
 ));
 
-const HeaderMenu = React.memo(({ onSelect, onClose, styles }: { onSelect: (option: 'edit_form' | 'export_all' | 'export_date') => void, onClose: () => void, styles: any }) => (
+const HeaderMenu = React.memo(({ onSelect, onClose, styles }: { onSelect: (option: 'edit_form' | 'export_all' | 'export_date' | 'register_guest') => void, onClose: () => void, styles: any }) => (
     <Modal transparent visible={true} animationType="fade" onRequestClose={onClose}>
         <TouchableOpacity style={styles.headerMenuOverlay} activeOpacity={1} onPress={onClose}>
             <View style={styles.headerMenuContainer}>
+                <TouchableOpacity style={styles.headerMenuItem} onPress={() => onSelect('register_guest')}>
+                    <Text style={styles.headerMenuText}>Register a Guest</Text>
+                </TouchableOpacity>
+                <View style={styles.headerMenuSeparator} />
                 <TouchableOpacity style={styles.headerMenuItem} onPress={() => onSelect('edit_form')}>
                     <Text style={styles.headerMenuText}>Edit Form</Text>
                 </TouchableOpacity>
@@ -268,7 +272,7 @@ const RegistrationDashboard = () => {
         }
     };
 
-    const handleHeaderMenuSelect = (option: 'edit_form' | 'export_all' | 'export_date') => {
+    const handleHeaderMenuSelect = (option: 'edit_form' | 'export_all' | 'export_date' | 'register_guest') => {
         setShowHeaderMenu(false);
         setTimeout(() => {
             if (option === 'edit_form') {
@@ -277,6 +281,8 @@ const RegistrationDashboard = () => {
                 handleExportAll();
             } else if (option === 'export_date') {
                 handleExportByDatePress();
+            } else if (option === 'register_guest') {
+                (navigation as any).navigate('GuestRegistration', { eventId });
             }
         }, 300);
     };

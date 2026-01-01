@@ -479,11 +479,69 @@ const GuestRegistration = () => {
 
                 {/* Fields */}
                 <View style={{ gap: verticalScale(20) }}>
-                    {formFields.map((field: any) => (
-                        <View key={field.id}>
-                            {renderField(field)}
-                        </View>
-                    ))}
+                    {formFields.map((field: any) => {
+                        const isCountry = field.question?.toLowerCase().includes('country code');
+                        const isMobile = field.question?.toLowerCase().includes('mobile');
+
+                        // Unique rendering for Country Code + Mobile Number Combo
+                        if (isCountry) {
+                            const mobileField = formFields.find(f => f.question?.toLowerCase().includes('mobile'));
+                            if (mobileField) {
+                                return (
+                                    <View key={field.id}>
+                                        {/* Single Heading - using Mobile Field's label since it's the primary content */}
+                                        <Text style={{ fontSize: moderateScale(FontSize.md), color: '#333', marginBottom: verticalScale(8), fontWeight: '500' }}>
+                                            {mobileField.question} {mobileField.mandatory ? <Text style={{ color: 'red' }}>*</Text> : null}
+                                        </Text>
+
+                                        <View style={{ flexDirection: 'row', gap: scale(10) }}>
+                                            {/* Country Code - Small Box (flex 0.28) */}
+                                            <View style={{ flex: 0.28 }}>
+                                                <TextInput
+                                                    style={[styles.input, { textAlign: 'center', borderColor: errors[field.id] ? 'red' : '#E0E0E0' }]}
+                                                    placeholder="+91"
+                                                    placeholderTextColor="#999"
+                                                    value={formValues[field.id]}
+                                                    onChangeText={(t) => handleInputChange(field.id, t)}
+                                                    keyboardType="phone-pad"
+                                                />
+                                            </View>
+
+                                            {/* Mobile Number - Large Box (flex 0.72) */}
+                                            <View style={{ flex: 0.72 }}>
+                                                <TextInput
+                                                    style={[styles.input, { borderColor: errors[mobileField.id] ? 'red' : '#E0E0E0' }]}
+                                                    placeholder={mobileField.question || "Mobile Number"}
+                                                    placeholderTextColor="#999"
+                                                    value={formValues[mobileField.id]}
+                                                    onChangeText={(t) => handleInputChange(mobileField.id, t)}
+                                                    keyboardType="phone-pad"
+                                                    maxLength={10}
+                                                />
+                                            </View>
+                                        </View>
+
+                                        {/* Errors for either field */}
+                                        {errors[field.id] && <Text style={{ color: 'red', fontSize: moderateScale(FontSize.xs), marginTop: verticalScale(5) }}>{errors[field.id]}</Text>}
+                                        {errors[mobileField.id] && <Text style={{ color: 'red', fontSize: moderateScale(FontSize.xs), marginTop: verticalScale(5) }}>{errors[mobileField.id]}</Text>}
+                                    </View>
+                                );
+                            }
+                        }
+
+                        // Skip Mobile Key if we already rendered it with Country
+                        if (isMobile) {
+                            const countryField = formFields.find(f => f.question?.toLowerCase().includes('country code'));
+                            if (countryField) return null;
+                        }
+
+                        // Default rendering for other fields
+                        return (
+                            <View key={field.id}>
+                                {renderField(field)}
+                            </View>
+                        );
+                    })}
                 </View>
 
                 {/* Submit Button */}

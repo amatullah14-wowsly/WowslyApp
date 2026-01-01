@@ -1,4 +1,4 @@
-import { StyleSheet, Text, View, TouchableOpacity, Image, KeyboardAvoidingView, Platform, ScrollView, Linking, ImageBackground } from 'react-native'
+import { StyleSheet, Text, View, TouchableOpacity, Image, KeyboardAvoidingView, Platform, ScrollView, Linking, ImageBackground, useWindowDimensions } from 'react-native'
 import Toast from 'react-native-toast-message';
 import React, { useRef, useState, useMemo } from 'react'
 import { useNavigation } from '@react-navigation/native';
@@ -277,10 +277,13 @@ const Number = () => {
   const isSending = sendingVia !== null;
   const isSendOtpDisabled = isSending || !acceptedTerms;
 
+  const { width, height } = useWindowDimensions();
+
   return (
     <ImageBackground
       source={require('../../assets/img/splash/Splashbg.jpg')}
-      style={styles.bgImage}
+      style={[styles.bgImage, { width, height }]}
+      resizeMode="cover"
     >
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}

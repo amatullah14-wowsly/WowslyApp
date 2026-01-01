@@ -572,7 +572,7 @@ const makeStyles = (scale: (size: number) => number, verticalScale: (size: numbe
   },
   tabContainer: {
     flexDirection: 'row',
-    marginTop: verticalScale(15),
+    marginTop: verticalScale(20),
     marginHorizontal: scale(20),
     backgroundColor: '#FFFFFF',
     borderRadius: scale(12),
