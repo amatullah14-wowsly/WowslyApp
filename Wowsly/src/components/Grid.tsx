@@ -109,6 +109,5 @@ const makeStyles = (scale: (size: number) => number, verticalScale: (size: numbe
     position: 'absolute',
     right: scale(8),
     bottom: verticalScale(8),
-    tintColor: '#FF8A3C' // optional brand color or keep original
   },
 });

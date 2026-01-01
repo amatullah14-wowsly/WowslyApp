@@ -77,7 +77,7 @@ const TicketCheckInDetails = () => {
         },
         header: {
             width: '100%',
-            height: 90,
+            height: verticalScale(90),
             paddingTop: verticalScale(20),
             alignItems: 'center',
             flexDirection: 'row',
@@ -86,10 +86,15 @@ const TicketCheckInDetails = () => {
             backgroundColor: 'white',
             elevation: 2,
         },
+        headerSpacer: {
+            width: scale(40), // Balance back button
+        },
         title: {
             fontSize: moderateScale(18),
             fontWeight: '600',
             color: 'black',
+            flex: 1,
+            textAlign: 'center',
         },
         content: {
             flex: 1,
@@ -106,8 +111,8 @@ const TicketCheckInDetails = () => {
             borderWidth: 1,
             borderColor: '#EEE',
             borderRadius: scale(12),
-            padding: scale(12), // Reduced padding
-            marginBottom: verticalScale(0),
+            padding: scale(16),
+            marginBottom: verticalScale(12),
             elevation: 2,
             shadowColor: '#000',
             shadowOffset: { width: 0, height: 2 },
@@ -118,36 +123,42 @@ const TicketCheckInDetails = () => {
             fontSize: moderateScale(16),
             fontWeight: 'bold',
             color: '#222',
-            marginBottom: verticalScale(8), // Reduced margin
+            marginBottom: verticalScale(12),
         },
-        statRow: {
-            flexDirection: 'column',
-            marginBottom: verticalScale(2), // Reduced margin
+        statsRowHorizontal: {
+            flexDirection: 'row',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+        },
+        statItemHalf: {
+            flex: 1,
+            alignItems: 'center',
         },
         statLabel: {
-            fontSize: moderateScale(12),
+            fontSize: moderateScale(14),
             color: '#666',
             fontWeight: '500',
-            marginBottom: verticalScale(2), // Reduced margin
+            marginBottom: verticalScale(4),
             textTransform: 'uppercase',
             letterSpacing: 0.5,
         },
         statValueHighlight: {
-            fontSize: moderateScale(16),
+            fontSize: moderateScale(16), // Slightly larger
             fontWeight: 'bold',
             color: '#FF8A3C',
             textTransform: 'capitalize',
         },
         statValue: {
-            fontSize: moderateScale(15),
+            fontSize: moderateScale(16), // Slightly larger
             fontWeight: '600',
             color: '#444',
             textTransform: 'capitalize',
         },
-        statDivider: {
-            height: 1,
+        statDividerVertical: {
+            width: 1,
+            height: '80%',
             backgroundColor: '#F0F0F0',
-            marginVertical: verticalScale(6), // Reduced margin
+            marginHorizontal: scale(16),
         },
         facilitiesStatsRow: {
             flexDirection: 'row',
@@ -158,7 +169,7 @@ const TicketCheckInDetails = () => {
             backgroundColor: '#FFF0E0',
             paddingHorizontal: scale(10),
             paddingVertical: verticalScale(5),
-            borderRadius: scale(15),
+            borderRadius: scale(8),
             borderWidth: 1,
             borderColor: '#FFD2B3',
         },
@@ -178,67 +189,67 @@ const TicketCheckInDetails = () => {
         // Grid Card Styles
         gridCard: {
             backgroundColor: 'white',
-            borderRadius: scale(12), // Slightly smaller radius
-            marginBottom: verticalScale(12),
-            padding: scale(12), // Reduced padding
-            elevation: 2,
+            borderRadius: scale(16),
+            marginBottom: verticalScale(16),
+            padding: scale(12),
+            elevation: 3,
             shadowColor: '#000',
-            shadowOffset: { width: 0, height: 1 },
-            shadowOpacity: 0.1,
-            shadowRadius: scale(3),
+            shadowOffset: { width: 0, height: 2 },
+            shadowOpacity: 0.08,
+            shadowRadius: scale(4),
             width: '48%',
             alignItems: 'center',
             justifyContent: 'space-between',
-            minHeight: 130, // Reduced height
+            minHeight: verticalScale(150),
             borderWidth: 1,
-            borderColor: '#EAEAEA',
+            borderColor: '#F5F5F5',
         },
         cardHeaderCenter: {
             alignItems: 'center',
             width: '100%',
-            flex: 1, // Take available space
+            flex: 1,
             justifyContent: 'center',
+            paddingVertical: verticalScale(4),
         },
-        // Removed avatar styles
         gridGuestName: {
-            fontSize: moderateScale(14),
+            fontSize: moderateScale(15),
             fontWeight: '700',
             color: '#222',
             textAlign: 'center',
-            marginBottom: verticalScale(6),
-            lineHeight: verticalScale(18),
+            marginBottom: verticalScale(8),
+            lineHeight: verticalScale(20),
         },
         ticketBadge: {
-            backgroundColor: '#FFF0E0',
-            paddingHorizontal: scale(8),
-            paddingVertical: verticalScale(3),
+            backgroundColor: '#FFF5E5',
+            paddingHorizontal: scale(10),
+            paddingVertical: verticalScale(4),
             borderRadius: scale(8),
-            marginBottom: verticalScale(6),
+            marginBottom: verticalScale(8),
             borderWidth: 1,
             borderColor: '#FFD2B3',
         },
         gridTicketCount: {
-            fontSize: moderateScale(12),
-            color: '#E65100', // Darker orange for highlighter text
-            fontWeight: '700',
+            fontSize: moderateScale(13),
+            color: '#E65100',
+            fontWeight: '600',
         },
         gridCheckInTime: {
-            fontSize: moderateScale(10),
-            color: '#999',
-            marginTop: verticalScale(2),
+            fontSize: moderateScale(11),
+            color: '#888',
+            marginTop: verticalScale(4),
         },
         viewDetailsButton: {
-            marginTop: verticalScale(10),
+            marginTop: verticalScale(12),
             width: '100%',
-            paddingVertical: verticalScale(6),
+            paddingVertical: verticalScale(8),
             backgroundColor: '#fff',
-            borderRadius: scale(6),
+            borderRadius: scale(8),
             alignItems: 'center',
             borderWidth: 1,
-            borderColor: '#DDD',
+            borderColor: '#EEEEEE',
         },
         viewDetailsText: {
-            fontSize: moderateScale(11),
+            fontSize: moderateScale(12),
             fontWeight: '600',
             color: '#555',
         },
@@ -542,7 +553,7 @@ const TicketCheckInDetails = () => {
             <View style={styles.header}>
                 <BackButton onPress={() => navigation.goBack()} />
                 <Text style={styles.title}>Ticket Check In Details</Text>
-                <View style={{ width: scale(32) }} />
+                <View style={styles.headerSpacer} />
             </View>
 
             <View style={styles.content}>
@@ -553,20 +564,20 @@ const TicketCheckInDetails = () => {
                         <View style={styles.statCard}>
                             <Text style={styles.statsTotalTitle}>Total Check In</Text>
 
-                            <View style={styles.statRow}>
-                                <Text style={styles.statLabel}>Checked In</Text>
-                                <Text style={styles.statValueHighlight}>
-                                    {numberToWords(stats.total_event_check_in.total_check_in)}
-                                </Text>
-                            </View>
-
-                            <View style={styles.statDivider} />
-
-                            <View style={styles.statRow}>
-                                <Text style={styles.statLabel}>Total Guests</Text>
-                                <Text style={styles.statValue}>
-                                    {numberToWords(stats.total_event_check_in.total_purchase_ticket)}
-                                </Text>
+                            <View style={styles.statsRowHorizontal}>
+                                <View style={styles.statItemHalf}>
+                                    <Text style={styles.statLabel}>Checked In</Text>
+                                    <Text style={styles.statValueHighlight}>
+                                        {numberToWords(stats.total_event_check_in.total_check_in)}
+                                    </Text>
+                                </View>
+                                <View style={styles.statDividerVertical} />
+                                <View style={styles.statItemHalf}>
+                                    <Text style={styles.statLabel}>Total Guests</Text>
+                                    <Text style={styles.statValue}>
+                                        {numberToWords(stats.total_event_check_in.total_purchase_ticket)}
+                                    </Text>
+                                </View>
                             </View>
                         </View>
                         <View style={styles.facilitiesStatsRow}>

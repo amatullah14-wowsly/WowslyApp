@@ -80,13 +80,12 @@ const OfflineGuestList = () => {
     const [dropdownVisible, setDropdownVisible] = useState(false);
     const dropdownAnim = React.useRef(new Animated.Value(0)).current;
 
-    // Filter State
-    const [filterStatus, setFilterStatus] = useState<'All' | 'Pending' | 'Checked In'>('All');
-    const [filterDropdownVisible, setFilterDropdownVisible] = useState(false);
+    // Filter State - REMOVED
+
 
     useEffect(() => {
         loadGuests(1);
-    }, [eventId, filterStatus]); // Reload when filter changes
+    }, [eventId]); // Reload when eventId changes
 
     const toggleDropdown = () => {
         if (dropdownVisible) {
@@ -203,8 +202,8 @@ const OfflineGuestList = () => {
             await initDB();
 
             // Use paginated fetch
-            // Use paginated fetch with filter
-            const res = await getTicketsForEventPage(eventId, page, 100, searchQuery, filterStatus);
+            // Use paginated fetch
+            const res = await getTicketsForEventPage(eventId, page, 100, searchQuery);
 
             if (res) {
                 setGuests(res.guests || []);
@@ -351,9 +350,9 @@ const OfflineGuestList = () => {
                 )}
 
                 {/* Search & Filter Row */}
-                <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 10 }}>
+                <View style={{ marginTop: 10 }}>
                     {/* Search Bar */}
-                    <View style={[styles.searchContainer, { flex: 1, marginBottom: 0 }]}>
+                    <View style={styles.searchContainer}>
                         <Image source={SEARCH_ICON} style={styles.searchIcon} />
                         <TextInput
                             style={styles.searchInput}
@@ -364,56 +363,9 @@ const OfflineGuestList = () => {
                         />
                     </View>
 
-                    {/* Filter Button */}
-                    <TouchableOpacity
-                        style={[
-                            styles.filterButton,
-                            filterStatus !== 'All' && styles.filterButtonActive
-                        ]}
-                        onPress={() => setFilterDropdownVisible(!filterDropdownVisible)}
-                    >
-                        <Image
-                            source={{ uri: 'https://img.icons8.com/ios-glyphs/30/000000/filter.png' }}
-                            style={[
-                                styles.filterIcon,
-                                filterStatus !== 'All' && { tintColor: '#FFFFFF' }
-                            ]}
-                        />
-                    </TouchableOpacity>
                 </View>
 
-                {/* Filter Dropdown */}
-                {filterDropdownVisible && (
-                    <>
-                        <TouchableWithoutFeedback onPress={() => setFilterDropdownVisible(false)}>
-                            <View style={styles.menuOverlay} />
-                        </TouchableWithoutFeedback>
-                        <View style={styles.filterDropdown}>
-                            {['All', 'Pending', 'Checked In'].map((status) => (
-                                <TouchableOpacity
-                                    key={status}
-                                    style={styles.filterItem}
-                                    onPress={() => {
-                                        setFilterStatus(status as any);
-                                        setFilterDropdownVisible(false);
-                                        // Trigger load immediately
-                                        // loadGuests(1, status); // Will be handled by useEffect or direct call
-                                    }}
-                                >
-                                    <Text style={[
-                                        styles.filterItemText,
-                                        filterStatus === status && styles.filterItemTextActive
-                                    ]}>
-                                        {status}
-                                    </Text>
-                                    {filterStatus === status && (
-                                        <View style={styles.activeDot} />
-                                    )}
-                                </TouchableOpacity>
-                            ))}
-                        </View>
-                    </>
-                )}
+
 
                 {/* List */}
                 <FlatList
@@ -559,7 +511,7 @@ const makeStyles = (scale: (size: number) => number, verticalScale: (size: numbe
         borderRadius: scale(12),
         paddingHorizontal: scale(14),
         height: verticalScale(48),
-        marginBottom: verticalScale(16),
+        marginBottom: verticalScale(25),
     },
     searchIcon: {
         width: scale(16),

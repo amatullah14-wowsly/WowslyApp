@@ -47,7 +47,7 @@ const RegistrationFormEditor = ({ isEmbedded = false, eventId: propEventId }: { 
     // Fields State
     const [formFields, setFormFields] = useState<FormField[]>([
         { id: 'default_1', label: 'Name', placeholder: 'Name', type: 'text', isDefault: true, mandatory: 1, is_show: 1 },
-        { id: 'default_2', label: 'Country Code', placeholder: 'Country Code', type: 'number', isDefault: true, mandatory: 1, is_show: 1 },
+        { id: 'default_2', label: 'Country Code', placeholder: '+91', type: 'number', isDefault: true, mandatory: 1, is_show: 1 },
         { id: 'default_3', label: 'Mobile Number', placeholder: 'Mobile Number', type: 'text', isDefault: true, mandatory: 1, is_show: 1 },
         { id: 'default_4', label: 'Email', placeholder: 'Email', type: 'text', isDefault: true, mandatory: 1, is_show: 1 },
     ]);
@@ -97,7 +97,7 @@ const RegistrationFormEditor = ({ isEmbedded = false, eventId: propEventId }: { 
                 // NEW FORM FLOW
                 setFormFields([
                     { id: 'default_1', label: 'Name', placeholder: 'Name', type: 'text', isDefault: true, mandatory: 1, is_show: 1 },
-                    { id: 'default_2', label: 'Country Code', placeholder: 'Country Code', type: 'number', isDefault: true, mandatory: 1, is_show: 1 },
+                    { id: 'default_2', label: 'Country Code', placeholder: '+91', type: 'number', isDefault: true, mandatory: 1, is_show: 1 },
                     { id: 'default_3', label: 'Mobile Number', placeholder: 'Mobile Number', type: 'text', isDefault: true, mandatory: 1, is_show: 1 },
                     { id: 'default_4', label: 'Email', placeholder: 'Email', type: 'text', isDefault: true, mandatory: 1, is_show: 1 },
                 ]);
@@ -436,7 +436,7 @@ const RegistrationFormEditor = ({ isEmbedded = false, eventId: propEventId }: { 
     const renderFieldPreview = (field: FormField) => {
         // Standard Layout: Label Above Field
         const Label = () => (
-            <Text style={{ fontSize: moderateScale(FontSize.md), color: '#333', marginBottom: verticalScale(2), fontWeight: '500' }}>
+            <Text numberOfLines={1} adjustsFontSizeToFit style={{ fontSize: moderateScale(FontSize.md), color: '#333', marginBottom: verticalScale(2), fontWeight: '500' }}>
                 {field.label} {!!field.mandatory && <Text style={{ color: 'red' }}>*</Text>}
             </Text>
         );
@@ -538,7 +538,7 @@ const RegistrationFormEditor = ({ isEmbedded = false, eventId: propEventId }: { 
                                 borderWidth: 1,
                                 borderColor: '#E0E0E0',
                                 borderRadius: scale(8),
-                                paddingHorizontal: scale(15),
+                                paddingHorizontal: scale(10),
                                 paddingVertical: verticalScale(12),
                                 fontSize: moderateScale(FontSize.md),
                                 color: '#333',
@@ -590,12 +590,52 @@ const RegistrationFormEditor = ({ isEmbedded = false, eventId: propEventId }: { 
                             const mobileField = array.find(f => f.label === 'Mobile Number');
                             if (mobileField) {
                                 return (
-                                    <View key={field.id} style={{ flexDirection: 'row', gap: 10 }}>
-                                        <View style={{ flex: 0.35 }}>
-                                            {renderFieldPreview(field)}
-                                        </View>
-                                        <View style={{ flex: 0.65 }}>
-                                            {renderFieldPreview(mobileField)}
+                                    <View key={field.id} style={{ marginBottom: verticalScale(20) }}>
+                                        {/* Single Heading */}
+                                        <Text style={{ fontSize: moderateScale(FontSize.md), color: '#333', marginBottom: verticalScale(2), fontWeight: '500' }}>
+                                            Mobile Number {!!mobileField.mandatory && <Text style={{ color: 'red' }}>*</Text>}
+                                        </Text>
+
+                                        <View style={{ flexDirection: 'row', gap: scale(10) }}>
+                                            {/* Small Box - Country Code */}
+                                            <View style={{ flex: 0.28 }}>
+                                                <TextInput
+                                                    style={{
+                                                        borderWidth: 1,
+                                                        borderColor: '#E0E0E0',
+                                                        borderRadius: scale(8),
+                                                        paddingHorizontal: scale(10),
+                                                        paddingVertical: verticalScale(12),
+                                                        fontSize: moderateScale(FontSize.md),
+                                                        color: '#333',
+                                                        backgroundColor: 'white',
+                                                        textAlign: 'center'
+                                                    }}
+                                                    placeholder="+91"
+                                                    placeholderTextColor="#333"
+                                                    editable={false}
+                                                    value="+91"
+                                                />
+                                            </View>
+
+                                            {/* Large Box - Mobile Number */}
+                                            <View style={{ flex: 0.72 }}>
+                                                <TextInput
+                                                    style={{
+                                                        borderWidth: 1,
+                                                        borderColor: '#E0E0E0',
+                                                        borderRadius: scale(8),
+                                                        paddingHorizontal: scale(10),
+                                                        paddingVertical: verticalScale(12),
+                                                        fontSize: moderateScale(FontSize.md),
+                                                        color: '#333',
+                                                        backgroundColor: 'white'
+                                                    }}
+                                                    placeholder="Mobile Number"
+                                                    placeholderTextColor="#999"
+                                                    editable={false}
+                                                />
+                                            </View>
                                         </View>
                                     </View>
                                 );
@@ -879,7 +919,7 @@ const makeStyles = (scale: (size: number) => number, verticalScale: (size: numbe
         justifyContent: 'space-between',
         paddingHorizontal: scale(20),
         paddingTop: verticalScale(40),
-        paddingBottom: verticalScale(20),
+        paddingBottom: verticalScale(5),
         backgroundColor: 'white',
         borderBottomWidth: 1,
         borderBottomColor: '#F0F0F0',

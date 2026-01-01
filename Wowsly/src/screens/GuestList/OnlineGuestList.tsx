@@ -43,7 +43,7 @@ const NOGUESTS_ICON = require('../../assets/img/common/noguests.png');
 const PREV_ICON = require('../../assets/img/common/previous.png');
 const NEXT_ICON = require('../../assets/img/common/next.png');
 
-type TabType = 'registered' | 'invited' | 'manager'; // Added manager
+type TabType = 'registered' | 'invited';
 
 const statusChipStyles: Record<string, { backgroundColor: string; color: string }> = {
     'Checked In': { backgroundColor: '#E3F2FD', color: '#1565C0' },
@@ -52,7 +52,6 @@ const statusChipStyles: Record<string, { backgroundColor: string; color: string 
     'blocked': { backgroundColor: '#FFEBEE', color: '#C62828' },
     'registered': { backgroundColor: '#E8F5E9', color: '#2E7D32' },
     'invited': { backgroundColor: '#E0F2F1', color: '#00695C' },
-    'manager': { backgroundColor: '#E3F2FD', color: '#1565C0' }, // Added manager style
 };
 
 const OnlineGuestList = () => {
@@ -183,9 +182,7 @@ const OnlineGuestList = () => {
                 id: g.id || g.guest_id || g.event_user_id,
             }));
 
-            if (activeTab !== 'manager') {
-                fetchedGuests = fetchedGuests.filter((g: any) => g.role !== 'manager');
-            }
+            fetchedGuests = fetchedGuests.filter((g: any) => g.role !== 'manager');
 
             // Merge local DB check-ins for status updates
             try {
@@ -284,14 +281,7 @@ const OnlineGuestList = () => {
                         </Text>
                     </TouchableOpacity>
 
-                    <TouchableOpacity
-                        style={[styles.tab, activeTab === 'manager' && styles.activeTab]}
-                        onPress={() => setActiveTab('manager')}
-                    >
-                        <Text style={[styles.tabText, activeTab === 'manager' && styles.activeTabText]}>
-                            Managers
-                        </Text>
-                    </TouchableOpacity>
+
                 </View>
 
                 {/* Search */}
@@ -338,7 +328,7 @@ const OnlineGuestList = () => {
                                 </View>
                             }
                             ListFooterComponent={
-                                displayedGuests.length > 0 && lastPage > 1 ? (
+                                displayedGuests.length > 0 ? (
                                     <Pagination
                                         currentPage={currentPage}
                                         totalPages={lastPage}
