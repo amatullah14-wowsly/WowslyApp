@@ -19,196 +19,7 @@ const Number = () => {
   const { scale, verticalScale, moderateScale } = useScale();
   const { width } = useWindowDimensions();
 
-  const styles = useMemo(() => StyleSheet.create({
-    bgImage: {
-      flex: 1,
-      width: '100%',
-      height: '100%',
-    },
-    container: {
-      flex: 1,
-    },
-    scrollContent: {
-      flexGrow: 1,
-      justifyContent: 'center',
-      alignItems: 'center',
-      paddingBottom: moderateScale(20),
-      paddingTop: moderateScale(50),
-    },
-    mainbox: {
-      width: '90%',
-      paddingVertical: moderateScale(10),
-      backgroundColor: '#fff',
-      borderRadius: scale(25),
-      alignSelf: 'center',
-      justifyContent: 'center',
-      alignItems: 'center',
-      gap: moderateScale(5),
-    },
-    logo: {
-      width: scale(80),
-      height: undefined,
-      aspectRatio: 80 / 55, // Maintaining aspect ratio
-      resizeMode: 'contain',
-    },
-    heading: {
-      gap: verticalScale(4),
-      flexDirection: 'column',
-      alignItems: 'center',
-    },
-    headingText: {
-      fontWeight: '600',
-      fontSize: moderateScale(FontSize.xxl),
-      marginTop: moderateScale(10),
-      color: '#000',
-    },
-    organizer: {
-      fontWeight: '600',
-      fontSize: moderateScale(FontSize.xxl),
-      color: '#000',
-    },
-    manage: {
-      color: 'grey',
-      fontSize: moderateScale(FontSize.xs),
-      marginTop: moderateScale(10),
-    },
-    number: {
-      alignSelf: 'flex-start',
-      marginLeft: '8%',
-      marginTop: moderateScale(10),
-      width: '100%', // Ensure container takes width
-    },
-    mobile: {
-      color: 'black',
-      fontSize: moderateScale(FontSize.sm),
-      fontWeight: '500',
-    },
-    phoneContainer: {
-      width: '85%', // Reduced slightly to look better centered if needed, or keep 90
-      marginTop: moderateScale(10),
-      borderWidth: 1,
-      borderColor: '#E0E0E0',
-      borderRadius: width >= 600 ? 16 : scale(15), // Less border radius for foldables
-      backgroundColor: '#fff',
-      paddingHorizontal: 0, // Remove padding to let children fill
-      paddingVertical: 0,
-      height: moderateScale(50),
-      alignItems: 'center',
-      overflow: 'hidden', // Ensure rounded corners clip content
-    },
-    phoneTextContainer: {
-      backgroundColor: '#fff',
-      borderTopRightRadius: width >= 600 ? 12 : scale(15),
-      borderBottomRightRadius: width >= 600 ? 12 : scale(15),
-      paddingVertical: 0,
-      height: '100%',
-      justifyContent: 'center',
-      flex: 1, // IMPORTANT: Makes this take remaining space
-    },
-    phoneInput: {
-      fontSize: width >= 600 ? 14 : moderateScale(FontSize.md), // Prevent scaling too huge on tablets
-      color: '#000',
-      paddingVertical: 0,
-      height: '100%',
-    },
-    phoneCodeText: {
-      fontSize: width >= 600 ? 14 : moderateScale(FontSize.sm),
-      fontWeight: '600',
-      color: '#000',
-    },
-    phoneFlagButton: {
-      marginLeft: scale(5),
-    },
-    phoneCountryButton: {
-      paddingRight: scale(10),
-      borderRightWidth: 1,
-      borderRightColor: '#E0E0E0',
-      maxWidth: '30%', // Restrict width of country picker
-    },
-    smsPrompt: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: scale(6),
-      marginTop: verticalScale(12),
-    },
-    smsPromptLabel: {
-      color: '#7E7E7E',
-      fontSize: moderateScale(FontSize.xs),
-    },
-    smsPromptAction: {
-      color: '#FF8A3C',
-      fontSize: moderateScale(FontSize.xs),
-      fontWeight: '700',
-    },
-    smsPromptDisabled: {
-      opacity: 0.4,
-    },
-    checkboxRow: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: scale(8),
-      alignSelf: 'flex-start',
-      marginLeft: '7%',
-      marginTop: verticalScale(15),
-    },
-    checkbox: {
-      width: width >= 600 ? 20 : scale(20), // Fix massive size on tablets
-      height: width >= 600 ? 20 : scale(20),
-      borderRadius: width >= 600 ? 6 : scale(6),
-      borderWidth: 1,
-      borderColor: '#E0E0E0',
-      justifyContent: 'center',
-      alignItems: 'center',
-      backgroundColor: '#fff',
-    },
-    checkboxChecked: {
-      borderColor: '#FF8A3C',
-    },
-    checkboxIndicator: {
-      width: width >= 600 ? 12 : scale(12),
-      height: width >= 600 ? 12 : scale(12),
-      borderRadius: width >= 600 ? 2 : scale(4),
-      backgroundColor: '#FF8A3C',
-    },
-    checkboxLabel: {
-      color: '#7E7E7E',
-      fontSize: moderateScale(FontSize.xs),
-      bottom: verticalScale(1),
-    },
-    button: {
-      width: '90%',
-      height: moderateScale(50),
-      borderRadius: width >= 600 ? 16 : scale(15),
-      backgroundColor: '#FF8A3C',
-      alignItems: 'center',
-      justifyContent: 'center',
-      marginTop: moderateScale(20),
-    },
-    buttonDisabled: {
-      backgroundColor: '#CCCCCC',
-    },
-    buttonText: {
-      color: '#fff',
-      fontSize: moderateScale(FontSize.md),
-      fontWeight: '700'
-    },
-    footer: {
-      flexDirection: 'row',
-      justifyContent: 'center',
-      alignItems: 'center',
-      gap: scale(8),
-      marginTop: verticalScale(40),
-    },
-    footerText: {
-      color: '#FF8A3C',
-      fontSize: moderateScale(FontSize.xs)
-    },
-    dot: {
-      color: '#FF8A3C',
-      fontSize: moderateScale(FontSize.xs),
-      marginHorizontal: scale(6)
-    }
-  }), [scale, verticalScale, moderateScale, width]);
+  const styles = useMemo(() => makeStyles(scale, verticalScale, moderateScale, width), [scale, verticalScale, moderateScale, width]);
 
   const triggerOtp = async (method: 'whatsapp' | 'sms') => {
     const checkValid = phoneInput.current?.isValidNumber(value);
@@ -286,7 +97,7 @@ const Number = () => {
   const isSendOtpDisabled = isSending || !acceptedTerms;
 
   return (
-    <ResponsiveContainer>
+    <ResponsiveContainer maxWidth={width >= 600 ? "100%" : 420}>
       <ImageBackground
         source={require('../../assets/img/splash/Splashbg.jpg')}
         style={styles.bgImage}
@@ -299,7 +110,7 @@ const Number = () => {
           <ScrollView
             contentContainerStyle={[
               styles.scrollContent,
-              width >= 600 ? { justifyContent: 'flex-start' } : undefined
+              width >= 600 ? { justifyContent: 'center' } : undefined
             ]}
             showsVerticalScrollIndicator={false}
           >
@@ -412,3 +223,194 @@ const Number = () => {
 }
 
 export default Number;
+
+const makeStyles = (scale: any, verticalScale: any, moderateScale: any, width: any) => StyleSheet.create({
+  bgImage: {
+    flex: 1,
+    width: '100%',
+    height: '100%',
+  },
+  container: {
+    flex: 1,
+  },
+  scrollContent: {
+    flexGrow: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingBottom: moderateScale(20),
+    paddingTop: moderateScale(50),
+  },
+  mainbox: {
+    width: width >= 600 ? moderateScale(400) : '90%',
+    paddingVertical: moderateScale(10),
+    backgroundColor: '#fff',
+    borderRadius: moderateScale(25),
+    alignSelf: 'center',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: moderateScale(5),
+  },
+  logo: {
+    width: moderateScale(80),
+    height: undefined,
+    aspectRatio: 80 / 55, // Maintaining aspect ratio
+    resizeMode: 'contain',
+  },
+  heading: {
+    gap: verticalScale(4),
+    flexDirection: 'column',
+    alignItems: 'center',
+  },
+  headingText: {
+    fontWeight: '600',
+    fontSize: moderateScale(FontSize.xxl),
+    marginTop: moderateScale(10),
+    color: '#000',
+  },
+  organizer: {
+    fontWeight: '600',
+    fontSize: moderateScale(FontSize.xxl),
+    color: '#000',
+  },
+  manage: {
+    color: 'grey',
+    fontSize: moderateScale(FontSize.xs),
+    marginTop: moderateScale(10),
+  },
+  number: {
+    alignSelf: 'flex-start',
+    marginLeft: '8%',
+    marginTop: moderateScale(10),
+    width: '100%', // Ensure container takes width
+  },
+  mobile: {
+    color: 'black',
+    fontSize: moderateScale(FontSize.sm),
+    fontWeight: '500',
+  },
+  phoneContainer: {
+    width: '85%', // Reduced slightly to look better centered if needed, or keep 90
+    marginTop: moderateScale(10),
+    borderWidth: 1,
+    borderColor: '#E0E0E0',
+    borderRadius: width >= 600 ? 16 : moderateScale(15), // Less border radius for foldables
+    backgroundColor: '#fff',
+    paddingHorizontal: 0, // Remove padding to let children fill
+    paddingVertical: 0,
+    height: moderateScale(50),
+    alignItems: 'center',
+    overflow: 'hidden', // Ensure rounded corners clip content
+  },
+  phoneTextContainer: {
+    backgroundColor: '#fff',
+    borderTopRightRadius: width >= 600 ? 12 : moderateScale(15),
+    borderBottomRightRadius: width >= 600 ? 12 : moderateScale(15),
+    paddingVertical: 0,
+    height: '100%',
+    justifyContent: 'center',
+    flex: 1, // IMPORTANT: Makes this take remaining space
+  },
+  phoneInput: {
+    fontSize: width >= 600 ? 14 : moderateScale(FontSize.md), // Prevent scaling too huge on tablets
+    color: '#000',
+    paddingVertical: 0,
+    height: '100%',
+  },
+  phoneCodeText: {
+    fontSize: width >= 600 ? 14 : moderateScale(FontSize.sm),
+    fontWeight: '600',
+    color: '#000',
+  },
+  phoneFlagButton: {
+    marginLeft: moderateScale(5),
+  },
+  phoneCountryButton: {
+    paddingRight: moderateScale(10),
+    borderRightWidth: 1,
+    borderRightColor: '#E0E0E0',
+    maxWidth: '30%', // Restrict width of country picker
+  },
+  smsPrompt: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: moderateScale(6),
+    marginTop: verticalScale(12),
+  },
+  smsPromptLabel: {
+    color: '#7E7E7E',
+    fontSize: moderateScale(FontSize.xs),
+  },
+  smsPromptAction: {
+    color: '#FF8A3C',
+    fontSize: moderateScale(FontSize.xs),
+    fontWeight: '700',
+  },
+  smsPromptDisabled: {
+    opacity: 0.4,
+  },
+  checkboxRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: moderateScale(8),
+    alignSelf: 'flex-start',
+    marginLeft: '7%',
+    marginTop: verticalScale(15),
+  },
+  checkbox: {
+    width: width >= 600 ? 20 : moderateScale(20), // Fix massive size on tablets
+    height: width >= 600 ? 20 : moderateScale(20),
+    borderRadius: width >= 600 ? 6 : moderateScale(6),
+    borderWidth: 1,
+    borderColor: '#E0E0E0',
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#fff',
+  },
+  checkboxChecked: {
+    borderColor: '#FF8A3C',
+  },
+  checkboxIndicator: {
+    width: width >= 600 ? 12 : moderateScale(12),
+    height: width >= 600 ? 12 : moderateScale(12),
+    borderRadius: width >= 600 ? 2 : moderateScale(4),
+    backgroundColor: '#FF8A3C',
+  },
+  checkboxLabel: {
+    color: '#7E7E7E',
+    fontSize: moderateScale(FontSize.xs),
+    bottom: verticalScale(1),
+  },
+  button: {
+    width: '90%',
+    height: moderateScale(50),
+    borderRadius: width >= 600 ? 16 : moderateScale(15),
+    backgroundColor: '#FF8A3C',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: moderateScale(20),
+  },
+  buttonDisabled: {
+    backgroundColor: '#CCCCCC',
+  },
+  buttonText: {
+    color: '#fff',
+    fontSize: moderateScale(FontSize.md),
+    fontWeight: '700'
+  },
+  footer: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: moderateScale(8),
+    marginTop: verticalScale(40),
+  },
+  footerText: {
+    color: '#FF8A3C',
+    fontSize: moderateScale(FontSize.xs)
+  },
+  dot: {
+    color: '#FF8A3C',
+    fontSize: moderateScale(FontSize.xs),
+    marginHorizontal: moderateScale(6)
+  }
+});

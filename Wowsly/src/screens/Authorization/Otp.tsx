@@ -25,124 +25,7 @@ const Otp = () => {
 
     const { dialing_code = "91", mobile = "" } = route.params || {};
 
-    const styles = useMemo(() => StyleSheet.create({
-        bgImage: {
-            flex: 1,
-        },
-        container: {
-            flex: 1,
-        },
-        scrollContent: {
-            flexGrow: 1,
-            justifyContent: 'center',
-            alignItems: 'center',
-            paddingBottom: moderateScale(20),
-            paddingTop: moderateScale(50),
-        },
-        wowsly: {
-            flexDirection: 'column',
-            gap: moderateScale(6),
-            marginBottom: '6%',
-            alignItems: 'center',
-            marginTop: width >= 600 ? 50 : 0, // Move down on foldables
-        },
-        logo: {
-            width: scale(80),
-            height: undefined,
-            aspectRatio: 80 / 55,
-            alignSelf: 'center',
-            resizeMode: 'contain',
-        },
-        heading: {
-            fontSize: moderateScale(FontSize.xxl),
-            fontWeight: '600',
-            color: '#000'
-        },
-        box: {
-            backgroundColor: 'white',
-            width: '85%',
-            borderRadius: scale(25),
-            padding: scale(20),
-            alignItems: 'center',
-        },
-        title: {
-            fontSize: moderateScale(FontSize.lg),
-            fontWeight: '700',
-            color: '#000',
-            marginTop: verticalScale(6),
-            textAlign: 'center',
-        },
-        instructionText: {
-            fontSize: moderateScale(FontSize.sm),
-            color: '#7E7E7E',
-            marginTop: verticalScale(10),
-            textAlign: 'center',
-        },
-        phoneNumber: {
-            fontSize: moderateScale(FontSize.sm),
-            color: '#7E7E7E',
-            marginTop: verticalScale(4),
-            textAlign: 'center',
-        },
-        otpContainer: {
-            width: '100%',
-            marginTop: verticalScale(25),
-            alignItems: 'center',
-        },
-        otpInputContainer: {
-            gap: scale(6),
-            alignSelf: 'center',
-        },
-        otpBox: {
-            width: moderateScale(45), // Increased size slightly and made responsive
-            height: moderateScale(50),
-            borderWidth: 1,
-            borderColor: '#E0E0E0',
-            borderRadius: width >= 600 ? 14 : scale(8), // Reduced radius for foldables
-        },
-        otpText: {
-            fontSize: moderateScale(FontSize.lg),
-            fontWeight: '600',
-            color: '#000',
-        },
-        resendContainer: {
-            flexDirection: 'row',
-            alignItems: 'center',
-            marginTop: verticalScale(20),
-        },
-        resendText: {
-            fontSize: moderateScale(FontSize.xs),
-            color: '#7E7E7E',
-        },
-        resendLink: {
-            fontSize: moderateScale(FontSize.xs),
-            color: '#FF8A3C',
-            fontWeight: '600',
-        },
-        resendLinkDisabled: {
-            opacity: 0.5,
-            color: '#FFF3E0', // Matching previous disabled color or keeping consistent
-        },
-        timerText: {
-            fontSize: moderateScale(FontSize.xs),
-            color: '#7E7E7E',
-            marginTop: verticalScale(4),
-        },
-        verifyButton: {
-            width: '100%',
-            height: moderateScale(45),
-            backgroundColor: '#FF8A3C',
-            borderRadius: width >= 600 ? 16 : scale(15),
-            alignItems: 'center',
-            justifyContent: 'center',
-            marginTop: verticalScale(25),
-        },
-        verifyButtonText: {
-            color: '#fff',
-            fontSize: moderateScale(FontSize.md),
-            fontWeight: '700',
-        },
-    }), [scale, verticalScale, moderateScale, width]);
+    const styles = useMemo(() => makeStyles(scale, verticalScale, moderateScale, width), [scale, verticalScale, moderateScale, width]);
 
     // ------------------------------
     // RESEND TIMER
@@ -220,7 +103,7 @@ const Otp = () => {
     }
 
     return (
-        <ResponsiveContainer>
+        <ResponsiveContainer maxWidth={width >= 600 ? "100%" : 420}>
             <ImageBackground
                 source={require('../../assets/img/splash/Splashbg.jpg')}
                 style={styles.bgImage}
@@ -233,7 +116,7 @@ const Otp = () => {
                     <ScrollView
                         contentContainerStyle={[
                             styles.scrollContent,
-                            width >= 600 ? { justifyContent: 'flex-start' } : undefined
+                            width >= 600 ? { justifyContent: 'center' } : undefined
                         ]}
                         showsVerticalScrollIndicator={false}
                     >
@@ -290,4 +173,123 @@ const Otp = () => {
 }
 
 export default Otp
+
+const makeStyles = (scale: any, verticalScale: any, moderateScale: any, width: any) => StyleSheet.create({
+    bgImage: {
+        flex: 1,
+    },
+    container: {
+        flex: 1,
+    },
+    scrollContent: {
+        flexGrow: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+        paddingBottom: moderateScale(20),
+        paddingTop: moderateScale(50),
+    },
+    wowsly: {
+        flexDirection: 'column',
+        gap: moderateScale(6),
+        marginBottom: '6%',
+        alignItems: 'center',
+        marginTop: width >= 600 ? 50 : 0, // Move down on foldables
+    },
+    logo: {
+        width: moderateScale(80),
+        height: undefined,
+        aspectRatio: 80 / 55,
+        alignSelf: 'center',
+        resizeMode: 'contain',
+    },
+    heading: {
+        fontSize: moderateScale(FontSize.xxl),
+        fontWeight: '600',
+        color: '#000'
+    },
+    box: {
+        backgroundColor: 'white',
+        width: width >= 600 ? moderateScale(400) : '85%',
+        borderRadius: moderateScale(25),
+        padding: moderateScale(20),
+        alignItems: 'center',
+    },
+    title: {
+        fontSize: moderateScale(FontSize.lg),
+        fontWeight: '700',
+        color: '#000',
+        marginTop: verticalScale(6),
+        textAlign: 'center',
+    },
+    instructionText: {
+        fontSize: moderateScale(FontSize.sm),
+        color: '#7E7E7E',
+        marginTop: verticalScale(10),
+        textAlign: 'center',
+    },
+    phoneNumber: {
+        fontSize: moderateScale(FontSize.sm),
+        color: '#7E7E7E',
+        marginTop: verticalScale(4),
+        textAlign: 'center',
+    },
+    otpContainer: {
+        width: '100%',
+        marginTop: verticalScale(25),
+        alignItems: 'center',
+    },
+    otpInputContainer: {
+        gap: moderateScale(6),
+        alignSelf: 'center',
+    },
+    otpBox: {
+        width: moderateScale(45), // Increased size slightly and made responsive
+        height: moderateScale(50),
+        borderWidth: 1,
+        borderColor: '#E0E0E0',
+        borderRadius: width >= 600 ? 14 : moderateScale(8), // Reduced radius for foldables
+    },
+    otpText: {
+        fontSize: moderateScale(FontSize.lg),
+        fontWeight: '600',
+        color: '#000',
+    },
+    resendContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginTop: verticalScale(20),
+    },
+    resendText: {
+        fontSize: moderateScale(FontSize.xs),
+        color: '#7E7E7E',
+    },
+    resendLink: {
+        fontSize: moderateScale(FontSize.xs),
+        color: '#FF8A3C',
+        fontWeight: '600',
+    },
+    resendLinkDisabled: {
+        opacity: 0.5,
+        color: '#FFF3E0', // Matching previous disabled color or keeping consistent
+    },
+    timerText: {
+        fontSize: moderateScale(FontSize.xs),
+        color: '#7E7E7E',
+        marginTop: verticalScale(4),
+    },
+    verifyButton: {
+        width: '100%',
+        height: moderateScale(45),
+        backgroundColor: '#FF8A3C',
+        borderRadius: width >= 600 ? 16 : moderateScale(15),
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginTop: verticalScale(25),
+    },
+    verifyButtonText: {
+        color: '#fff',
+        fontSize: moderateScale(FontSize.md),
+        fontWeight: '700',
+    },
+});
 
