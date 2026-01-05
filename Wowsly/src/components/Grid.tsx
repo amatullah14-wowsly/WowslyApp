@@ -80,8 +80,8 @@ const makeStyles = (scale: (size: number) => number, verticalScale: (size: numbe
     marginBottom: verticalScale(4)
   },
   icon: {
-    height: scale(20),
-    width: scale(20),
+    height: moderateScale(22),
+    width: moderateScale(22),
     marginRight: scale(8),
   },
   title: {
@@ -104,8 +104,8 @@ const makeStyles = (scale: (size: number) => number, verticalScale: (size: numbe
     tintColor: "#888",
   },
   arrow: {
-    height: scale(24),
-    width: scale(24),
+    height: moderateScale(20),
+    width: moderateScale(20),
     position: 'absolute',
     right: scale(8),
     bottom: verticalScale(8),

@@ -6,6 +6,7 @@ import PhoneNumberInput from 'react-native-phone-number-input';
 import { useScale } from '../../utils/useScale';
 import { FontSize } from '../../constants/fontSizes';
 import { sendOTP } from '../../api/api';  // ✅ API IMPORT
+import { ResponsiveContainer } from '../../components/ResponsiveContainer';
 
 const Number = () => {
   const phoneInput = useRef<PhoneNumberInput>(null);
@@ -16,10 +17,13 @@ const Number = () => {
 
   const navigation = useNavigation<any>();
   const { scale, verticalScale, moderateScale } = useScale();
+  const { width } = useWindowDimensions();
 
   const styles = useMemo(() => StyleSheet.create({
     bgImage: {
       flex: 1,
+      width: '100%',
+      height: '100%',
     },
     container: {
       flex: 1,
@@ -80,32 +84,35 @@ const Number = () => {
       fontWeight: '500',
     },
     phoneContainer: {
-      width: '90%',
+      width: '85%', // Reduced slightly to look better centered if needed, or keep 90
       marginTop: moderateScale(10),
       borderWidth: 1,
       borderColor: '#E0E0E0',
-      borderRadius: scale(15),
+      borderRadius: width >= 600 ? 16 : scale(15), // Less border radius for foldables
       backgroundColor: '#fff',
-      paddingHorizontal: scale(5),
+      paddingHorizontal: 0, // Remove padding to let children fill
       paddingVertical: 0,
       height: moderateScale(50),
       alignItems: 'center',
+      overflow: 'hidden', // Ensure rounded corners clip content
     },
     phoneTextContainer: {
       backgroundColor: '#fff',
-      borderRadius: scale(15),
+      borderTopRightRadius: width >= 600 ? 12 : scale(15),
+      borderBottomRightRadius: width >= 600 ? 12 : scale(15),
       paddingVertical: 0,
       height: '100%',
       justifyContent: 'center',
+      flex: 1, // IMPORTANT: Makes this take remaining space
     },
     phoneInput: {
-      fontSize: moderateScale(FontSize.md),
+      fontSize: width >= 600 ? 14 : moderateScale(FontSize.md), // Prevent scaling too huge on tablets
       color: '#000',
       paddingVertical: 0,
       height: '100%',
     },
     phoneCodeText: {
-      fontSize: moderateScale(FontSize.sm),
+      fontSize: width >= 600 ? 14 : moderateScale(FontSize.sm),
       fontWeight: '600',
       color: '#000',
     },
@@ -116,6 +123,7 @@ const Number = () => {
       paddingRight: scale(10),
       borderRightWidth: 1,
       borderRightColor: '#E0E0E0',
+      maxWidth: '30%', // Restrict width of country picker
     },
     smsPrompt: {
       flexDirection: 'row',
@@ -144,9 +152,9 @@ const Number = () => {
       marginTop: verticalScale(15),
     },
     checkbox: {
-      width: scale(20),
-      height: scale(20),
-      borderRadius: scale(6),
+      width: width >= 600 ? 20 : scale(20), // Fix massive size on tablets
+      height: width >= 600 ? 20 : scale(20),
+      borderRadius: width >= 600 ? 6 : scale(6),
       borderWidth: 1,
       borderColor: '#E0E0E0',
       justifyContent: 'center',
@@ -157,9 +165,9 @@ const Number = () => {
       borderColor: '#FF8A3C',
     },
     checkboxIndicator: {
-      width: scale(12),
-      height: scale(12),
-      borderRadius: scale(4),
+      width: width >= 600 ? 12 : scale(12),
+      height: width >= 600 ? 12 : scale(12),
+      borderRadius: width >= 600 ? 2 : scale(4),
       backgroundColor: '#FF8A3C',
     },
     checkboxLabel: {
@@ -170,7 +178,7 @@ const Number = () => {
     button: {
       width: '90%',
       height: moderateScale(50),
-      borderRadius: scale(15),
+      borderRadius: width >= 600 ? 16 : scale(15),
       backgroundColor: '#FF8A3C',
       alignItems: 'center',
       justifyContent: 'center',
@@ -200,7 +208,7 @@ const Number = () => {
       fontSize: moderateScale(FontSize.xs),
       marginHorizontal: scale(6)
     }
-  }), [scale, verticalScale, moderateScale]);
+  }), [scale, verticalScale, moderateScale, width]);
 
   const triggerOtp = async (method: 'whatsapp' | 'sms') => {
     const checkValid = phoneInput.current?.isValidNumber(value);
@@ -277,123 +285,129 @@ const Number = () => {
   const isSending = sendingVia !== null;
   const isSendOtpDisabled = isSending || !acceptedTerms;
 
-  const { width, height } = useWindowDimensions();
-
   return (
-    <ImageBackground
-      source={require('../../assets/img/splash/Splashbg.jpg')}
-      style={[styles.bgImage, { width, height }]}
-      resizeMode="cover"
-    >
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        style={styles.container}
+    <ResponsiveContainer>
+      <ImageBackground
+        source={require('../../assets/img/splash/Splashbg.jpg')}
+        style={styles.bgImage}
+        resizeMode="cover"
       >
-        <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-          <View style={styles.mainbox}>
-            <View>
-              <Image
-                source={require('../../assets/img/common/WowslyLogo.png')}
-                style={styles.logo}
-              />
-            </View>
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          style={styles.container}
+        >
+          <ScrollView
+            contentContainerStyle={[
+              styles.scrollContent,
+              width >= 600 ? { justifyContent: 'flex-start' } : undefined
+            ]}
+            showsVerticalScrollIndicator={false}
+          >
+            <View style={styles.mainbox}>
+              <View>
+                <Image
+                  source={require('../../assets/img/common/WowslyLogo.png')}
+                  style={styles.logo}
+                />
+              </View>
 
-            <View style={styles.heading}>
-              <Text style={styles.headingText}>Welcome to Wowsly</Text>
-              <Text style={styles.organizer}>Organizer App</Text>
-            </View>
+              <View style={styles.heading}>
+                <Text style={styles.headingText}>Welcome to Wowsly</Text>
+                <Text style={styles.organizer}>Organizer App</Text>
+              </View>
 
-            <View>
-              <Text style={styles.manage}>Manage events & check-ins on the go</Text>
-            </View>
+              <View>
+                <Text style={styles.manage}>Manage events & check-ins on the go</Text>
+              </View>
 
-            <View style={styles.number}>
-              {/* <Text style={styles.mobile}>Mobile Number</Text> */}
-              <PhoneNumberInput
-                ref={phoneInput}
-                defaultValue={value}
-                defaultCode="IN"
-                layout="first"
-                onChangeText={setValue}
-                onChangeCountry={(country) => setCountryCode(country.callingCode[0])}
-                containerStyle={styles.phoneContainer}
-                textContainerStyle={styles.phoneTextContainer}
-                textInputStyle={styles.phoneInput}
-                codeTextStyle={styles.phoneCodeText}
-                flagButtonStyle={styles.phoneFlagButton}
-                countryPickerButtonStyle={styles.phoneCountryButton}
-                disableArrowIcon={false}
-                textInputProps={{
-                  returnKeyType: 'done',
-                  onSubmitEditing: handleSendOTP,
-                  placeholder: 'Mobile Number',
-                  placeholderTextColor: '#9E9E9E',
-                  style: styles.phoneInput // Ensure internal input also gets style if needed, though usually dealt with via props
-                }}
-              />
-              {countryCode === '91' && (
-                <View style={styles.smsPrompt}>
-                  <Text style={styles.smsPromptLabel}>Not using WhatsApp?</Text>
-                  <TouchableOpacity onPress={handleSendSMS} disabled={isSending}>
-                    <Text style={[styles.smsPromptAction, isSmsLoading && styles.smsPromptDisabled]}>
-                      {isSmsLoading ? "Sending..." : "Send SMS"}
-                    </Text>
-                  </TouchableOpacity>
-                </View>
-              )}
-            </View>
+              <View style={styles.number}>
+                {/* <Text style={styles.mobile}>Mobile Number</Text> */}
+                <PhoneNumberInput
+                  ref={phoneInput}
+                  defaultValue={value}
+                  defaultCode="IN"
+                  layout="first"
+                  onChangeText={setValue}
+                  onChangeCountry={(country) => setCountryCode(country.callingCode[0])}
+                  containerStyle={styles.phoneContainer}
+                  textContainerStyle={styles.phoneTextContainer}
+                  textInputStyle={styles.phoneInput}
+                  codeTextStyle={styles.phoneCodeText}
+                  flagButtonStyle={styles.phoneFlagButton}
+                  countryPickerButtonStyle={styles.phoneCountryButton}
+                  disableArrowIcon={false}
+                  textInputProps={{
+                    returnKeyType: 'done',
+                    onSubmitEditing: handleSendOTP,
+                    placeholder: 'Mobile Number',
+                    placeholderTextColor: '#9E9E9E',
+                    style: styles.phoneInput
+                  }}
+                />
+                {countryCode === '91' && (
+                  <View style={styles.smsPrompt}>
+                    <Text style={styles.smsPromptLabel}>Not using WhatsApp?</Text>
+                    <TouchableOpacity onPress={handleSendSMS} disabled={isSending}>
+                      <Text style={[styles.smsPromptAction, isSmsLoading && styles.smsPromptDisabled]}>
+                        {isSmsLoading ? "Sending..." : "Send SMS"}
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+                )}
+              </View>
 
-            {/* TERMS CHECKBOX */}
+              {/* TERMS CHECKBOX */}
 
-            <View style={styles.checkboxRow}>
-              <TouchableOpacity
-                onPress={() => setAcceptedTerms((prev) => !prev)}
-                activeOpacity={0.8}
-              >
-                <View style={[styles.checkbox, acceptedTerms && styles.checkboxChecked]}>
-                  {acceptedTerms && <View style={styles.checkboxIndicator} />}
-                </View>
-              </TouchableOpacity>
-              <Text style={styles.checkboxLabel}>
-                <Text onPress={() => setAcceptedTerms((prev) => !prev)}>I agree to the </Text>
-                <Text
-                  style={{ color: '#FF8A3C' }}
-                  onPress={() => Linking.openURL('https://wowsly.com/terms-and-conditions/')}
+              <View style={styles.checkboxRow}>
+                <TouchableOpacity
+                  onPress={() => setAcceptedTerms((prev) => !prev)}
+                  activeOpacity={0.8}
                 >
-                  Terms & Conditions
+                  <View style={[styles.checkbox, acceptedTerms && styles.checkboxChecked]}>
+                    {acceptedTerms && <View style={styles.checkboxIndicator} />}
+                  </View>
+                </TouchableOpacity>
+                <Text style={styles.checkboxLabel}>
+                  <Text onPress={() => setAcceptedTerms((prev) => !prev)}>I agree to the </Text>
+                  <Text
+                    style={{ color: '#FF8A3C' }}
+                    onPress={() => Linking.openURL('https://wowsly.com/terms-and-conditions/')}
+                  >
+                    Terms & Conditions
+                  </Text>
                 </Text>
-              </Text>
+              </View>
+
+              {/* SEND OTP BUTTON */}
+              <TouchableOpacity
+                style={[styles.button, isSendOtpDisabled && styles.buttonDisabled]}
+                onPress={handleSendOTP}
+                disabled={isSendOtpDisabled}
+              >
+                <Text style={styles.buttonText}>
+                  {isWhatsAppLoading ? "Sending..." : "Send OTP"}
+                </Text>
+              </TouchableOpacity>
             </View>
 
-            {/* SEND OTP BUTTON */}
-            <TouchableOpacity
-              style={[styles.button, isSendOtpDisabled && styles.buttonDisabled]}
-              onPress={handleSendOTP}
-              disabled={isSendOtpDisabled}
-            >
-              <Text style={styles.buttonText}>
-                {isWhatsAppLoading ? "Sending..." : "Send OTP"}
-              </Text>
-            </TouchableOpacity>
-          </View>
-
-          {/* FOOTER */}
-          <View style={styles.footer}>
-            <TouchableOpacity onPress={() => Linking.openURL('https://wowsly.com/contact-us/')}>
-              <Text style={styles.footerText}>Need help?</Text>
-            </TouchableOpacity>
-            <Text style={styles.dot}>•</Text>
-            <TouchableOpacity onPress={() => Linking.openURL('https://wowsly.com/privacy-policy/')}>
-              <Text style={styles.footerText}>Privacy</Text>
-            </TouchableOpacity>
-            <Text style={styles.dot}>•</Text>
-            <TouchableOpacity onPress={() => Linking.openURL('https://wowsly.com/terms-and-conditions/')}>
-              <Text style={styles.footerText}>Terms</Text>
-            </TouchableOpacity>
-          </View>
-        </ScrollView>
-      </KeyboardAvoidingView>
-    </ImageBackground>
+            {/* FOOTER */}
+            <View style={styles.footer}>
+              <TouchableOpacity onPress={() => Linking.openURL('https://wowsly.com/contact-us/')}>
+                <Text style={styles.footerText}>Need help?</Text>
+              </TouchableOpacity>
+              <Text style={styles.dot}>•</Text>
+              <TouchableOpacity onPress={() => Linking.openURL('https://wowsly.com/privacy-policy/')}>
+                <Text style={styles.footerText}>Privacy</Text>
+              </TouchableOpacity>
+              <Text style={styles.dot}>•</Text>
+              <TouchableOpacity onPress={() => Linking.openURL('https://wowsly.com/terms-and-conditions/')}>
+                <Text style={styles.footerText}>Terms</Text>
+              </TouchableOpacity>
+            </View>
+          </ScrollView>
+        </KeyboardAvoidingView>
+      </ImageBackground>
+    </ResponsiveContainer>
   )
 }
 

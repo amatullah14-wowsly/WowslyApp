@@ -1,5 +1,5 @@
 import React from "react";
-import { Image } from "react-native";
+import { Image, useWindowDimensions } from "react-native";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import EventListing from "../screens/Events/EventListing";
 import Past from "../screens/Events/Past";
@@ -7,6 +7,8 @@ import Past from "../screens/Events/Past";
 const Tab = createBottomTabNavigator();
 
 const BottomNavigation = () => {
+    const { width } = useWindowDimensions();
+
     return (
         <Tab.Navigator
             screenOptions={({ route }) => ({
@@ -40,6 +42,7 @@ const BottomNavigation = () => {
                     height: 60,
                     paddingBottom: 6,
                     paddingTop: 4,
+                    width: '100%',
                 },
             })}
         >

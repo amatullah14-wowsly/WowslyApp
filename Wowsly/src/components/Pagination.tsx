@@ -1,6 +1,7 @@
-import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Image, FlatList } from 'react-native';
+import React, { useMemo } from 'react';
+import { View, Text, TouchableOpacity, StyleSheet, Image, useWindowDimensions } from 'react-native';
 import { scale, moderateScale, verticalScale } from '../utils/scaling';
+import { FontSize } from '../constants/fontSizes';
 
 interface PaginationProps {
     currentPage: number;
@@ -9,6 +10,8 @@ interface PaginationProps {
 }
 
 const Pagination = ({ currentPage, totalPages, onPageChange }: PaginationProps) => {
+    const { width } = useWindowDimensions();
+    const styles = useMemo(() => makeStyles(width), [width]);
 
     const renderPageNumber = ({ item }: { item: number | string }) => {
         if (item === '...') {
@@ -70,7 +73,7 @@ const Pagination = ({ currentPage, totalPages, onPageChange }: PaginationProps) 
 
             <View style={styles.numbersContainer}>
                 {getPageNumbers().map((item, index) => (
-                    <View key={index} style={{ marginHorizontal: scale(4) }}>
+                    <View key={index} style={{ marginHorizontal: width >= 600 ? 6 : scale(4) }}>
                         {renderPageNumber({ item })}
                     </View>
                 ))}
@@ -91,47 +94,46 @@ const Pagination = ({ currentPage, totalPages, onPageChange }: PaginationProps) 
     );
 };
 
-const styles = StyleSheet.create({
+const makeStyles = (width: number) => StyleSheet.create({
     container: {
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'center',
-        paddingVertical: verticalScale(10),
+        paddingVertical: width >= 600 ? 10 : verticalScale(10),
         width: '100%',
     },
     numbersContainer: {
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'center',
-        // flexWrap: 'wrap', // Prevent wrapping if too many, logic handles ellipsis
     },
     arrowButton: {
-        width: scale(36), // Slightly larger touch area
-        height: scale(36),
+        width: width >= 600 ? 40 : Math.min(scale(36), 44),
+        height: width >= 600 ? 40 : Math.min(scale(36), 44),
         justifyContent: 'center',
         alignItems: 'center',
         borderWidth: 1,
         borderColor: '#E0E0E0',
-        borderRadius: scale(18), // Circle
-        marginHorizontal: scale(5),
+        borderRadius: width >= 600 ? 20 : Math.min(scale(18), 22),
+        marginHorizontal: width >= 600 ? 8 : Math.min(scale(5), 8),
     },
     disabledArrow: {
         borderColor: '#F0F0F0',
     },
     arrowIcon: {
-        width: scale(14),
-        height: scale(14),
+        width: width >= 600 ? 14 : Math.min(scale(14), 18),
+        height: width >= 600 ? 14 : Math.min(scale(14), 18),
         tintColor: '#333',
     },
     disabledArrowIcon: {
         tintColor: '#CCC',
     },
     pageNumber: {
-        width: scale(36),
-        height: scale(36),
+        width: width >= 600 ? 40 : Math.min(scale(36), 44),
+        height: width >= 600 ? 40 : Math.min(scale(36), 44),
         justifyContent: 'center',
         alignItems: 'center',
-        borderRadius: scale(18),
+        borderRadius: width >= 600 ? 20 : Math.min(scale(18), 22),
         borderWidth: 1,
         borderColor: '#E0E0E0',
         backgroundColor: 'white',
@@ -141,7 +143,7 @@ const styles = StyleSheet.create({
         borderColor: '#FF8A3C',
     },
     pageText: {
-        fontSize: moderateScale(14),
+        fontSize: width >= 600 ? 14 : Math.min(moderateScale(14), 16),
         color: '#333',
         fontWeight: '500',
     },
@@ -150,12 +152,12 @@ const styles = StyleSheet.create({
         fontWeight: '700',
     },
     ellipsisContainer: {
-        width: scale(20),
+        width: width >= 600 ? 20 : scale(20),
         justifyContent: 'center',
         alignItems: 'center',
     },
     ellipsisText: {
-        fontSize: moderateScale(14),
+        fontSize: width >= 600 ? 14 : Math.min(moderateScale(14), 16),
         color: '#888',
     },
 });

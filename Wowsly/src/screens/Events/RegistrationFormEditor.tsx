@@ -674,10 +674,10 @@ const RegistrationFormEditor = ({ isEmbedded = false, eventId: propEventId }: { 
             {/* Floating Edit Button if standard mode */}
             {!isEmbedded && (
                 <TouchableOpacity
-                    style={{ position: 'absolute', bottom: verticalScale(30), right: scale(20), width: scale(56), height: scale(56), borderRadius: scale(28), backgroundColor: '#FF8A3C', elevation: 6, justifyContent: 'center', alignItems: 'center' }}
+                    style={{ position: 'absolute', bottom: verticalScale(30), right: moderateScale(20), width: moderateScale(56), height: moderateScale(56), borderRadius: moderateScale(28), backgroundColor: '#FF8A3C', elevation: 6, justifyContent: 'center', alignItems: 'center' }}
                     onPress={() => setIsEditing(true)}
                 >
-                    <Image source={require('../../assets/img/form/edit.png')} style={{ width: scale(24), height: scale(24), tintColor: 'white' }} resizeMode="contain" />
+                    <Image source={require('../../assets/img/form/edit.png')} style={{ width: moderateScale(24), height: moderateScale(24), tintColor: 'white' }} resizeMode="contain" />
                 </TouchableOpacity>
             )}
         </View>
@@ -785,7 +785,7 @@ const RegistrationFormEditor = ({ isEmbedded = false, eventId: propEventId }: { 
                     {/* Add Question UI */}
                     {/* Add Question UI - Standard Block */}
                     {showAddQuestionModal ? (
-                        <View style={{ borderWidth: 1, borderColor: '#FF8A3C', borderRadius: scale(12), padding: scale(20), marginTop: verticalScale(20), backgroundColor: '#FFF5EB' }}>
+                        <View style={{ borderWidth: 1, borderColor: '#FF8A3C', borderRadius: moderateScale(12), padding: moderateScale(20), marginTop: verticalScale(20), backgroundColor: '#FFF5EB' }}>
                             {/* Question Type Selector */}
                             <View style={[styles.inputContainer, { zIndex: 2000 }]} >
                                 <Text style={{ fontSize: moderateScale(FontSize.xs), color: '#666', marginBottom: verticalScale(5), fontWeight: '500' }}>Question Type</Text>
@@ -794,7 +794,7 @@ const RegistrationFormEditor = ({ isEmbedded = false, eventId: propEventId }: { 
                                     onPress={() => setShowTypeDropdown(!showTypeDropdown)}
                                 >
                                     <Text style={{ color: '#333' }}>{newQuestionType}</Text>
-                                    <ChevronDownIcon width={scale(20)} height={scale(20)} color="#666" />
+                                    <ChevronDownIcon width={moderateScale(20)} height={moderateScale(20)} color="#666" />
                                 </TouchableOpacity>
 
                                 {showTypeDropdown && (
@@ -917,7 +917,7 @@ const makeStyles = (scale: (size: number) => number, verticalScale: (size: numbe
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'space-between',
-        paddingHorizontal: scale(20),
+        paddingHorizontal: moderateScale(20),
         paddingTop: verticalScale(40),
         paddingBottom: verticalScale(5),
         backgroundColor: 'white',
@@ -930,45 +930,45 @@ const makeStyles = (scale: (size: number) => number, verticalScale: (size: numbe
         color: '#333',
     },
     editIconContainer: {
-        padding: scale(5),
+        padding: moderateScale(5),
     },
     content: {
-        padding: scale(20),
+        padding: moderateScale(20),
         paddingBottom: verticalScale(100),
     },
     card: {
         backgroundColor: 'white',
-        borderRadius: scale(12),
-        padding: scale(20),
+        borderRadius: moderateScale(12),
+        padding: moderateScale(20),
         shadowColor: "#000",
         shadowOffset: { width: 0, height: verticalScale(2) },
         shadowOpacity: 0.05,
-        shadowRadius: scale(10),
+        shadowRadius: moderateScale(10),
         elevation: 3,
         marginBottom: verticalScale(20),
     },
     blockContainer: {
         backgroundColor: 'white',
-        borderRadius: scale(12),
-        padding: scale(20),
+        borderRadius: moderateScale(12),
+        padding: moderateScale(20),
         marginBottom: verticalScale(15),
         shadowColor: "#000",
         shadowOffset: { width: 0, height: verticalScale(4) },
         shadowOpacity: 0.08,
-        shadowRadius: scale(12),
+        shadowRadius: moderateScale(12),
         elevation: 4,
         borderWidth: 1,
         borderColor: '#F0F0F0',
     },
     questionBlock: {
         backgroundColor: 'white',
-        borderRadius: scale(8),
-        padding: scale(20),
+        borderRadius: moderateScale(8),
+        padding: moderateScale(20),
         marginBottom: verticalScale(15),
         shadowColor: "#000",
         shadowOffset: { width: 0, height: verticalScale(1) },
         shadowOpacity: 0.05, // Very soft for questions
-        shadowRadius: scale(2),
+        shadowRadius: moderateScale(2),
         elevation: 2,
     },
     headerInput: {
@@ -983,8 +983,8 @@ const makeStyles = (scale: (size: number) => number, verticalScale: (size: numbe
         color: '#202124',
         borderWidth: 1,
         borderColor: '#E0E0E0',
-        borderRadius: scale(12),
-        paddingHorizontal: scale(15),
+        borderRadius: moderateScale(12),
+        paddingHorizontal: moderateScale(15),
         paddingVertical: verticalScale(12),
         marginBottom: verticalScale(10),
         backgroundColor: '#FCFCFC',
@@ -999,10 +999,10 @@ const makeStyles = (scale: (size: number) => number, verticalScale: (size: numbe
         fontSize: moderateScale(14),
         color: '#888',
         paddingVertical: verticalScale(12),
-        paddingHorizontal: scale(15),
+        paddingHorizontal: moderateScale(15),
         borderWidth: 1,
         borderColor: '#F0F0F0',
-        borderRadius: scale(10),
+        borderRadius: moderateScale(10),
         backgroundColor: '#FAFAFA',
         marginTop: verticalScale(5),
     },
@@ -1023,11 +1023,11 @@ const makeStyles = (scale: (size: number) => number, verticalScale: (size: numbe
     inputWrapper: {
         borderWidth: 1,
         borderColor: '#E0E0E0',
-        borderRadius: scale(12),
+        borderRadius: moderateScale(12),
         backgroundColor: 'white',
     },
     input: {
-        paddingHorizontal: scale(15),
+        paddingHorizontal: moderateScale(15),
         paddingVertical: verticalScale(12),
         fontSize: moderateScale(15),
         color: '#333',
@@ -1043,9 +1043,9 @@ const makeStyles = (scale: (size: number) => number, verticalScale: (size: numbe
     inputLabel: {
         position: 'absolute',
         top: verticalScale(-10),
-        left: scale(10),
+        left: moderateScale(10),
         backgroundColor: 'white',
-        paddingHorizontal: scale(5),
+        paddingHorizontal: moderateScale(5),
         fontSize: moderateScale(FontSize.xs),
         color: '#666',
         zIndex: 1,
@@ -1053,9 +1053,9 @@ const makeStyles = (scale: (size: number) => number, verticalScale: (size: numbe
     textInput: {
         borderWidth: 1,
         borderColor: '#E0E0E0',
-        borderRadius: scale(12),
-        paddingHorizontal: scale(15),
-        paddingVertical: verticalScale(14),
+        borderRadius: moderateScale(12),
+        paddingHorizontal: moderateScale(15),
+        paddingVertical: moderateScale(12),
         fontSize: moderateScale(FontSize.md),
         color: '#333',
         backgroundColor: '#FCFCFC',
@@ -1064,7 +1064,7 @@ const makeStyles = (scale: (size: number) => number, verticalScale: (size: numbe
         flexDirection: 'row',
         alignItems: 'center',
         marginBottom: verticalScale(15),
-        gap: scale(15),
+        gap: moderateScale(15),
     },
     toggleLabel: {
         fontSize: moderateScale(FontSize.md),
@@ -1088,11 +1088,11 @@ const makeStyles = (scale: (size: number) => number, verticalScale: (size: numbe
     readOnlyField: {
         borderWidth: 1,
         borderColor: '#E0E0E0',
-        borderRadius: scale(12),
+        borderRadius: moderateScale(12),
         backgroundColor: 'white',
     },
     readOnlyInput: {
-        paddingHorizontal: scale(15),
+        paddingHorizontal: moderateScale(15),
         paddingVertical: verticalScale(14),
         fontSize: moderateScale(FontSize.md),
         color: '#333',
@@ -1100,7 +1100,7 @@ const makeStyles = (scale: (size: number) => number, verticalScale: (size: numbe
     addQuestionButton: {
         alignSelf: 'stretch',
         paddingVertical: verticalScale(14),
-        borderRadius: scale(12),
+        borderRadius: moderateScale(12),
         borderWidth: 1,
         borderColor: '#FF8A3C',
         borderStyle: 'dashed',
@@ -1115,16 +1115,16 @@ const makeStyles = (scale: (size: number) => number, verticalScale: (size: numbe
     },
     footerButtons: {
         flexDirection: 'row',
-        padding: scale(20),
+        padding: moderateScale(20),
         borderTopWidth: 1,
         borderTopColor: '#f0f0f0',
-        gap: scale(15),
+        gap: moderateScale(15),
         backgroundColor: 'white',
     },
     cancelButton: {
         flex: 1,
         paddingVertical: verticalScale(15),
-        borderRadius: scale(10),
+        borderRadius: moderateScale(10),
         borderWidth: 1,
         borderColor: '#FF8A3C',
         alignItems: 'center',
@@ -1137,7 +1137,7 @@ const makeStyles = (scale: (size: number) => number, verticalScale: (size: numbe
     saveFooterButton: {
         flex: 1,
         backgroundColor: '#FF8A3C',
-        borderRadius: scale(10),
+        borderRadius: moderateScale(10),
         paddingVertical: verticalScale(15),
         alignItems: 'center',
     },
@@ -1152,31 +1152,31 @@ const makeStyles = (scale: (size: number) => number, verticalScale: (size: numbe
         backgroundColor: 'transparent',
         flexDirection: 'row',
         alignItems: 'center',
-        gap: scale(15),
+        gap: moderateScale(15),
     },
     actionIconsRow: {
         flexDirection: 'row',
         alignItems: 'center',
-        gap: scale(15),
+        gap: moderateScale(15),
     },
     actionIcon: {
-        padding: scale(5),
+        padding: moderateScale(5),
     },
     addQuestionCard: {
         backgroundColor: 'white',
-        borderRadius: scale(12),
-        padding: scale(20),
+        borderRadius: moderateScale(12),
+        padding: moderateScale(20),
         marginTop: verticalScale(15),
         shadowColor: "#000",
         shadowOffset: { width: 0, height: verticalScale(2) },
         shadowOpacity: 0.1,
-        shadowRadius: scale(4),
+        shadowRadius: moderateScale(4),
         elevation: 3,
         borderWidth: 0,
     },
     dropdownList: {
         backgroundColor: 'white',
-        borderRadius: scale(8),
+        borderRadius: moderateScale(8),
         marginTop: verticalScale(5),
         elevation: 5,
         position: 'absolute',
@@ -1187,11 +1187,11 @@ const makeStyles = (scale: (size: number) => number, verticalScale: (size: numbe
         shadowColor: "#000",
         shadowOffset: { width: 0, height: verticalScale(2) },
         shadowOpacity: 0.1,
-        shadowRadius: scale(4),
+        shadowRadius: moderateScale(4),
     },
     dropdownItem: {
         paddingVertical: verticalScale(14),
-        paddingHorizontal: scale(15),
+        paddingHorizontal: moderateScale(15),
         borderBottomWidth: 1,
         borderBottomColor: '#F5F5F5',
     },
@@ -1203,11 +1203,11 @@ const makeStyles = (scale: (size: number) => number, verticalScale: (size: numbe
         flexDirection: 'row',
         justifyContent: 'flex-end',
         marginTop: verticalScale(25),
-        gap: scale(15),
+        gap: moderateScale(15),
     },
     modalCancelButton: {
         paddingVertical: verticalScale(8),
-        paddingHorizontal: scale(15),
+        paddingHorizontal: moderateScale(15),
     },
     modalCancelText: {
         color: '#888',
@@ -1217,12 +1217,12 @@ const makeStyles = (scale: (size: number) => number, verticalScale: (size: numbe
     modalAddButton: {
         backgroundColor: '#FF8A3C',
         paddingVertical: verticalScale(10),
-        paddingHorizontal: scale(25),
-        borderRadius: scale(8),
+        paddingHorizontal: moderateScale(25),
+        borderRadius: moderateScale(8),
         shadowColor: "#FF8A3C",
         shadowOffset: { width: 0, height: verticalScale(2) },
         shadowOpacity: 0.2,
-        shadowRadius: scale(3),
+        shadowRadius: moderateScale(3),
         elevation: 2,
     },
     modalAddText: {
@@ -1261,7 +1261,7 @@ const makeStyles = (scale: (size: number) => number, verticalScale: (size: numbe
     optionsRow: {
         flexDirection: 'row',
         flexWrap: 'wrap',
-        gap: scale(15),
+        gap: moderateScale(15),
         marginTop: verticalScale(5),
     },
     optionItem: {
@@ -1270,20 +1270,20 @@ const makeStyles = (scale: (size: number) => number, verticalScale: (size: numbe
         marginBottom: verticalScale(5),
     },
     radioCircle: {
-        height: scale(20),
-        width: scale(20),
-        borderRadius: scale(10),
+        height: moderateScale(20),
+        width: moderateScale(20),
+        borderRadius: moderateScale(10),
         borderWidth: 2,
         borderColor: '#666',
-        marginRight: scale(8),
+        marginRight: moderateScale(8),
     },
     checkboxSquare: {
-        height: scale(20),
-        width: scale(20),
+        height: moderateScale(20),
+        width: moderateScale(20),
         borderWidth: 2,
         borderColor: '#666',
-        borderRadius: scale(4),
-        marginRight: scale(8),
+        borderRadius: moderateScale(4),
+        marginRight: moderateScale(8),
     },
     optionText: {
         fontSize: moderateScale(FontSize.md),
@@ -1294,7 +1294,7 @@ const makeStyles = (scale: (size: number) => number, verticalScale: (size: numbe
         backgroundColor: '#fff',
         borderWidth: 1,
         borderColor: '#ddd',
-        borderRadius: scale(8),
+        borderRadius: moderateScale(8),
         justifyContent: 'center',
         alignItems: 'center',
         marginTop: verticalScale(5),
@@ -1305,7 +1305,7 @@ const makeStyles = (scale: (size: number) => number, verticalScale: (size: numbe
             height: verticalScale(1),
         },
         shadowOpacity: 0.1,
-        shadowRadius: scale(2),
+        shadowRadius: moderateScale(2),
         elevation: 2,
     },
 });

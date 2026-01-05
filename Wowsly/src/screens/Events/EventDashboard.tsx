@@ -9,6 +9,7 @@ import { getUnsyncedCheckins, getLocalCheckedInGuests } from '../../db';
 import BackButton from '../../components/BackButton';
 import Svg, { G, Path, Circle, Text as SvgText } from 'react-native-svg';
 import * as d3 from 'd3-shape';
+import { ResponsiveContainer } from '../../components/ResponsiveContainer';
 // import GuestRegistrationModal from './GuestRegistrationModal'; // Removed
 
 
@@ -22,18 +23,19 @@ type EventData = {
     image: string
 }
 
-type EventDashboardProps = {
-    route: {
-        params?: {
-            eventData?: EventData
-            userRole?: string
-        }
-    }
+type EventDashboardContentProps = {
+    eventData?: EventData
+    userRole?: string
+    eventId?: string
+    isSplitView?: boolean
 }
 
-const EventDashboard = ({ route }: EventDashboardProps) => {
+export const EventDashboardContent = ({ eventData, userRole, eventId, isSplitView = false }: EventDashboardContentProps) => {
     const navigation = useNavigation<any>();
-    const { eventData, userRole } = route.params || {};
+
+    // Resolve ID
+    const targetId = eventId || eventData?.id;
+
     const [details, setDetails] = useState<any>(null);
     const [guestCounts, setGuestCounts] = useState({ total: 0, checkedIn: 0 });
     const [ticketList, setTicketList] = useState<any[]>([]);
@@ -41,22 +43,24 @@ const EventDashboard = ({ route }: EventDashboardProps) => {
 
     const { width, height: screenHeight } = useWindowDimensions();
     const { scale, verticalScale, moderateScale } = useScale();
-    const styles = useMemo(() => makeStyles(scale, verticalScale, moderateScale), [scale, verticalScale, moderateScale]);
+    const styles = useMemo(() => makeStyles(scale, verticalScale, moderateScale, width), [scale, verticalScale, moderateScale, width]);
 
     // Responsive Logic
-    const isTablet = width >= 768;
-    const numColumns = isTablet ? 4 : 2;
+    const isFoldable = width >= 600;
+
+    // Grid Columns Logic:
+    // Phone: 2
+    // Split View (Foldable Right Panel): 2 (User requested 1 or 2 per row to fix messiness)
+    // Full Foldable (Tablet Mode): 3
+    const numColumns = isSplitView ? 2 : (isFoldable ? 3 : 2);
+
     const gridGap = scale(12);
-    // Grid Item Width: (100% - gap) / numColumns
-    // Or let flex handle it if we use columnWrapperStyle gap
-    // We will use flex basis logic in styles override inline
 
     // Animation value for settings button
     const scaleAnim = React.useRef(new Animated.Value(1)).current;
 
     // Exit Modal State
     const [exitModalVisible, setExitModalVisible] = useState(false);
-    // const [showRegisterGuestModal, setShowRegisterGuestModal] = useState(false); // Modal state removed
 
     const onSettingsPressIn = () => {
         Animated.spring(scaleAnim, {
@@ -74,9 +78,11 @@ const EventDashboard = ({ route }: EventDashboardProps) => {
         }).start();
     };
 
-    // Handle Hardware Back Button
+    // Handle Hardware Back Button - ONLY if NOT in split view
     useFocusEffect(
         useCallback(() => {
+            if (isSplitView) return; // Let parent handle back press in split view
+
             const onBackPress = () => {
                 setExitModalVisible(true);
                 return true; // Stop default behavior
@@ -86,18 +92,16 @@ const EventDashboard = ({ route }: EventDashboardProps) => {
 
             return () =>
                 BackHandler.removeEventListener('hardwareBackPress', onBackPress);
-        }, [])
+        }, [isSplitView])
     );
 
-    useFocusEffect(
-        useCallback(() => {
-            if (eventData?.id) {
-                fetchDetails(eventData.id);
-                fetchTicketList(eventData.id);
-                fetchCheckinData(eventData.id);
-            }
-        }, [eventData])
-    );
+    useEffect(() => {
+        if (targetId) {
+            fetchDetails(targetId);
+            fetchTicketList(targetId);
+            fetchCheckinData(targetId);
+        }
+    }, [targetId]);
 
     const fetchDetails = async (id: string) => {
         try {
@@ -111,10 +115,6 @@ const EventDashboard = ({ route }: EventDashboardProps) => {
             console.error("Error fetching event details:", e);
         }
     };
-
-    // ... (other fetch functions)
-
-
 
     const fetchTicketList = async (id: string) => {
         try {
@@ -148,22 +148,36 @@ const EventDashboard = ({ route }: EventDashboardProps) => {
 
 
     const handleOpenCheckInModal = () => {
-        if (!eventData?.id) return;
-        navigation.navigate('CheckInRecords', { eventId: eventData.id });
+        if (!targetId) return;
+        navigation.navigate('CheckInRecords', { eventId: targetId });
     };
 
     // Merge params data with fetched details
+    // If no targetId, we can't display much, but we handle nulls
     const displayData = {
         ...eventData,
         ...details,
+        id: targetId,
         title: details?.title || eventData?.title,
         date: details?.start_date_display || eventData?.date,
         location: details?.address || details?.city || eventData?.location,
         image: details?.event_main_photo || eventData?.image,
     };
 
-    if (!displayData) {
-        return null;
+    if (!targetId) {
+        // Placeholder state if no event selected (mostly for Split View)
+        return (
+            <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
+                <Text style={{ fontSize: moderateScale(FontSize.md), color: '#999' }}>Select an event to view details</Text>
+            </View>
+        );
+    }
+
+    // Safety check if we have ID but waiting for data
+    if (!displayData.title && !details) {
+        // Loading or minimalistic state could go here, but return null for now as per original
+        // Actually original returned null if !displayData. But displayData is object created above.
+        // Effectively check if we have minimal info.
     }
 
     const totalSold = ticketList.reduce(
@@ -244,7 +258,8 @@ const EventDashboard = ({ route }: EventDashboardProps) => {
         <>
             <View style={styles.header}>
                 <View style={styles.headerLeft}>
-                    <BackButton onPress={() => setExitModalVisible(true)} />
+                    {/* Hide Back Button in Split View */}
+                    {!isSplitView && <BackButton onPress={() => setExitModalVisible(true)} />}
                 </View>
 
                 <Text style={styles.title} numberOfLines={1}>
@@ -272,7 +287,11 @@ const EventDashboard = ({ route }: EventDashboardProps) => {
                 </View>
             </View>
 
-            <View style={[styles.eventCard, isTablet && { width: '80%', alignSelf: 'center' }]}>
+            <View style={[
+                styles.eventCard,
+                // Only center/shrink on Full Foldable view, not split view (which is already narrow)
+                isFoldable && !isSplitView && { width: '80%', alignSelf: 'center' }
+            ]}>
                 <ImageBackground
                     source={
                         displayData.image
@@ -293,7 +312,12 @@ const EventDashboard = ({ route }: EventDashboardProps) => {
                 </ImageBackground>
             </View>
 
-            <View style={[styles.detailsCard, isTablet && { width: '90%', alignSelf: 'center' }]}>
+            <View style={[
+                styles.detailsCard,
+                isFoldable && !isSplitView && { width: '90%', alignSelf: 'center' },
+                // Split View Optimization
+                isSplitView && { padding: moderateScale(12), marginBottom: verticalScale(16) }
+            ]}>
                 {(() => {
                     const topArray = details?.event_top_array || [];
                     const dateItem = topArray.find((i: any) => i.type === 'date');
@@ -311,22 +335,22 @@ const EventDashboard = ({ route }: EventDashboardProps) => {
 
                     return (
                         <>
-                            <View style={styles.detailRow}>
+                            <View style={[styles.detailRow, isSplitView && { marginBottom: verticalScale(10) }]}>
                                 <Image source={require('../../assets/img/eventdashboard/calendar.png')} style={styles.detailIconImage} resizeMode="contain" />
                                 <Text style={styles.detailText}>{displayDate}</Text>
                             </View>
-                            <View style={styles.detailRow}>
+                            <View style={[styles.detailRow, isSplitView && { marginBottom: verticalScale(10) }]}>
                                 <Image source={require('../../assets/img/eventdashboard/clock.png')} style={styles.detailIconImage} resizeMode="contain" />
                                 <Text style={styles.detailText}>{displayTime}</Text>
                             </View>
-                            <View style={styles.detailRow}>
+                            <View style={[styles.detailRow, isSplitView && { marginBottom: verticalScale(10) }]}>
                                 <Image source={require('../../assets/img/eventdashboard/location.png')} style={styles.detailIconImage} resizeMode="contain" />
                                 <View style={{ flex: 1 }}>
                                     <Text style={styles.detailText}>{displayAddress}</Text>
                                     {!!displayState && <Text style={styles.subDetailText}>{displayState}</Text>}
                                 </View>
                             </View>
-                            <View style={styles.detailRow}>
+                            <View style={[styles.detailRow, isSplitView && { marginBottom: verticalScale(10) }]}>
                                 <Image source={require('../../assets/img/common/info.png')} style={styles.detailIconImage} resizeMode="contain" />
                                 <Text style={styles.detailText}>{details?.category || (eventData as any)?.category || (displayData as any).category || ""}</Text>
                             </View>
@@ -338,8 +362,15 @@ const EventDashboard = ({ route }: EventDashboardProps) => {
     );
 
     const renderFooter = () => (
-        <View style={styles.footerContainer}>
-            <TouchableOpacity style={[styles.button, isTablet && { width: '50%' }]}
+        <View style={[
+            styles.footerContainer,
+            isSplitView && { flexDirection: 'column', gap: 0 } // Stack buttons in split view
+        ]}>
+            <TouchableOpacity style={[
+                styles.button,
+                isFoldable && !isSplitView && { width: '48%' }, // Full Foldable width
+                isSplitView && { width: '100%', borderRadius: moderateScale(12) } // Split view full width
+            ]}
                 onPress={() => navigation.navigate("ModeSelection", { eventTitle: displayData.title, eventId: displayData.id })}>
                 <Image source={require('./../../assets/img/eventdashboard/scanner.png')}
                     style={styles.scanicon} />
@@ -348,7 +379,12 @@ const EventDashboard = ({ route }: EventDashboardProps) => {
 
             {userRole === 'manager' && (
                 <TouchableOpacity
-                    style={[styles.button, styles.secondaryButton, isTablet && { width: '50%' }]}
+                    style={[
+                        styles.button,
+                        styles.secondaryButton,
+                        isFoldable && !isSplitView && { width: '48%' },
+                        isSplitView && { width: '100%', marginTop: verticalScale(12), borderRadius: moderateScale(12) }
+                    ]}
                     onPress={() => navigation.navigate("GuestRegistration", { eventId: displayData.id })}
                 >
                     <Image source={require('../../assets/img/eventdashboard/registration.png')}
@@ -359,15 +395,23 @@ const EventDashboard = ({ route }: EventDashboardProps) => {
 
             {(userRole !== 'manager') && (
                 <>
-                    <View style={[styles.ticketSection, isTablet && { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-around' }]}>
-                        {/* Wrapper for Tablet layout if needed, otherwise just block */}
+                    <View style={[
+                        styles.ticketSection,
+                        isFoldable && {
+                            flexDirection: 'row',
+                            flexWrap: 'wrap',
+                            justifyContent: 'space-between',
+                            gap: scale(16)
+                        },
+                        isSplitView && { flexDirection: 'column', gap: verticalScale(16) } // Stack charts in split view
+                    ]}>
 
-                        <View style={isTablet ? { width: '48%' } : { width: '100%' }}>
+                        <View style={isFoldable && !isSplitView ? { width: '48%' } : { width: '100%' }}>
                             <Text style={styles.sectionTitle}>Ticket Distribution</Text>
 
                             <View style={styles.chartContainer}>
                                 <View style={styles.donutWrapper}>
-                                    <Svg height={moderateScale(140)} width={moderateScale(140)} viewBox="0 0 160 160">
+                                    <Svg height={moderateScale(120)} width={moderateScale(120)} viewBox="0 0 160 160">
                                         <G x="80" y="80">
                                             {validPieData.length > 0 ? (
                                                 (() => {
@@ -419,12 +463,15 @@ const EventDashboard = ({ route }: EventDashboardProps) => {
                             </View>
                         </View>
 
-                        <View style={isTablet ? { width: '48%' } : { width: '100%', marginTop: verticalScale(20) }}>
+                        <View style={[
+                            isFoldable && !isSplitView ? { width: '48%' } : { width: '100%' },
+                            !isFoldable && { marginTop: verticalScale(20) } // Phone margin
+                        ]}>
                             <Text style={styles.sectionTitle}>Check-in Distribution</Text>
 
                             <View style={styles.chartContainer}>
                                 <View style={styles.donutWrapper}>
-                                    <Svg height={moderateScale(140)} width={moderateScale(140)} viewBox="0 0 160 160">
+                                    <Svg height={moderateScale(120)} width={moderateScale(120)} viewBox="0 0 160 160">
                                         <G x="80" y="80">
                                             {validCheckinPieData.length > 0 ? (
                                                 (() => {
@@ -489,61 +536,77 @@ const EventDashboard = ({ route }: EventDashboardProps) => {
     );
 
     return (
-        <View style={styles.container}>
-            {/* Modal must be outside FlatList for z-index/position correctness if absolute, or just inside View */}
-            <Modal
-                transparent
-                visible={exitModalVisible}
-                animationType="fade"
-                onRequestClose={() => setExitModalVisible(false)}
-            >
-                <View style={styles.modalBackdrop}>
-                    <View style={styles.modalCard}>
-                        <Text style={styles.modalTitle}>Exit Event</Text>
-                        <Text style={[styles.modalSecondaryText, { textAlign: 'center', marginBottom: verticalScale(20), fontSize: moderateScale(15) }]}>
-                            Are you sure you want to exit this event?
-                        </Text>
-                        <View style={styles.modalActions}>
-                            <TouchableOpacity
-                                style={styles.modalButtonSecondary}
-                                onPress={() => setExitModalVisible(false)}
-                            >
-                                <Text style={styles.modalSecondaryText}>Cancel</Text>
-                            </TouchableOpacity>
-                            <TouchableOpacity
-                                style={styles.modalButtonPrimary}
-                                onPress={() => {
-                                    setExitModalVisible(false);
-                                    navigation.goBack();
-                                }}
-                            >
-                                <Text style={styles.modalPrimaryText}>Exit</Text>
-                            </TouchableOpacity>
+        <ResponsiveContainer maxWidth={isFoldable ? "100%" : 420}>
+            <View style={styles.container}>
+                {/* Modal must be outside FlatList for z-index/position correctness if absolute, or just inside View */}
+                <Modal
+                    transparent
+                    visible={exitModalVisible}
+                    animationType="fade"
+                    onRequestClose={() => setExitModalVisible(false)}
+                >
+                    <View style={styles.modalBackdrop}>
+                        <View style={styles.modalCard}>
+                            <Text style={styles.modalTitle}>Exit Event</Text>
+                            <Text style={[styles.modalSecondaryText, { textAlign: 'center', marginBottom: verticalScale(20), fontSize: moderateScale(15) }]}>
+                                Are you sure you want to exit this event?
+                            </Text>
+                            <View style={styles.modalActions}>
+                                <TouchableOpacity
+                                    style={styles.modalButtonSecondary}
+                                    onPress={() => setExitModalVisible(false)}
+                                >
+                                    <Text style={styles.modalSecondaryText}>Cancel</Text>
+                                </TouchableOpacity>
+                                <TouchableOpacity
+                                    style={styles.modalButtonPrimary}
+                                    onPress={() => {
+                                        setExitModalVisible(false);
+                                        navigation.goBack();
+                                    }}
+                                >
+                                    <Text style={styles.modalPrimaryText}>Exit</Text>
+                                </TouchableOpacity>
+                            </View>
                         </View>
                     </View>
-                </View>
-            </Modal>
+                </Modal>
 
-            <FlatList
-                key={`dashboard-grid-${numColumns}`}
-                data={userRole !== 'manager' ? gridItems : []}
-                keyExtractor={(item) => item.title}
-                renderItem={renderGridItem}
-                numColumns={numColumns}
-                columnWrapperStyle={[styles.columnWrapper, { gap: gridGap }]}
-                contentContainerStyle={styles.listContent}
-                ListHeaderComponent={renderHeader}
-                ListFooterComponent={renderFooter}
-                showsVerticalScrollIndicator={false}
-            />
-        </View>
+                <FlatList
+                    key={`dashboard-grid-${numColumns}`}
+                    data={userRole !== 'manager' ? gridItems : []}
+                    keyExtractor={(item) => item.title}
+                    renderItem={renderGridItem}
+                    numColumns={numColumns}
+                    columnWrapperStyle={[styles.columnWrapper, { gap: gridGap }]}
+                    contentContainerStyle={styles.listContent}
+                    ListHeaderComponent={renderHeader}
+                    ListFooterComponent={renderFooter}
+                    showsVerticalScrollIndicator={false}
+                />
+            </View>
+        </ResponsiveContainer>
     )
 
 }
 
+type EventDashboardProps = {
+    route: {
+        params?: {
+            eventData?: EventData
+            userRole?: string
+        }
+    }
+}
+
+const EventDashboard = ({ route }: EventDashboardProps) => {
+    const { eventData, userRole } = route.params || {};
+    return <EventDashboardContent eventData={eventData} eventId={eventData?.id} userRole={userRole} />
+}
+
 export default EventDashboard
 
-const makeStyles = (scale: (size: number) => number, verticalScale: (size: number) => number, moderateScale: (size: number, factor?: number) => number) => StyleSheet.create({
+const makeStyles = (scale: (size: number) => number, verticalScale: (size: number) => number, moderateScale: (size: number, factor?: number) => number, width: number) => StyleSheet.create({
     container: {
         flex: 1,
         backgroundColor: 'white',
@@ -579,15 +642,15 @@ const makeStyles = (scale: (size: number) => number, verticalScale: (size: numbe
         color: '#333',
     },
     settingsButton: {
-        width: scale(40),
-        height: scale(40),
+        width: moderateScale(40),
+        height: moderateScale(40),
         alignItems: 'center',
         justifyContent: 'center',
-        borderRadius: scale(20),
+        borderRadius: moderateScale(20),
     },
     settingsIcon: {
-        width: scale(24),
-        height: scale(24),
+        width: moderateScale(24),
+        height: moderateScale(24),
         resizeMode: 'contain',
         tintColor: '#333',
     },
@@ -712,14 +775,14 @@ const makeStyles = (scale: (size: number) => number, verticalScale: (size: numbe
         textShadowRadius: 3,
     },
     detailText: {
-        fontSize: moderateScale(FontSize.sm), // 15 -> sm/md? 15 is between sm(14) and md(16). Let's use sm or md. 15 was used. let's go with md(16) or sm(14). User said 14 -> sm.
+        fontSize: moderateScale(FontSize.md),
         color: '#333',
         flex: 1,
         lineHeight: moderateScale(22),
         fontWeight: '500',
     },
     subDetailText: {
-        fontSize: moderateScale(FontSize.xs), // 13 -> xs(12) or sm(14). 13 is closer to sm? or xs? 12 is xs. 14 is sm. Let's use sm for readability? or xs. 13 was used. Let's use sm (14) for better readability or xs (12) for small. Let's stick to sm (14) or xs (12). Let's use 13 -> xs (12) might be too small, sm (14) might be too big? Let's use sm (14) for now, or define a new constant if strictly needed. Standardize to sm (14).
+        fontSize: moderateScale(FontSize.sm),
         color: '#777',
         marginTop: verticalScale(2),
     },
@@ -737,8 +800,8 @@ const makeStyles = (scale: (size: number) => number, verticalScale: (size: numbe
         marginBottom: verticalScale(14),
     },
     detailIconImage: {
-        width: scale(20),
-        height: scale(20),
+        width: moderateScale(22),
+        height: moderateScale(22),
         tintColor: '#FF8A3C',
         marginRight: scale(12)
     },
@@ -753,6 +816,10 @@ const makeStyles = (scale: (size: number) => number, verticalScale: (size: numbe
     footerContainer: {
         marginTop: verticalScale(10),
         paddingBottom: verticalScale(20),
+        flexDirection: width >= 600 ? 'row' : 'column',
+        flexWrap: width >= 600 ? 'wrap' : 'nowrap',
+        justifyContent: width >= 600 ? 'center' : 'flex-start',
+        gap: width >= 600 ? scale(16) : 0,
     },
     button: {
         height: verticalScale(52),
@@ -778,8 +845,8 @@ const makeStyles = (scale: (size: number) => number, verticalScale: (size: numbe
         shadowOpacity: 0,
     },
     scanicon: {
-        height: scale(20),
-        width: scale(20),
+        height: moderateScale(20),
+        width: moderateScale(20),
         resizeMode: 'contain',
         marginRight: scale(10),
     },
@@ -816,7 +883,7 @@ const makeStyles = (scale: (size: number) => number, verticalScale: (size: numbe
     donutWrapper: {
         alignItems: 'center',
         justifyContent: 'center',
-        marginRight: scale(20),
+        marginRight: moderateScale(12),
     },
     legendContainer: {
         flex: 1,
@@ -828,13 +895,13 @@ const makeStyles = (scale: (size: number) => number, verticalScale: (size: numbe
         marginBottom: verticalScale(8),
     },
     legendDot: {
-        width: scale(10),
-        height: scale(10),
-        borderRadius: scale(5),
+        width: moderateScale(10),
+        height: moderateScale(10),
+        borderRadius: moderateScale(5),
         marginRight: scale(8),
     },
     legendTitle: {
-        fontSize: moderateScale(FontSize.xs), // 13 -> xs(12) or sm(14). Let's use sm(14) to be safe or xs(12). Legend usually small. 12 is xs.
+        fontSize: moderateScale(FontSize.sm),
         color: '#444',
         fontWeight: '500',
     },

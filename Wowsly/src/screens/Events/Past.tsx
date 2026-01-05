@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useMemo } from 'react';
+import React, { useEffect, useState, useMemo, useCallback } from 'react';
 import {
   View,
   Text,
@@ -15,19 +15,24 @@ import { useNavigation } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import EventCard from '../../components/EventCard';
 import {
-  getEvents,
   getEventsPage,
   getEventWebLink
 } from '../../api/event';
 import Pagination from '../../components/Pagination';
 import { useScale } from '../../utils/useScale';
 import { FontSize } from '../../constants/fontSizes';
+import { ResponsiveContainer } from '../../components/ResponsiveContainer';
+
+import { EventDashboardContent } from './EventDashboard';
 
 const Past = () => {
   const navigation = useNavigation<any>();
   const { width } = useWindowDimensions();
   const { scale, verticalScale, moderateScale } = useScale();
-  const styles = useMemo(() => makeStyles(scale, verticalScale, moderateScale), [scale, verticalScale, moderateScale]);
+  const styles = useMemo(() => makeStyles(scale, verticalScale, moderateScale, width), [scale, verticalScale, moderateScale, width]);
+
+  // Foldable Logic
+  const isFoldable = width >= 600;
 
   const [events, setEvents] = useState<any[]>([]);
   const [allEvents, setAllEvents] = useState<any[]>([]); // Store all fetched events
@@ -36,6 +41,7 @@ const Past = () => {
   const [refreshing, setRefreshing] = useState(false);
   const [page, setPage] = useState(1);
   const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
+  const [selectedEventRole, setSelectedEventRole] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [activeTab, setActiveTab] = useState<'joined' | 'created'>('joined');
 
@@ -59,6 +65,18 @@ const Past = () => {
       filterEvents(initialEvents, searchQuery);
       setLoading(false);
       setRefreshing(false);
+
+      // Select first event by default on Foldable if not selected
+      if (initialEvents.length > 0 && isFoldable && !selectedEventId && page === 1) {
+        // We need to fetch role for the first selected event if it's 'joined'
+        const firstEvent = initialEvents[0];
+        setSelectedEventId(firstEvent.id);
+        if (activeTab === 'joined' && firstEvent.guest_uuid) {
+          getEventWebLink(firstEvent.guest_uuid).then(r => {
+            if (r && r.data) setSelectedEventRole(r.data.current_user_role);
+          }).catch(console.error);
+        }
+      }
 
       // 2. Background Loop
       let currentPage = 1;
@@ -98,6 +116,8 @@ const Past = () => {
     const today = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
 
     const filtered = sourceEvents.filter((event: any) => {
+      // NOTE: Some events might not have end_date, handle accordingly if needed. Assuming past events must have end_date or start_date passed.
+      // For stricter checking: if (!event.end_date) return new Date(event.start_date) < date;
       if (!event.end_date) return false;
       const endDate = event.end_date.split('T')[0];
 
@@ -128,6 +148,33 @@ const Past = () => {
     return events.slice(startIndex, startIndex + EVENTS_PER_PAGE);
   }, [events, page]);
 
+  const handleEventPress = async (item: any) => {
+    if (isFoldable) {
+      setSelectedEventId(item.id);
+      setSelectedEventRole(null); // Reset role while fetching
+      if (activeTab === 'joined' && item.guest_uuid) {
+        try {
+          const res = await getEventWebLink(item.guest_uuid);
+          if (res && res.data) {
+            setSelectedEventRole(res.data.current_user_role);
+          }
+        } catch (e) { console.error(e); }
+      }
+    } else {
+      // Navigation Logic for Phones
+      let role = null;
+      if (activeTab === 'joined' && item.guest_uuid) {
+        try {
+          const res = await getEventWebLink(item.guest_uuid);
+          if (res && res.data) {
+            role = res.data.current_user_role;
+          }
+        } catch (e) { console.log(e) }
+      }
+      navigation.navigate('EventDashboard' as never, { eventData: item, userRole: role } as never);
+    }
+  };
+
   const renderCard = ({ item }: { item: any }) => {
     const isSelected = item.id === selectedEventId;
 
@@ -143,39 +190,11 @@ const Past = () => {
         date={item.start_date_display || "No Date"}
         location={item.address || item.city || "—"}
         image={imageSource}
-        selected={isSelected}
-        onPress={async () => {
-          setSelectedEventId(item.id);
-          let role = null;
-
-          if (activeTab === 'joined') {
-            try {
-              if (item.guest_uuid) {
-                const res = await getEventWebLink(item.guest_uuid);
-                if (res && res.data) {
-                  role = res.data.current_user_role;
-                }
-              }
-            } catch (e) {
-              console.log('Error checking manager role in Past:', e);
-            }
-          }
-
-          navigation.navigate('EventDashboard' as never, { eventData: item, userRole: role } as never);
-        }}
+        selected={isFoldable ? isSelected : false} // Only show selection border on foldable
+        onPress={() => handleEventPress(item)}
       />
     );
   };
-
-  if (loading) {
-    return (
-      <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
-        <Text style={{ fontSize: moderateScale(18), fontWeight: "600" }}>
-          Loading past events...
-        </Text>
-      </View>
-    );
-  }
 
   const renderEmptyComponent = () => (
     <View style={styles.emptyContainer}>
@@ -188,8 +207,8 @@ const Past = () => {
     </View>
   );
 
-  return (
-    <View style={styles.container}>
+  const renderListPanel = () => (
+    <View style={[styles.container, isFoldable && styles.leftPanelFoldable]}>
       <StatusBar hidden />
       <View style={styles.heading}>
         <View style={styles.headingRow}>
@@ -217,7 +236,6 @@ const Past = () => {
           </TouchableOpacity>
         </View>
       </View>
-
 
       {/* Tab Selectors */}
       <View style={styles.tabContainer}>
@@ -253,77 +271,113 @@ const Past = () => {
         </View>
       </View>
 
-      <FlatList
-        data={paginatedEvents}
-        keyExtractor={(item: any) => item.id.toString()}
-        renderItem={renderCard}
-        extraData={selectedEventId}
-        contentContainerStyle={[styles.listContent, paginatedEvents.length === 0 && { flexGrow: 1 }]}
-        ListEmptyComponent={renderEmptyComponent}
-        style={{ marginTop: verticalScale(15) }}
-        showsVerticalScrollIndicator={false}
-        refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#FF8A3C']} />
-        }
-      />
+      {loading ? (
+        <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
+          <Text style={{ fontSize: moderateScale(18), fontWeight: "600" }}>
+            Loading past events...
+          </Text>
+        </View>
+      ) : (
+        <FlatList
+          data={paginatedEvents}
+          keyExtractor={(item: any) => item.id.toString()}
+          renderItem={renderCard}
+          extraData={selectedEventId}
+          contentContainerStyle={[styles.listContent, paginatedEvents.length === 0 && { flexGrow: 1 }]}
+          ListEmptyComponent={renderEmptyComponent}
+          style={{ marginTop: verticalScale(15) }}
+          showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#FF8A3C']} />
+          }
+        />
+      )}
 
       <Pagination
         currentPage={page}
         totalPages={totalPages}
         onPageChange={setPage}
       />
-    </View >
+    </View>
+  );
+
+  return (
+    <ResponsiveContainer maxWidth={width >= 600 ? "100%" : 420}>
+      <View style={{ flex: 1, flexDirection: isFoldable ? 'row' : 'column' }}>
+        {renderListPanel()}
+
+        {isFoldable && (
+          <View style={styles.rightPanelFoldable}>
+            <EventDashboardContent
+              eventId={selectedEventId || undefined}
+              eventData={events.find(e => e.id === selectedEventId)}
+              userRole={selectedEventRole || undefined}
+              isSplitView={true}
+            />
+          </View>
+        )}
+      </View>
+    </ResponsiveContainer>
   );
 };
 
-const makeStyles = (scale: (size: number) => number, verticalScale: (size: number) => number, moderateScale: (size: number, factor?: number) => number) => StyleSheet.create({
+const makeStyles = (scale: (size: number) => number, verticalScale: (size: number) => number, moderateScale: (size: number, factor?: number) => number, width: number) => StyleSheet.create({
   container: {
     backgroundColor: 'white',
     flex: 1,
+  },
+  leftPanelFoldable: {
+    width: '35%',
+    borderRightWidth: 1,
+    borderRightColor: '#E0E0E0',
+  },
+  rightPanelFoldable: {
+    flex: 1,
+    backgroundColor: '#FAFAFA',
   },
   heading: {
     justifyContent: 'center',
     backgroundColor: '#FF8A3C',
     width: '100%',
-    paddingVertical: 20,
-    paddingTop: verticalScale(25), // Add status bar padding
-    borderBottomLeftRadius: scale(15),
-    borderBottomRightRadius: scale(15),
+    paddingVertical: width >= 600 ? 15 : moderateScale(20),
+    paddingTop: width >= 600 ? 15 : verticalScale(25), // Add status bar padding
+    borderBottomLeftRadius: width >= 600 ? 0 : moderateScale(15), // Removed radius for foldables, moderateScale for phone
+    borderBottomRightRadius: width >= 600 ? 0 : moderateScale(15),
     shadowColor: '#FF8A3C',
     shadowOpacity: 0.2,
-    shadowOffset: { width: 0, height: 6 },
+    shadowOffset: { width: 0, height: verticalScale(6) },
     elevation: 6,
   },
   headingtxt: {
     color: 'white',
-    fontSize: moderateScale(20),
+    fontSize: moderateScale(FontSize.xl),
     fontWeight: '700',
   },
   headingRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: scale(20),
+    paddingHorizontal: moderateScale(20),
   },
   logoutIcon: {
-    width: scale(23),
-    height: scale(23),
+    width: width >= 600 ? 22 : moderateScale(23),
+    height: width >= 600 ? 22 : moderateScale(23),
   },
   searchWrapper: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: 'white',
-    marginHorizontal: scale(20),
-    marginTop: 20,
-    borderRadius: scale(20),
-    paddingHorizontal: scale(20),
-    height: 55,
+    marginHorizontal: width >= 600 ? 20 : moderateScale(20),
+    marginTop: verticalScale(20),
+    borderRadius: width >= 600 ? 16 : moderateScale(20),
+    paddingHorizontal: moderateScale(20),
+    height: verticalScale(55),
     shadowColor: '#999',
     shadowOpacity: 0.1,
     shadowOffset: { width: 0, height: verticalScale(4) },
-    shadowRadius: scale(6),
+    shadowRadius: moderateScale(6),
     elevation: 3,
-    gap: scale(12),
+    gap: moderateScale(12),
   },
   searchField: {
     flexDirection: 'row',
@@ -334,30 +388,30 @@ const makeStyles = (scale: (size: number) => number, verticalScale: (size: numbe
     flex: 1,
     fontSize: moderateScale(FontSize.md), // 15 -> md (16)
     color: '#333',
-    paddingLeft: scale(8),
+    paddingLeft: moderateScale(8),
   },
   searchIcon: {
-    width: scale(18),
-    height: scale(18),
+    width: width >= 600 ? 16 : moderateScale(18),
+    height: width >= 600 ? 16 : moderateScale(18),
   },
   listContent: {
-    paddingHorizontal: scale(20),
-    paddingTop: 18,
-    paddingBottom: 90,
+    paddingHorizontal: width >= 600 ? 20 : moderateScale(20),
+    paddingTop: verticalScale(18),
+    paddingBottom: verticalScale(90),
   },
   pagination: {
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
-    gap: scale(16),
-    paddingBottom: verticalScale(4),
+    gap: width >= 600 ? 16 : moderateScale(16),
+    paddingBottom: verticalScale(10),
     backgroundColor: 'white',
-    paddingBottom: 10,
-    height: 60,
+    height: width >= 600 ? 70 : verticalScale(60),
+    marginBottom: width >= 600 ? 20 : 0,
   },
   pageIcon: {
-    width: scale(28),
-    height: scale(28),
+    width: moderateScale(28),
+    height: moderateScale(28),
     tintColor: '#FF8A3C',
   },
   disabledIcon: {
@@ -374,28 +428,28 @@ const makeStyles = (scale: (size: number) => number, verticalScale: (size: numbe
     alignItems: 'center',
   },
   emptyImage: {
-    width: scale(220),
-    height: scale(220),
+    width: width >= 600 ? 200 : moderateScale(220),
+    height: width >= 600 ? 200 : moderateScale(220),
   },
   tabContainer: {
     flexDirection: 'row',
     marginTop: verticalScale(15),
-    marginHorizontal: scale(20),
+    marginHorizontal: width >= 600 ? 20 : moderateScale(20),
     backgroundColor: '#FFFFFF',
-    borderRadius: scale(12),
-    padding: scale(4),
+    borderRadius: width >= 600 ? 10 : moderateScale(12),
+    padding: width >= 600 ? 4 : moderateScale(4),
     borderWidth: 1,
     borderColor: '#EEEEEE',
     elevation: 1,
     shadowColor: '#000',
     shadowOpacity: 0.05,
     shadowOffset: { width: 0, height: verticalScale(2) },
-    shadowRadius: scale(4),
+    shadowRadius: moderateScale(4),
   },
   tabButton: {
     flex: 1,
     paddingVertical: verticalScale(10), // Increased padding for pill shape
-    borderRadius: scale(8),
+    borderRadius: width >= 600 ? 10 : moderateScale(8),
     alignItems: 'center',
     justifyContent: 'center',
   },

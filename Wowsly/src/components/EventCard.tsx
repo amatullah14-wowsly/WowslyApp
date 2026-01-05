@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { StyleSheet, Text, TouchableOpacity, View } from 'react-native'
+import { StyleSheet, Text, TouchableOpacity, View, useWindowDimensions } from 'react-native'
 import { FontSize } from '../constants/fontSizes'
 import { useScale } from '../utils/useScale'
 import FastImage from 'react-native-fast-image'
@@ -16,7 +16,8 @@ export type EventCardProps = {
 
 const EventCard = ({ title, date, location, image, selected, onPress, isPlaceholder = false }: EventCardProps) => {
   const { scale, verticalScale, moderateScale } = useScale();
-  const styles = useMemo(() => makeStyles(scale, verticalScale, moderateScale), [scale, verticalScale, moderateScale]);
+  const { width } = useWindowDimensions();
+  const styles = useMemo(() => makeStyles(scale, verticalScale, moderateScale, width), [scale, verticalScale, moderateScale, width]);
 
   return (
     <TouchableOpacity activeOpacity={0.9} onPress={onPress}>
@@ -41,10 +42,10 @@ const EventCard = ({ title, date, location, image, selected, onPress, isPlacehol
   )
 }
 
-const makeStyles = (scale: (size: number) => number, verticalScale: (size: number) => number, moderateScale: (size: number, factor?: number) => number) => StyleSheet.create({
+const makeStyles = (scale: (size: number) => number, verticalScale: (size: number) => number, moderateScale: (size: number, factor?: number) => number, width: number) => StyleSheet.create({
   card: {
     backgroundColor: 'white',
-    borderRadius: scale(24),
+    borderRadius: width >= 600 ? 16 : scale(24),
     marginBottom: verticalScale(18),
     borderWidth: 1,
     borderColor: '#FFE0CC',
@@ -59,13 +60,13 @@ const makeStyles = (scale: (size: number) => number, verticalScale: (size: numbe
     ...StyleSheet.absoluteFillObject,
     backgroundColor: 'rgba(0,0,0,0.3)',
     justifyContent: 'flex-end',
-    borderRadius: scale(24),
+    borderRadius: width >= 600 ? 16 : scale(24),
   },
   cardContent: {
-    padding: scale(18),
+    padding: width >= 600 ? 12 : scale(18),
   },
   cardTitle: {
-    fontSize: moderateScale(FontSize.lg),
+    fontSize: width >= 600 ? 18 : moderateScale(FontSize.lg),
     fontWeight: '700',
     color: '#FFFFFF',
     marginBottom: verticalScale(4),
@@ -74,13 +75,13 @@ const makeStyles = (scale: (size: number) => number, verticalScale: (size: numbe
     textShadowRadius: 3,
   },
   cardMeta: {
-    fontSize: moderateScale(FontSize.sm),
+    fontSize: width >= 600 ? 14 : moderateScale(FontSize.sm),
     color: '#E0E0E0',
     marginTop: verticalScale(2),
     fontWeight: '500',
   },
   cardLocation: {
-    fontSize: moderateScale(FontSize.xs),
+    fontSize: width >= 600 ? 12 : moderateScale(FontSize.xs),
     color: '#D0D0D0',
     marginTop: verticalScale(2),
   },

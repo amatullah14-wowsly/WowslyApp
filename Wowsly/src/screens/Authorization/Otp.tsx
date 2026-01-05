@@ -1,4 +1,4 @@
-import { Image, StyleSheet, Text, View, TouchableOpacity, KeyboardAvoidingView, Platform, ScrollView, ImageBackground } from 'react-native'
+import { Image, StyleSheet, Text, View, TouchableOpacity, KeyboardAvoidingView, Platform, ScrollView, ImageBackground, useWindowDimensions } from 'react-native'
 import Toast from 'react-native-toast-message';
 import React, { useState, useEffect, useMemo } from 'react'
 import { OtpInput } from 'react-native-otp-entry'
@@ -6,6 +6,7 @@ import { useNavigation, useRoute, RouteProp } from '@react-navigation/native'
 import { verifyOTP, sendOTP } from '../../api/api'
 import { useScale } from '../../utils/useScale';
 import { FontSize } from '../../constants/fontSizes';
+import { ResponsiveContainer } from '../../components/ResponsiveContainer';
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
@@ -20,6 +21,7 @@ const Otp = () => {
     const navigation = useNavigation<any>();
     const route = useRoute<RouteProp<{ params: OtpRouteParams }, 'params'>>();
     const { scale, verticalScale, moderateScale } = useScale();
+    const { width } = useWindowDimensions();
 
     const { dialing_code = "91", mobile = "" } = route.params || {};
 
@@ -42,6 +44,7 @@ const Otp = () => {
             gap: moderateScale(6),
             marginBottom: '6%',
             alignItems: 'center',
+            marginTop: width >= 600 ? 50 : 0, // Move down on foldables
         },
         logo: {
             width: scale(80),
@@ -95,7 +98,7 @@ const Otp = () => {
             height: moderateScale(50),
             borderWidth: 1,
             borderColor: '#E0E0E0',
-            borderRadius: scale(8),
+            borderRadius: width >= 600 ? 14 : scale(8), // Reduced radius for foldables
         },
         otpText: {
             fontSize: moderateScale(FontSize.lg),
@@ -129,7 +132,7 @@ const Otp = () => {
             width: '100%',
             height: moderateScale(45),
             backgroundColor: '#FF8A3C',
-            borderRadius: scale(15),
+            borderRadius: width >= 600 ? 16 : scale(15),
             alignItems: 'center',
             justifyContent: 'center',
             marginTop: verticalScale(25),
@@ -139,7 +142,7 @@ const Otp = () => {
             fontSize: moderateScale(FontSize.md),
             fontWeight: '700',
         },
-    }), [scale, verticalScale, moderateScale]);
+    }), [scale, verticalScale, moderateScale, width]);
 
     // ------------------------------
     // RESEND TIMER
@@ -217,65 +220,74 @@ const Otp = () => {
     }
 
     return (
-        <ImageBackground
-            source={require('../../assets/img/splash/Splashbg.jpg')}
-            style={styles.bgImage}
-            resizeMode="cover"
-        >
-            <KeyboardAvoidingView
-                behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-                style={styles.container}
+        <ResponsiveContainer>
+            <ImageBackground
+                source={require('../../assets/img/splash/Splashbg.jpg')}
+                style={styles.bgImage}
+                resizeMode="cover"
             >
-                <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-                    <View style={styles.wowsly}>
-                        <Image
-                            source={require('../../assets/img/common/WowslyLogo.png')}
-                            style={styles.logo}
-                        />
-                        <Text style={styles.heading}>Wowsly Organizer</Text>
-                    </View>
-
-                    <View style={styles.box}>
-                        <Text style={styles.title}>Enter OTP</Text>
-                        <Text style={styles.instructionText}>We sent a 6-digit code to +{dialing_code}</Text>
-                        <Text style={styles.phoneNumber}>{mobile}</Text>
-
-                        <View style={styles.otpContainer}>
-                            <OtpInput
-                                numberOfDigits={4}
-                                onTextChange={setOtp}
-                                focusColor={'#FF8A3C'}
-                                theme={{
-                                    containerStyle: styles.otpInputContainer,
-                                    pinCodeContainerStyle: styles.otpBox,
-                                    pinCodeTextStyle: styles.otpText,
-                                }}
-                                onFilled={(code) => {
-                                    setOtp(code);
-                                    handleVerify(code);
-                                }}
+                <KeyboardAvoidingView
+                    behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+                    style={styles.container}
+                >
+                    <ScrollView
+                        contentContainerStyle={[
+                            styles.scrollContent,
+                            width >= 600 ? { justifyContent: 'flex-start' } : undefined
+                        ]}
+                        showsVerticalScrollIndicator={false}
+                    >
+                        <View style={styles.wowsly}>
+                            <Image
+                                source={require('../../assets/img/common/WowslyLogo.png')}
+                                style={styles.logo}
                             />
+                            <Text style={styles.heading}>Wowsly Organizer</Text>
                         </View>
 
-                        <View style={styles.resendContainer}>
-                            <Text style={styles.resendText}>Didn't receive code? </Text>
-                            <TouchableOpacity onPress={handleResend} disabled={resendTimer > 0}>
-                                <Text style={[styles.resendLink, resendTimer > 0 && styles.resendLinkDisabled]}>
-                                    Resend OTP
-                                </Text>
+                        <View style={styles.box}>
+                            <Text style={styles.title}>Enter OTP</Text>
+                            <Text style={styles.instructionText}>We sent a 6-digit code to +{dialing_code}</Text>
+                            <Text style={styles.phoneNumber}>{mobile}</Text>
+
+                            <View style={styles.otpContainer}>
+                                <OtpInput
+                                    numberOfDigits={4}
+                                    onTextChange={setOtp}
+                                    focusColor={'#FF8A3C'}
+                                    theme={{
+                                        containerStyle: styles.otpInputContainer,
+                                        pinCodeContainerStyle: styles.otpBox,
+                                        pinCodeTextStyle: styles.otpText,
+                                    }}
+                                    onFilled={(code) => {
+                                        setOtp(code);
+                                        handleVerify(code);
+                                    }}
+                                />
+                            </View>
+
+                            <View style={styles.resendContainer}>
+                                <Text style={styles.resendText}>Didn't receive code? </Text>
+                                <TouchableOpacity onPress={handleResend} disabled={resendTimer > 0}>
+                                    <Text style={[styles.resendLink, resendTimer > 0 && styles.resendLinkDisabled]}>
+                                        Resend OTP
+                                    </Text>
+                                </TouchableOpacity>
+                            </View>
+
+                            <Text style={styles.timerText}>Resend in {resendTimer}s</Text>
+
+                            <TouchableOpacity style={styles.verifyButton} onPress={() => handleVerify()}>
+                                <Text style={styles.verifyButtonText}>Verify OTP</Text>
                             </TouchableOpacity>
                         </View>
-
-                        <Text style={styles.timerText}>Resend in {resendTimer}s</Text>
-
-                        <TouchableOpacity style={styles.verifyButton} onPress={() => handleVerify()}>
-                            <Text style={styles.verifyButtonText}>Verify OTP</Text>
-                        </TouchableOpacity>
-                    </View>
-                </ScrollView>
-            </KeyboardAvoidingView>
-        </ImageBackground>
+                    </ScrollView>
+                </KeyboardAvoidingView>
+            </ImageBackground>
+        </ResponsiveContainer>
     )
 }
 
 export default Otp
+

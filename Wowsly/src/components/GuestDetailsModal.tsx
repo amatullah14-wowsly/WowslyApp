@@ -185,7 +185,7 @@ const GuestDetailsModal: React.FC<GuestDetailsModalProps> = ({
                             <ActivityIndicator size="large" color="#FF8A3C" />
                         </View>
                     ) : guestData ? (
-                        <ScrollView contentContainerStyle={styles.scrollContent}>
+                        <ScrollView style={{ flexShrink: 1 }} contentContainerStyle={styles.scrollContent}>
                             <View style={styles.detailsContainer}>
                                 <View style={styles.detailRow}>
                                     <Text style={styles.label}>Name:</Text>
@@ -606,15 +606,15 @@ const styles = StyleSheet.create({
     },
     modalContainer: {
         backgroundColor: '#FFFFFF',
-        borderTopLeftRadius: scale(24),
-        borderTopRightRadius: scale(24),
+        borderTopLeftRadius: moderateScale(24),
+        borderTopRightRadius: moderateScale(24),
         width: '100%',
-        padding: scale(24),
+        padding: moderateScale(24),
         paddingBottom: verticalScale(40),
         maxHeight: '85%',
         shadowColor: '#000',
         shadowOpacity: 0.25,
-        shadowRadius: scale(4),
+        shadowRadius: moderateScale(4),
         shadowOffset: { width: 0, height: verticalScale(-2) },
         elevation: 5,
     },
@@ -633,9 +633,9 @@ const styles = StyleSheet.create({
         color: '#111111',
     },
     closeButton: {
-        width: scale(25),
-        height: scale(25),
-        borderRadius: scale(16),
+        width: moderateScale(25),
+        height: moderateScale(25),
+        borderRadius: moderateScale(16),
         backgroundColor: '#F5F5F5',
         justifyContent: 'center',
         alignItems: 'center',
@@ -662,7 +662,7 @@ const styles = StyleSheet.create({
         fontSize: moderateScale(15),
         fontWeight: '600',
         color: '#666666',
-        width: scale(140),
+        width: moderateScale(140),
         flexShrink: 0,
     },
     value: {
@@ -672,18 +672,18 @@ const styles = StyleSheet.create({
     },
     buttonContainer: {
         flexDirection: 'row',
-        gap: scale(12),
+        gap: moderateScale(12),
         marginTop: verticalScale(8),
     },
     actionButton: {
         flex: 1,
         backgroundColor: '#FF8A3C',
-        borderRadius: scale(12),
+        borderRadius: moderateScale(12),
         paddingVertical: verticalScale(12),
         alignItems: 'center',
         shadowColor: '#FF8A3C',
         shadowOpacity: 0.3,
-        shadowRadius: scale(8),
+        shadowRadius: moderateScale(8),
         shadowOffset: { width: 0, height: verticalScale(4) },
         elevation: 3,
     },
@@ -710,46 +710,46 @@ const styles = StyleSheet.create({
     },
     // Multi-step Check-in Styles
     checkInContainer: {
-        marginTop: verticalScale(10),
+        marginTop: verticalScale(4), // Reduced from 10
     },
     scanningReportsTitle: {
         fontSize: moderateScale(16),
         color: '#333',
-        marginBottom: verticalScale(4),
+        marginBottom: verticalScale(2), // Reduced from 4
         fontWeight: '500'
     },
     scanningForTitle: {
         fontSize: moderateScale(15),
         color: '#666',
-        marginTop: verticalScale(8),
-        marginBottom: verticalScale(12),
+        marginTop: verticalScale(4), // Reduced from 8
+        marginBottom: verticalScale(8), // Reduced from 12
     },
     radioGroup: {
         flexDirection: 'row',
         flexWrap: 'wrap',
         alignItems: 'center',
-        marginBottom: verticalScale(20),
-        gap: scale(16)
+        marginBottom: verticalScale(12), // Reduced from 20
+        gap: moderateScale(16)
     },
     radioItem: {
         flexDirection: 'row',
         alignItems: 'center',
-        marginRight: scale(16),
-        marginBottom: verticalScale(10) // Added for multiline spacing
+        marginRight: moderateScale(16),
+        marginBottom: verticalScale(8) // Reduced from 10
     },
     radioOuter: {
-        width: scale(20),
-        height: scale(20),
-        borderRadius: scale(10),
+        width: moderateScale(20),
+        height: moderateScale(20),
+        borderRadius: moderateScale(10),
         borderWidth: 2,
         justifyContent: 'center',
         alignItems: 'center',
-        marginRight: scale(8),
+        marginRight: moderateScale(8),
     },
     radioInner: {
-        width: scale(10),
-        height: scale(10),
-        borderRadius: scale(5),
+        width: moderateScale(10),
+        height: moderateScale(10),
+        borderRadius: moderateScale(5),
     },
     radioLabel: {
         fontSize: moderateScale(14),
@@ -760,7 +760,7 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'space-between',
-        marginBottom: verticalScale(30),
+        marginBottom: verticalScale(16), // Reduced from 30
     },
     quantityLabel: {
         fontSize: moderateScale(16),
@@ -770,12 +770,12 @@ const styles = StyleSheet.create({
     counterControl: {
         flexDirection: 'row',
         alignItems: 'center',
-        gap: scale(12),
+        gap: moderateScale(12),
     },
     counterButton: {
-        width: scale(32),
-        height: scale(32),
-        borderRadius: scale(16),
+        width: moderateScale(32),
+        height: moderateScale(32),
+        borderRadius: moderateScale(16),
         borderWidth: 1,
         borderColor: '#FF8A3C',
         justifyContent: 'center',
@@ -788,11 +788,11 @@ const styles = StyleSheet.create({
         fontWeight: '600',
     },
     counterValueContainer: {
-        width: scale(40),
-        height: scale(40),
+        width: moderateScale(40),
+        height: moderateScale(40),
         borderWidth: 1,
         borderColor: '#E0E0E0',
-        borderRadius: scale(8),
+        borderRadius: moderateScale(8),
         justifyContent: 'center',
         alignItems: 'center',
     },
@@ -803,7 +803,7 @@ const styles = StyleSheet.create({
     },
     confirmCheckInButton: {
         backgroundColor: '#FF8A3C',
-        borderRadius: scale(12),
+        borderRadius: moderateScale(12),
         paddingVertical: verticalScale(14),
         alignItems: 'center',
         marginBottom: verticalScale(10),

@@ -436,16 +436,16 @@ const Settings = () => {
                         onToggle={() => toggleSetting('registrationRequired')}
                         disabled={ticketType === 'paid'}
                         styles={styles}
-                        scale={scale}
+                        scale={moderateScale}
                     />
-                    <SettingItem label="Self Check-in" value={settings.selfCheckIn} onToggle={() => toggleSetting('selfCheckIn')} styles={styles} scale={scale} />
+                    <SettingItem label="Self Check-in" value={settings.selfCheckIn} onToggle={() => toggleSetting('selfCheckIn')} styles={styles} scale={moderateScale} />
                     <SettingItem
                         label="Has Polls"
                         value={settings.hasPolls}
                         onToggle={() => toggleSetting('hasPolls')}
                         disabled={settings.registerAgain}
                         styles={styles}
-                        scale={scale}
+                        scale={moderateScale}
                     />
                     <SettingItem
                         label="Registration On Approval Basis"
@@ -453,20 +453,20 @@ const Settings = () => {
                         onToggle={() => toggleSetting('approvalBasis')}
                         disabled={settings.registerAgain}
                         styles={styles}
-                        scale={scale}
+                        scale={moderateScale}
                     />
-                    <SettingItem label="Guest Can Exchange Details" value={settings.exchangeDetails} onToggle={() => toggleSetting('exchangeDetails')} styles={styles} scale={scale} />
-                    <SettingItem label="Buy Multiple Tickets" value={settings.buyMultipleTickets} onToggle={() => toggleSetting('buyMultipleTickets')} styles={styles} scale={scale} />
+                    <SettingItem label="Guest Can Exchange Details" value={settings.exchangeDetails} onToggle={() => toggleSetting('exchangeDetails')} styles={styles} scale={moderateScale} />
+                    <SettingItem label="Buy Multiple Tickets" value={settings.buyMultipleTickets} onToggle={() => toggleSetting('buyMultipleTickets')} styles={styles} scale={moderateScale} />
                     <SettingItem
                         label="Enable User to Register Again"
                         value={settings.registerAgain}
                         onToggle={() => toggleSetting('registerAgain')}
                         disabled={settings.hasPolls || settings.approvalBasis}
                         styles={styles}
-                        scale={scale}
+                        scale={moderateScale}
                     />
-                    <SettingItem label="Has Exhibitors" value={settings.hasExhibitors} onToggle={() => toggleSetting('hasExhibitors')} styles={styles} scale={scale} />
-                    <SettingItem label="OTP On Registration Form" value={settings.otpOnRegistration} onToggle={() => toggleSetting('otpOnRegistration')} last styles={styles} scale={scale} />
+                    <SettingItem label="Has Exhibitors" value={settings.hasExhibitors} onToggle={() => toggleSetting('hasExhibitors')} styles={styles} scale={moderateScale} />
+                    <SettingItem label="OTP On Registration Form" value={settings.otpOnRegistration} onToggle={() => toggleSetting('otpOnRegistration')} last styles={styles} scale={moderateScale} />
                 </View>
 
                 {/* WhatsApp Integration Section */}
@@ -592,7 +592,7 @@ const Settings = () => {
                 <View style={styles.advancedSection}>
                     <View style={styles.advancedHeader}>
                         <Text style={styles.settingLabel}>Add Sender Email ID</Text>
-                        <CustomSwitch value={advancedSettings.senderEmail} onValueChange={() => toggleAdvancedSetting('senderEmail')} styles={styles} scale={scale} />
+                        <CustomSwitch value={advancedSettings.senderEmail} onValueChange={() => toggleAdvancedSetting('senderEmail')} styles={styles} scale={moderateScale} />
                     </View>
 
                     {advancedSettings.senderEmail && (
@@ -619,7 +619,7 @@ const Settings = () => {
                 <View style={styles.advancedSection}>
                     <View style={styles.advancedHeader}>
                         <Text style={styles.settingLabel}>Owner Notified When Ticket Booked</Text>
-                        <CustomSwitch value={advancedSettings.ownerNotified} onValueChange={() => toggleAdvancedSetting('ownerNotified')} styles={styles} scale={scale} />
+                        <CustomSwitch value={advancedSettings.ownerNotified} onValueChange={() => toggleAdvancedSetting('ownerNotified')} styles={styles} scale={moderateScale} />
                     </View>
 
                     {advancedSettings.ownerNotified && (
@@ -639,7 +639,7 @@ const Settings = () => {
                 <View style={styles.advancedSection}>
                     <View style={styles.advancedHeader}>
                         <Text style={styles.settingLabel}>Add Print Dimensions</Text>
-                        <CustomSwitch value={advancedSettings.printDimensions} onValueChange={() => toggleAdvancedSetting('printDimensions')} styles={styles} scale={scale} />
+                        <CustomSwitch value={advancedSettings.printDimensions} onValueChange={() => toggleAdvancedSetting('printDimensions')} styles={styles} scale={moderateScale} />
                     </View>
 
                     {advancedSettings.printDimensions && (
@@ -707,7 +707,7 @@ const makeStyles = (scale: (size: number) => number, verticalScale: (size: numbe
         backgroundColor: 'white',
         alignItems: 'center',
         flexDirection: 'row',
-        paddingHorizontal: scale(20),
+        paddingHorizontal: moderateScale(20),
         // shadowColor: '#000',
         // shadowOffset: { width: 0, height: 1 },
         // shadowOpacity: 0.05,
@@ -718,11 +718,11 @@ const makeStyles = (scale: (size: number) => number, verticalScale: (size: numbe
         fontWeight: '600',
         flex: 1,
         textAlign: 'center',
-        marginRight: scale(30),
+        marginRight: moderateScale(30),
         color: 'black',
     },
     scrollContent: {
-        padding: scale(20),
+        padding: moderateScale(20),
         paddingBottom: verticalScale(50),
     },
 
@@ -731,8 +731,8 @@ const makeStyles = (scale: (size: number) => number, verticalScale: (size: numbe
         flexDirection: 'row',
         alignItems: 'center',
         backgroundColor: 'white',
-        borderRadius: scale(16),
-        padding: scale(16),
+        borderRadius: moderateScale(16),
+        padding: moderateScale(16),
         marginBottom: verticalScale(25),
         shadowColor: '#000',
         shadowOffset: { width: 0, height: 3 },
@@ -741,9 +741,9 @@ const makeStyles = (scale: (size: number) => number, verticalScale: (size: numbe
         elevation: 3,
     },
     avatarContainer: {
-        width: scale(50),
-        height: scale(50),
-        borderRadius: scale(12),
+        width: moderateScale(50),
+        height: moderateScale(50),
+        borderRadius: moderateScale(12),
         overflow: 'hidden',
         backgroundColor: '#F0F0F0',
     },
@@ -753,7 +753,7 @@ const makeStyles = (scale: (size: number) => number, verticalScale: (size: numbe
     },
     profileInfo: {
         flex: 1,
-        marginLeft: scale(15),
+        marginLeft: moderateScale(15),
     },
     profileName: {
         fontSize: moderateScale(FontSize.md), // 16 -> md
@@ -766,13 +766,13 @@ const makeStyles = (scale: (size: number) => number, verticalScale: (size: numbe
         color: '#888',
     },
     editButton: {
-        padding: scale(10),
+        padding: moderateScale(10),
         backgroundColor: '#F9F9F9',
-        borderRadius: scale(10),
+        borderRadius: moderateScale(10),
     },
     editIcon: {
-        width: scale(18),
-        height: scale(18),
+        width: moderateScale(18),
+        height: moderateScale(18),
         tintColor: '#FF8A3C',
     },
 
@@ -787,15 +787,15 @@ const makeStyles = (scale: (size: number) => number, verticalScale: (size: numbe
     // Radio Group
     radioGroup: {
         flexDirection: 'row',
-        gap: scale(15),
+        gap: moderateScale(15),
     },
     radioOption: {
         flex: 1,
         flexDirection: 'row',
         alignItems: 'center',
-        padding: scale(16),
+        padding: moderateScale(16),
         backgroundColor: 'white',
-        borderRadius: scale(12),
+        borderRadius: moderateScale(12),
         borderWidth: 1,
         borderColor: '#EAEAEA',
     },
@@ -804,22 +804,22 @@ const makeStyles = (scale: (size: number) => number, verticalScale: (size: numbe
         backgroundColor: '#FFF5EB', // Very light orange
     },
     radioCircle: {
-        width: scale(20),
-        height: scale(20),
-        borderRadius: scale(10),
+        width: moderateScale(20),
+        height: moderateScale(20),
+        borderRadius: moderateScale(10),
         borderWidth: 2,
         borderColor: '#CCC',
         alignItems: 'center',
         justifyContent: 'center',
-        marginRight: scale(10),
+        marginRight: moderateScale(10),
     },
     radioCircleSelected: {
         borderColor: THEME_COLOR,
     },
     radioDot: {
-        width: scale(10),
-        height: scale(10),
-        borderRadius: scale(5),
+        width: moderateScale(10),
+        height: moderateScale(10),
+        borderRadius: moderateScale(5),
         backgroundColor: THEME_COLOR,
     },
     radioLabel: {
@@ -831,7 +831,7 @@ const makeStyles = (scale: (size: number) => number, verticalScale: (size: numbe
     // Settings List
     settingsList: {
         backgroundColor: 'white',
-        borderRadius: scale(16),
+        borderRadius: moderateScale(16),
         overflow: 'hidden',
         shadowColor: '#000',
         shadowOffset: { width: 0, height: 3 },
@@ -844,7 +844,7 @@ const makeStyles = (scale: (size: number) => number, verticalScale: (size: numbe
         alignItems: 'center',
         justifyContent: 'space-between',
         paddingVertical: verticalScale(16),
-        paddingHorizontal: scale(20),
+        paddingHorizontal: moderateScale(20),
         borderBottomWidth: 1,
         borderBottomColor: '#F5F5F5',
     },
@@ -853,21 +853,21 @@ const makeStyles = (scale: (size: number) => number, verticalScale: (size: numbe
         fontWeight: '500',
         color: '#333',
         flex: 1,
-        marginRight: scale(10),
+        marginRight: moderateScale(10),
     },
 
     // Custom Switch
     switchContainer: {
-        width: scale(44),
+        width: moderateScale(44),
         height: verticalScale(24),
-        borderRadius: scale(12),
-        padding: scale(2),
+        borderRadius: moderateScale(12),
+        padding: moderateScale(2),
         justifyContent: 'center',
     },
     switchThumb: {
-        width: scale(20),
-        height: scale(20),
-        borderRadius: scale(10),
+        width: moderateScale(20),
+        height: moderateScale(20),
+        borderRadius: moderateScale(10),
         backgroundColor: 'white',
         shadowColor: '#000',
         shadowOffset: { width: 0, height: 1 },
@@ -882,8 +882,8 @@ const makeStyles = (scale: (size: number) => number, verticalScale: (size: numbe
         alignItems: 'center',
         justifyContent: 'space-between',
         backgroundColor: 'white',
-        borderRadius: scale(12),
-        paddingHorizontal: scale(20),
+        borderRadius: moderateScale(12),
+        paddingHorizontal: moderateScale(20),
         height: verticalScale(60),
         shadowColor: '#000',
         shadowOffset: { width: 0, height: 2 },
@@ -897,14 +897,14 @@ const makeStyles = (scale: (size: number) => number, verticalScale: (size: numbe
         fontWeight: '500',
     },
     forwardArrow: {
-        width: scale(22), // Increased size
-        height: scale(22), // Increased size
+        width: moderateScale(22), // Increased size
+        height: moderateScale(22), // Increased size
         // tintColor removed as requested
     },
     whatsappFormContainer: {
         backgroundColor: 'white',
-        borderRadius: scale(12),
-        padding: scale(16),
+        borderRadius: moderateScale(12),
+        padding: moderateScale(16),
         marginTop: verticalScale(10),
         shadowColor: '#000',
         shadowOffset: { width: 0, height: 2 },
@@ -933,8 +933,8 @@ const makeStyles = (scale: (size: number) => number, verticalScale: (size: numbe
     modalInput: {
         borderWidth: 1,
         borderColor: '#E0E0E0',
-        borderRadius: scale(8),
-        paddingHorizontal: scale(12),
+        borderRadius: moderateScale(8),
+        paddingHorizontal: moderateScale(12),
         paddingVertical: verticalScale(12),
         fontSize: moderateScale(FontSize.sm), // 14 -> sm
         color: '#333',
@@ -950,13 +950,13 @@ const makeStyles = (scale: (size: number) => number, verticalScale: (size: numbe
         fontSize: moderateScale(FontSize.sm), // 14 -> sm
         color: '#FF8A3C',
         fontWeight: '500',
-        paddingHorizontal: scale(20),
+        paddingHorizontal: moderateScale(20),
     },
     saveButton: {
         backgroundColor: '#FF8A3C',
         paddingVertical: verticalScale(12),
-        paddingHorizontal: scale(12),
-        borderRadius: scale(10),
+        paddingHorizontal: moderateScale(12),
+        borderRadius: moderateScale(10),
     },
     saveButtonText: {
         color: 'white',
@@ -968,7 +968,7 @@ const makeStyles = (scale: (size: number) => number, verticalScale: (size: numbe
     apiSection: {
         flexDirection: 'row',
         alignItems: 'center',
-        gap: scale(10),
+        gap: moderateScale(10),
     },
     tokenBox: {
         flex: 1,
@@ -979,8 +979,8 @@ const makeStyles = (scale: (size: number) => number, verticalScale: (size: numbe
         backgroundColor: 'white',
         borderWidth: 1,
         borderColor: '#E0E0E0',
-        borderRadius: scale(8),
-        paddingHorizontal: scale(12),
+        borderRadius: moderateScale(8),
+        paddingHorizontal: moderateScale(12),
     },
     tokenText: {
         fontSize: moderateScale(FontSize.sm), // 14 -> sm
@@ -988,18 +988,18 @@ const makeStyles = (scale: (size: number) => number, verticalScale: (size: numbe
         flex: 1,
     },
     copyButton: {
-        padding: scale(5),
+        padding: moderateScale(5),
     },
     copyIcon: {
-        width: scale(18),
-        height: scale(18),
+        width: moderateScale(18),
+        height: moderateScale(18),
         tintColor: '#FF6D00', // Or keep original color if preferred
     },
     generateButton: {
         backgroundColor: '#FF8A3C', // Strong orange
         paddingVertical: verticalScale(12),
-        paddingHorizontal: scale(15),
-        borderRadius: scale(8),
+        paddingHorizontal: moderateScale(15),
+        borderRadius: moderateScale(8),
         justifyContent: 'center',
         alignItems: 'center',
     },
@@ -1012,9 +1012,9 @@ const makeStyles = (scale: (size: number) => number, verticalScale: (size: numbe
     // Advanced Settings
     advancedSection: {
         backgroundColor: '#F8F9FA', // Very light gray/white mix
-        borderRadius: scale(12),
+        borderRadius: moderateScale(12),
         marginBottom: verticalScale(15),
-        padding: scale(15),
+        padding: moderateScale(15),
         // Removed border to match cleaner look, or keep if preferred:
         // borderWidth: 1, 
         // borderColor: '#F0F0F0',
@@ -1032,8 +1032,8 @@ const makeStyles = (scale: (size: number) => number, verticalScale: (size: numbe
         backgroundColor: 'white',
         borderWidth: 1,
         borderColor: '#E0E0E0',
-        borderRadius: scale(8),
-        paddingHorizontal: scale(12),
+        borderRadius: moderateScale(8),
+        paddingHorizontal: moderateScale(12),
         paddingVertical: verticalScale(10), // Slightly reduced for compact fit
         fontSize: moderateScale(FontSize.sm), // 14 -> sm
         color: '#333',
@@ -1050,8 +1050,8 @@ const makeStyles = (scale: (size: number) => number, verticalScale: (size: numbe
         flexDirection: 'row',
         alignItems: 'center',
         paddingVertical: verticalScale(12),
-        paddingHorizontal: scale(25),
-        borderRadius: scale(10),
+        paddingHorizontal: moderateScale(25),
+        borderRadius: moderateScale(10),
         shadowColor: '#fff',
         shadowOffset: { width: 0, height: 4 },
         shadowOpacity: 0.3,

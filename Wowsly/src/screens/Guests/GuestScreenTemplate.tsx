@@ -698,17 +698,17 @@ const makeStyles = (scale: (size: number) => number, verticalScale: (size: numbe
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#F5F5F5',
-    marginHorizontal: scale(16),
-    marginVertical: verticalScale(12),
-    borderRadius: scale(8),
-    paddingHorizontal: scale(12),
+    marginHorizontal: moderateScale(16),
+    marginVertical: verticalScale(14),
+    borderRadius: moderateScale(8),
+    paddingHorizontal: moderateScale(12),
     height: verticalScale(40),
   },
   searchIcon: {
-    width: scale(16),
-    height: scale(16),
+    width: moderateScale(16),
+    height: moderateScale(16),
     tintColor: '#9E9E9E',
-    marginRight: scale(8),
+    marginRight: moderateScale(8),
   },
   searchInput: {
     flex: 1,
@@ -734,14 +734,14 @@ const makeStyles = (scale: (size: number) => number, verticalScale: (size: numbe
     flexDirection: 'row',
     alignItems: 'center',
     paddingVertical: verticalScale(12),
-    paddingHorizontal: scale(16),
+    paddingHorizontal: moderateScale(16),
     backgroundColor: '#fff',
   },
   avatar: {
-    width: scale(40),
-    height: scale(40),
-    borderRadius: scale(24),
-    marginRight: scale(16),
+    width: moderateScale(40),
+    height: moderateScale(40),
+    borderRadius: moderateScale(24),
+    marginRight: moderateScale(16),
     backgroundColor: '#e0e0e0',
   },
   avatarPlaceholder: {
@@ -766,7 +766,7 @@ const makeStyles = (scale: (size: number) => number, verticalScale: (size: numbe
   separator: {
     height: 1,
     backgroundColor: '#F5F5F5',
-    marginLeft: scale(68), // Offset to align with text
+    marginLeft: moderateScale(68), // Offset to align with text
   },
   rowActions: {
     flexDirection: 'row',
@@ -776,7 +776,7 @@ const makeStyles = (scale: (size: number) => number, verticalScale: (size: numbe
   actionButton: {
     justifyContent: 'center',
     alignItems: 'center',
-    width: scale(70),
+    width: moderateScale(70),
     height: '100%',
   },
   editButton: {
@@ -797,11 +797,11 @@ const makeStyles = (scale: (size: number) => number, verticalScale: (size: numbe
     justifyContent: 'center',
     alignItems: 'center',
     paddingTop: verticalScale(60),
-    paddingHorizontal: scale(32),
+    paddingHorizontal: moderateScale(32),
   },
   emptyIcon: {
-    width: scale(120),
-    height: scale(120),
+    width: moderateScale(120),
+    height: moderateScale(120),
     marginBottom: verticalScale(16),
     resizeMode: 'contain',
     opacity: 0.8,
@@ -819,11 +819,11 @@ const makeStyles = (scale: (size: number) => number, verticalScale: (size: numbe
   },
   // Actions
   arrowContainer: {
-    padding: scale(8),
+    padding: moderateScale(8),
   },
   arrowIcon: {
-    width: scale(20),
-    height: scale(20),
+    width: moderateScale(20),
+    height: moderateScale(20),
   },
   // Modal
   modalOverlay: {
@@ -836,8 +836,8 @@ const makeStyles = (scale: (size: number) => number, verticalScale: (size: numbe
   quickActionCard: {
     width: '85%',
     backgroundColor: 'white',
-    borderRadius: scale(16),
-    padding: scale(20),
+    borderRadius: moderateScale(16),
+    padding: moderateScale(20),
     alignItems: 'center',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },

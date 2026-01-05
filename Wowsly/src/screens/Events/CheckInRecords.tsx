@@ -260,11 +260,11 @@ const makeStyles = (scale: (size: number) => number, verticalScale: (size: numbe
         alignItems: 'center',
         flexDirection: 'row',
         justifyContent: 'space-between',
-        paddingHorizontal: scale(20),
+        paddingHorizontal: moderateScale(20),
         elevation: 2,
         shadowColor: '#000',
         shadowOpacity: 0.05,
-        shadowRadius: scale(5),
+        shadowRadius: moderateScale(5),
         zIndex: 10,
     },
     title: {
@@ -278,19 +278,19 @@ const makeStyles = (scale: (size: number) => number, verticalScale: (size: numbe
         alignItems: 'center',
     },
     listContent: {
-        padding: scale(16),
+        padding: moderateScale(16),
         paddingBottom: verticalScale(40),
     },
     card: {
         backgroundColor: 'white',
-        borderRadius: scale(16),
-        padding: scale(16), // More padding
+        borderRadius: moderateScale(16),
+        padding: moderateScale(16), // More padding
         marginBottom: verticalScale(16),
         width: '100%', // Full width cards look better for detailed info like this
         shadowColor: '#000',
         shadowOpacity: 0.08,
         shadowOffset: { width: 0, height: 4 },
-        shadowRadius: scale(8),
+        shadowRadius: moderateScale(8),
         elevation: 3,
         borderWidth: 1,
         borderColor: '#EAEAEA',
@@ -303,7 +303,7 @@ const makeStyles = (scale: (size: number) => number, verticalScale: (size: numbe
     },
     titleContainer: {
         flex: 1,
-        marginRight: scale(10),
+        marginRight: moderateScale(10),
     },
     ticketName: {
         fontSize: moderateScale(FontSize.lg),
@@ -317,9 +317,9 @@ const makeStyles = (scale: (size: number) => number, verticalScale: (size: numbe
         fontWeight: '600',
         backgroundColor: '#F0F0F0',
         alignSelf: 'flex-start',
-        paddingHorizontal: scale(8),
+        paddingHorizontal: moderateScale(8),
         paddingVertical: verticalScale(2),
-        borderRadius: scale(6),
+        borderRadius: moderateScale(6),
         overflow: 'hidden',
     },
     iconsRow: {
@@ -327,13 +327,13 @@ const makeStyles = (scale: (size: number) => number, verticalScale: (size: numbe
         alignItems: 'center',
     },
     iconButton: {
-        padding: scale(6),
+        padding: moderateScale(6),
         backgroundColor: '#F5F5F5',
-        borderRadius: scale(8),
+        borderRadius: moderateScale(8),
     },
     icon: {
-        width: scale(18),
-        height: scale(18),
+        width: moderateScale(18),
+        height: moderateScale(18),
         tintColor: '#333',
     },
     mainProgressContainer: {
@@ -365,11 +365,11 @@ const makeStyles = (scale: (size: number) => number, verticalScale: (size: numbe
     progressBarBackground: {
         width: '100%',
         backgroundColor: '#F0F0F0',
-        borderRadius: scale(4),
+        borderRadius: moderateScale(4),
         overflow: 'hidden',
     },
     progressBarFill: {
-        borderRadius: scale(4),
+        borderRadius: moderateScale(4),
     },
     separator: {
         height: verticalScale(1),
@@ -406,7 +406,7 @@ const makeStyles = (scale: (size: number) => number, verticalScale: (size: numbe
         fontWeight: '500',
     },
     emptyContainer: {
-        padding: scale(40),
+        padding: moderateScale(40),
         alignItems: 'center',
     },
     emptyText: {

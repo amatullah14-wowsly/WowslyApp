@@ -378,11 +378,11 @@ const makeStyles = (scale: (size: number) => number, verticalScale: (size: numbe
         flex: 1,
         backgroundColor: 'rgba(0,0,0,0.5)',
         justifyContent: 'center',
-        padding: scale(20),
+        padding: moderateScale(20),
     },
     modalContent: {
         backgroundColor: 'white',
-        borderRadius: scale(16),
+        borderRadius: moderateScale(16),
         maxHeight: '85%',
         overflow: 'hidden',
     },
@@ -390,7 +390,7 @@ const makeStyles = (scale: (size: number) => number, verticalScale: (size: numbe
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
-        padding: scale(20),
+        padding: moderateScale(20),
         borderBottomWidth: 1,
         borderBottomColor: '#F0F0F0',
     },
@@ -400,16 +400,16 @@ const makeStyles = (scale: (size: number) => number, verticalScale: (size: numbe
         color: '#333',
     },
     closeButton: {
-        padding: scale(5),
+        padding: moderateScale(5),
     },
     closeIcon: {
-        width: scale(14),
-        height: scale(14),
+        width: moderateScale(14),
+        height: moderateScale(14),
         resizeMode: 'contain',
         tintColor: '#999',
     },
     scrollContent: {
-        padding: scale(20),
+        padding: moderateScale(20),
     },
     inputGroup: {
         marginBottom: verticalScale(20),
@@ -423,8 +423,8 @@ const makeStyles = (scale: (size: number) => number, verticalScale: (size: numbe
     input: {
         borderWidth: 1,
         borderColor: '#DDD',
-        borderRadius: scale(8),
-        paddingHorizontal: scale(12),
+        borderRadius: moderateScale(8),
+        paddingHorizontal: moderateScale(12),
         paddingVertical: verticalScale(10),
         fontSize: moderateScale(14),
         color: '#333',
@@ -440,8 +440,8 @@ const makeStyles = (scale: (size: number) => number, verticalScale: (size: numbe
         justifyContent: 'space-between',
         borderWidth: 1,
         borderColor: '#DDD',
-        borderRadius: scale(8),
-        paddingHorizontal: scale(12),
+        borderRadius: moderateScale(8),
+        paddingHorizontal: moderateScale(12),
         paddingVertical: verticalScale(10),
         backgroundColor: '#FCFCFC',
     },
@@ -452,15 +452,15 @@ const makeStyles = (scale: (size: number) => number, verticalScale: (size: numbe
 
     footer: {
         flexDirection: 'row',
-        padding: scale(20),
+        padding: moderateScale(20),
         borderTopWidth: 1,
         borderTopColor: '#F0F0F0',
-        gap: scale(15),
+        gap: moderateScale(15),
     },
     cancelButton: {
         flex: 1,
         paddingVertical: verticalScale(12),
-        borderRadius: scale(10),
+        borderRadius: moderateScale(10),
         backgroundColor: '#F5F5F5',
         alignItems: 'center',
         justifyContent: 'center',
@@ -473,7 +473,7 @@ const makeStyles = (scale: (size: number) => number, verticalScale: (size: numbe
     saveButton: {
         flex: 1,
         paddingVertical: verticalScale(12),
-        borderRadius: scale(10),
+        borderRadius: moderateScale(10),
         backgroundColor: THEME_COLOR,
         alignItems: 'center',
         justifyContent: 'center',
@@ -488,15 +488,15 @@ const makeStyles = (scale: (size: number) => number, verticalScale: (size: numbe
     // New Styles for Radio & Toggles
     radioGroup: {
         flexDirection: 'row',
-        gap: scale(15),
+        gap: moderateScale(15),
     },
     radioOption: {
         flex: 1,
         flexDirection: 'row',
         alignItems: 'center',
-        padding: scale(12),
+        padding: moderateScale(12),
         backgroundColor: 'white',
-        borderRadius: scale(8),
+        borderRadius: moderateScale(8),
         borderWidth: 1,
         borderColor: '#DDD', // Default border
     },
@@ -505,22 +505,22 @@ const makeStyles = (scale: (size: number) => number, verticalScale: (size: numbe
         backgroundColor: '#FFF5EB',
     },
     radioCircle: {
-        width: scale(18),
-        height: scale(18),
-        borderRadius: scale(9),
+        width: moderateScale(18),
+        height: moderateScale(18),
+        borderRadius: moderateScale(9),
         borderWidth: 2,
         borderColor: '#999',
         alignItems: 'center',
         justifyContent: 'center',
-        marginRight: scale(10),
+        marginRight: moderateScale(10),
     },
     radioCircleSelected: {
         borderColor: THEME_COLOR, // '#007AFF'
     },
     radioDot: {
-        width: scale(10),
-        height: scale(10),
-        borderRadius: scale(5),
+        width: moderateScale(10),
+        height: moderateScale(10),
+        borderRadius: moderateScale(5),
         backgroundColor: THEME_COLOR, // '#007AFF'
     },
     radioLabel: {

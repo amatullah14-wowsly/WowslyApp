@@ -20,11 +20,12 @@ import React, { useEffect, useMemo, useState, useCallback } from "react";
 import EventCard from "../../components/EventCard";
 import { useNavigation, useFocusEffect } from "@react-navigation/native";
 import {
-  getEvents,
   getEventsPage,
   getEventWebLink
-} from "../../api/event"; // Modified import
+} from "../../api/event";
 import Pagination from '../../components/Pagination';
+import { ResponsiveContainer } from '../../components/ResponsiveContainer';
+import { EventDashboardContent } from './EventDashboard'; // Import refactored content
 
 const EventListing = () => {
   const navigation = useNavigation<any>();
@@ -32,12 +33,14 @@ const EventListing = () => {
   // Use Dynamic Scaling
   const { width } = useWindowDimensions();
   const { scale, verticalScale, moderateScale } = useScale();
-  const styles = useMemo(() => makeStyles(scale, verticalScale, moderateScale), [scale, verticalScale, moderateScale]);
+  const styles = useMemo(() => makeStyles(scale, verticalScale, moderateScale, width), [scale, verticalScale, moderateScale, width]);
+
+  // Foldable Logic
+  const isFoldable = width >= 600;
 
   // Responsive Grid Logic
-  const isTablet = width >= 768; // Simple breakpoint
-  const numColumns = isTablet ? 3 : 1;
-  // Force re-render when columns change
+  // List is always 1 column (vertical list), whether on Phone or in Left Panel of Foldable
+  const numColumns = 1;
   const listKey = `event-list-${numColumns}`;
 
   // 🔥 Live events from API
@@ -48,7 +51,9 @@ const EventListing = () => {
   const [refreshing, setRefreshing] = useState(false);
 
   const [page, setPage] = useState(1);
-  const [selectedEventId, setSelectedEventId] = useState(null);
+  const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
+  const [selectedEventRole, setSelectedEventRole] = useState<string | null>(null); // For Split View
+
   const [logoutModalVisible, setLogoutModalVisible] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [activeTab, setActiveTab] = useState<'joined' | 'created'>('joined');
@@ -91,6 +96,12 @@ const EventListing = () => {
       filterEvents(initialEvents, searchQuery);
       setLoading(false); // UI is now interactive!
       setRefreshing(false);
+
+      // Select first event by default on Foldable if not selected
+      if (isFoldable && initialEvents.length > 0 && !selectedEventId) {
+        // We might want to select the first one, but let's wait for user interaction or select first IF we want auto-select.
+        // User guidelines often suggest "Empty state" until selected, but "Select an event" is implemented in DashboardContent.
+      }
 
       // 2. Background Loop for remaining pages
       let currentPage = 1;
@@ -199,42 +210,45 @@ const EventListing = () => {
         : require('../../assets/img/common/noimage.png');
 
     return (
-      <View style={numColumns > 1 ? { flex: 1, maxWidth: `${100 / numColumns}%` } : { width: '100%' }}>
+      <View style={{ width: '100%' }}>
         <EventCard
           title={item.title}
           date={item.start_date_display || "No Date"}
           location={item.address || item.city || "—"}
           image={imageSource}
           isPlaceholder={!item.event_main_photo || item.event_main_photo === ""}
-          selected={isSelected}
+          selected={isSelected} // Highlight if selected in Split View
+          style={isFoldable && isSelected ? { borderColor: '#FF8A3C', borderWidth: 2 } : undefined}
           onPress={async () => {
-            setSelectedEventId(item.id);
+
             let role = null;
 
             if (activeTab === 'joined') {
               try {
                 const guestUuid = item.guest_uuid || item.uuid; // Defensive check
                 if (guestUuid) {
-                  // Show simple loading feedback if desired later, for now proceeding.
-                  console.log(`Checking role for guest UUID: ${guestUuid}`);
                   const res = await getEventWebLink(guestUuid);
-                  console.log("Role check response:", res);
-
                   role = res?.data?.current_user_role?.toLowerCase();
-                } else {
-                  // console.warn("No guest UUID found for joined event:", item);
                 }
               } catch (e) {
                 console.log('Error checking manager role:', e);
               }
             }
 
-            navigation.navigate('EventDashboard' as never, { eventData: item, userRole: role } as never);
+            if (isFoldable) {
+              // Split View: update state
+              setSelectedEventId(item.id);
+              setSelectedEventRole(role);
+            } else {
+              // Phone View: navigate
+              setSelectedEventId(item.id); // Valid for optimistic UI 
+              navigation.navigate('EventDashboard' as never, { eventData: item, userRole: role } as never);
+            }
           }}
         />
       </View>
     );
-  }, [selectedEventId, navigation, activeTab, numColumns]); // Added activeTab & numColumns to dependency
+  }, [selectedEventId, navigation, activeTab, isFoldable]);
 
   // 🔄 Loading UI
   if (loading) {
@@ -257,75 +271,10 @@ const EventListing = () => {
     </View>
   );
 
-  return (
-    <View style={styles.container}>
-      <StatusBar hidden />
-
-      {/* Header with Logout */}
-      <View style={styles.heading}>
-        <View style={styles.headingRow}>
-          <Text style={styles.headingtxt}>Wowsly</Text>
-          <TouchableOpacity
-            activeOpacity={0.8}
-            onPress={() => setLogoutModalVisible(true)}
-          >
-            <Image
-              source={require('../../assets/img/common/logout.png')}
-              style={styles.logoutIcon}
-              resizeMode="contain"
-            />
-          </TouchableOpacity>
-        </View>
-      </View>
-
-      {/* Logout Confirmation Modal */}
-      <Modal
-        transparent
-        visible={logoutModalVisible}
-        animationType="fade"
-        onRequestClose={() => setLogoutModalVisible(false)}
-      >
-        <View style={styles.modalBackdrop}>
-          <View style={styles.modalCard}>
-            <Text style={styles.modalTitle}>Logout</Text>
-            <Text style={styles.modalMessage}>
-              Are you sure you want to logout?
-            </Text>
-            <View style={styles.modalButtons}>
-              <TouchableOpacity
-                style={[styles.modalButton, styles.modalButtonCancel]}
-                onPress={() => setLogoutModalVisible(false)}
-                activeOpacity={0.8}
-              >
-                <Text style={styles.modalButtonTextCancel}>Cancel</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.modalButton, styles.modalButtonConfirm]}
-                onPress={async () => {
-                  try {
-                    await AsyncStorage.clear();
-                    console.log('AsyncStorage cleared');
-                  } catch (e) {
-                    console.log('Failed to clear async storage');
-                  }
-
-                  setLogoutModalVisible(false);
-                  navigation.reset({
-                    index: 0,
-                    routes: [{ name: 'Number' as never }],
-                  });
-                }}
-                activeOpacity={0.8}
-              >
-                <Text style={styles.modalButtonTextConfirm}>Logout</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
-
+  // RENDER HELPERS
+  const renderListPanel = () => (
+    <View style={[styles.listPanel, isFoldable && styles.leftPanelFoldable]}>
       {/* Tab Selectors */}
-      {/* TABS (Joined / Created) */}
       <View style={styles.tabContainer}>
         <TouchableOpacity
           style={[styles.tabButton, activeTab === 'joined' && styles.activeTabButton]}
@@ -353,6 +302,7 @@ const EventListing = () => {
           </Text>
         </TouchableOpacity>
       </View>
+
       {/* Search Bar */}
       <View style={styles.searchWrapper}>
         <View style={styles.searchField}>
@@ -374,14 +324,13 @@ const EventListing = () => {
 
       {/* EVENT LIST */}
       <FlatList
-        key={listKey} // Key forces re-render when columns change
-        numColumns={numColumns} // Responsive Columns
-        columnWrapperStyle={numColumns > 1 ? { justifyContent: 'space-between', gap: scale(10) } : undefined}
+        key={listKey}
+        numColumns={numColumns}
         data={paginatedEvents}
         renderItem={renderCard}
         contentContainerStyle={[styles.listContent, paginatedEvents.length === 0 && { flexGrow: 1 }]}
         ListEmptyComponent={renderEmptyComponent}
-        style={{ marginTop: verticalScale(15) }}
+        style={{ marginTop: verticalScale(15), flex: 1 }}
         showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#FF8A3C']} />
@@ -392,7 +341,6 @@ const EventListing = () => {
         windowSize={5}
         removeClippedSubviews={true}
         getItemLayout={(data, index) => (
-          // Dynamic height: verticalScale(200) + verticalScale(18) margin
           { length: verticalScale(218), offset: verticalScale(218) * index, index }
         )}
       />
@@ -405,22 +353,127 @@ const EventListing = () => {
       />
     </View>
   );
+
+  return (
+    <ResponsiveContainer maxWidth={isFoldable ? "100%" : 420}>
+      <View style={styles.container}>
+        <StatusBar hidden />
+
+        {/* Header with Logout - Always visible at top */}
+        <View style={styles.heading}>
+          <View style={styles.headingRow}>
+            <Text style={styles.headingtxt}>Wowsly</Text>
+            <TouchableOpacity
+              activeOpacity={0.8}
+              onPress={() => setLogoutModalVisible(true)}
+            >
+              <Image
+                source={require('../../assets/img/common/logout.png')}
+                style={styles.logoutIcon}
+                resizeMode="contain"
+              />
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        {/* Logout Confirmation Modal */}
+        <Modal
+          transparent
+          visible={logoutModalVisible}
+          animationType="fade"
+          onRequestClose={() => setLogoutModalVisible(false)}
+        >
+          <View style={styles.modalBackdrop}>
+            <View style={styles.modalCard}>
+              <Text style={styles.modalTitle}>Logout</Text>
+              <Text style={styles.modalMessage}>
+                Are you sure you want to logout?
+              </Text>
+              <View style={styles.modalButtons}>
+                <TouchableOpacity
+                  style={[styles.modalButton, styles.modalButtonCancel]}
+                  onPress={() => setLogoutModalVisible(false)}
+                  activeOpacity={0.8}
+                >
+                  <Text style={styles.modalButtonTextCancel}>Cancel</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.modalButton, styles.modalButtonConfirm]}
+                  onPress={async () => {
+                    try {
+                      await AsyncStorage.clear();
+                      console.log('AsyncStorage cleared');
+                    } catch (e) {
+                      console.log('Failed to clear async storage');
+                    }
+
+                    setLogoutModalVisible(false);
+                    navigation.reset({
+                      index: 0,
+                      routes: [{ name: 'Number' as never }],
+                    });
+                  }}
+                  activeOpacity={0.8}
+                >
+                  <Text style={styles.modalButtonTextConfirm}>Logout</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </Modal>
+
+        {/* MAIN CONTENT AREA */}
+        <View style={{ flex: 1, flexDirection: isFoldable ? 'row' : 'column' }}>
+
+          {/* LEFT PANEL (List) */}
+          {renderListPanel()}
+
+          {/* RIGHT PANEL (Dashboard) - Only on Foldable */}
+          {isFoldable && (
+            <View style={styles.rightPanelFoldable}>
+              <EventDashboardContent
+                eventId={selectedEventId || undefined}
+                eventData={events.find(e => e.id === selectedEventId)}
+                userRole={selectedEventRole || undefined}
+                isSplitView={true}
+              />
+            </View>
+          )}
+
+        </View>
+
+      </View>
+    </ResponsiveContainer>
+  );
 };
 export default EventListing;
 
-const makeStyles = (scale: (size: number) => number, verticalScale: (size: number) => number, moderateScale: (size: number, factor?: number) => number) => StyleSheet.create({
+const makeStyles = (scale: (size: number) => number, verticalScale: (size: number) => number, moderateScale: (size: number, factor?: number) => number, width: number) => StyleSheet.create({
   container: {
     backgroundColor: 'white',
     flex: 1,
+  },
+  listPanel: {
+    flex: 1,
+    backgroundColor: 'white',
+  },
+  leftPanelFoldable: {
+    width: '35%',
+    borderRightWidth: 1,
+    borderRightColor: '#E0E0E0',
+  },
+  rightPanelFoldable: {
+    flex: 1,
+    backgroundColor: '#FAFAFA',
   },
   heading: {
     justifyContent: 'center',
     backgroundColor: '#FF8A3C',
     width: '100%',
-    paddingVertical: moderateScale(20),
-    paddingTop: verticalScale(25), // Keep status bar padding
-    borderBottomLeftRadius: scale(15),
-    borderBottomRightRadius: scale(15),
+    paddingVertical: width >= 600 ? 15 : moderateScale(20),
+    paddingTop: width >= 600 ? 15 : verticalScale(25), // Keep status bar padding
+    borderBottomLeftRadius: 0, // Removed radius for seamless split view usually, or keep if designed
+    borderBottomRightRadius: 0,
     shadowColor: '#FF8A3C',
     shadowOpacity: 0.2,
     shadowOffset: { width: 0, height: verticalScale(6) },
@@ -438,16 +491,16 @@ const makeStyles = (scale: (size: number) => number, verticalScale: (size: numbe
     fontWeight: '700',
   },
   logoutIcon: {
-    width: scale(23),
-    height: scale(23),
+    width: width >= 600 ? 22 : scale(23),
+    height: width >= 600 ? 22 : scale(23),
   },
   searchWrapper: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: 'white',
-    marginHorizontal: scale(20),
+    marginHorizontal: width >= 600 ? 20 : scale(20),
     marginTop: verticalScale(20),
-    borderRadius: scale(20),
+    borderRadius: width >= 600 ? 16 : scale(20),
     paddingHorizontal: scale(20),
     height: verticalScale(55),
     shadowColor: '#999',
@@ -469,11 +522,11 @@ const makeStyles = (scale: (size: number) => number, verticalScale: (size: numbe
     paddingLeft: scale(8),
   },
   searchIcon: {
-    width: scale(18),
-    height: scale(18),
+    width: width >= 600 ? 16 : scale(18),
+    height: width >= 600 ? 16 : scale(18),
   },
   listContent: {
-    paddingHorizontal: scale(20),
+    paddingHorizontal: width >= 600 ? 20 : scale(20),
     paddingTop: verticalScale(18),
     paddingBottom: verticalScale(90),
   },
@@ -481,10 +534,11 @@ const makeStyles = (scale: (size: number) => number, verticalScale: (size: numbe
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
-    gap: scale(16),
+    gap: width >= 600 ? 16 : scale(16),
     paddingBottom: verticalScale(10),
     backgroundColor: 'white',
-    height: verticalScale(60),
+    height: width >= 600 ? 70 : verticalScale(60),
+    marginBottom: width >= 600 ? 20 : 0,
   },
   pageIcon: {
     width: scale(28),
@@ -505,8 +559,8 @@ const makeStyles = (scale: (size: number) => number, verticalScale: (size: numbe
     alignItems: 'center',
   },
   emptyImage: {
-    width: scale(220),
-    height: scale(220),
+    width: width >= 600 ? 200 : scale(220),
+    height: width >= 600 ? 200 : scale(220),
   },
   modalBackdrop: {
     flex: 1,
@@ -517,7 +571,7 @@ const makeStyles = (scale: (size: number) => number, verticalScale: (size: numbe
   },
   modalCard: {
     backgroundColor: '#FFFFFF',
-    borderRadius: moderateScale(20),
+    borderRadius: width >= 600 ? 22 : moderateScale(20),
     padding: moderateScale(24),
     width: '100%',
     maxWidth: scale(340),
@@ -548,7 +602,7 @@ const makeStyles = (scale: (size: number) => number, verticalScale: (size: numbe
   modalButton: {
     flex: 1,
     paddingVertical: verticalScale(14),
-    borderRadius: moderateScale(12),
+    borderRadius: width >= 600 ? 10 : moderateScale(12),
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -573,10 +627,10 @@ const makeStyles = (scale: (size: number) => number, verticalScale: (size: numbe
   tabContainer: {
     flexDirection: 'row',
     marginTop: verticalScale(20),
-    marginHorizontal: scale(20),
+    marginHorizontal: width >= 600 ? 20 : scale(20),
     backgroundColor: '#FFFFFF',
-    borderRadius: scale(12),
-    padding: scale(4),
+    borderRadius: width >= 600 ? 10 : scale(12),
+    padding: width >= 600 ? 4 : scale(4),
     borderWidth: 1,
     borderColor: '#EEEEEE',
     elevation: 1,
@@ -587,8 +641,8 @@ const makeStyles = (scale: (size: number) => number, verticalScale: (size: numbe
   },
   tabButton: {
     flex: 1,
-    paddingVertical: verticalScale(10), // Increased padding for pill shape
-    borderRadius: scale(8),
+    paddingVertical: verticalScale(10),
+    borderRadius: width >= 600 ? 10 : scale(8),
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -598,9 +652,9 @@ const makeStyles = (scale: (size: number) => number, verticalScale: (size: numbe
   tabText: {
     fontSize: moderateScale(FontSize.sm),
     fontWeight: '600',
-    color: '#FF8A3C', // Inactive text is orange
+    color: '#FF8A3C',
   },
   activeTabText: {
-    color: '#FFFFFF', // Active text is white
+    color: '#FFFFFF',
   },
-})
+});

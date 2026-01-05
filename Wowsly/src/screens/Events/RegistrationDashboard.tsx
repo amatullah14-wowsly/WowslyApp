@@ -608,7 +608,7 @@ const makeStyles = (scale: (size: number) => number, verticalScale: (size: numbe
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'space-between',
-        paddingHorizontal: scale(20),
+        paddingHorizontal: moderateScale(20),
         paddingTop: 30, // Fixed top padding
         paddingBottom: 10, // Fixed bottom padding
         backgroundColor: 'white',
@@ -625,8 +625,8 @@ const makeStyles = (scale: (size: number) => number, verticalScale: (size: numbe
         width: '90%',
         alignSelf: 'center',
         backgroundColor: '#FFFFFF',
-        borderRadius: scale(12),
-        padding: scale(4),
+        borderRadius: moderateScale(12),
+        padding: moderateScale(4),
         marginBottom: 10,
         marginTop: 20,
         borderWidth: 1,
@@ -635,12 +635,12 @@ const makeStyles = (scale: (size: number) => number, verticalScale: (size: numbe
         shadowColor: '#000',
         shadowOpacity: 0.05,
         shadowOffset: { width: 0, height: 2 },
-        shadowRadius: scale(4),
+        shadowRadius: moderateScale(4),
     },
     tabButton: {
         flex: 1,
         paddingVertical: 10, // Increased padding
-        borderRadius: scale(8),
+        borderRadius: moderateScale(8),
         alignItems: 'center',
         justifyContent: 'center',
     },
@@ -676,23 +676,23 @@ const makeStyles = (scale: (size: number) => number, verticalScale: (size: numbe
     },
     createFormCard: {
         alignItems: 'center',
-        padding: scale(30),
+        padding: moderateScale(30),
         backgroundColor: 'white',
-        borderRadius: scale(16),
+        borderRadius: moderateScale(16),
         width: '90%',
     },
     iconContainer: {
-        width: scale(80),
-        height: scale(80),
-        borderRadius: scale(40),
+        width: moderateScale(80),
+        height: moderateScale(80),
+        borderRadius: moderateScale(40),
         backgroundColor: '#FFF3E0', // Light orange
         alignItems: 'center',
         justifyContent: 'center',
         marginBottom: verticalScale(20),
     },
     mainIcon: {
-        width: scale(40),
-        height: scale(40),
+        width: moderateScale(40),
+        height: moderateScale(40),
         tintColor: '#FF8A3C',
     },
     createFormTitle: {
@@ -712,12 +712,12 @@ const makeStyles = (scale: (size: number) => number, verticalScale: (size: numbe
     createButtonPrimary: {
         backgroundColor: '#FF8A3C',
         paddingVertical: 14,
-        paddingHorizontal: scale(40),
-        borderRadius: scale(30),
+        paddingHorizontal: moderateScale(40),
+        borderRadius: moderateScale(30),
         shadowColor: "#FF8A3C",
         shadowOffset: { width: 0, height: 4 },
         shadowOpacity: 0.3,
-        shadowRadius: scale(6),
+        shadowRadius: moderateScale(6),
         elevation: 6,
         width: '100%',
         alignItems: 'center',
@@ -736,9 +736,9 @@ const makeStyles = (scale: (size: number) => number, verticalScale: (size: numbe
     },
     processingBadge: {
         backgroundColor: '#EF6C00', // Darker orange
-        paddingHorizontal: scale(16),
+        paddingHorizontal: moderateScale(16),
         paddingVertical: verticalScale(6),
-        borderRadius: scale(20),
+        borderRadius: moderateScale(20),
     },
     processingText: {
         color: 'white',
@@ -748,9 +748,9 @@ const makeStyles = (scale: (size: number) => number, verticalScale: (size: numbe
     exportRow: {
         flexDirection: 'row',
         justifyContent: 'space-between',
-        gap: scale(8),
+        gap: moderateScale(8),
         paddingVertical: verticalScale(20),
-        paddingHorizontal: scale(16),
+        paddingHorizontal: moderateScale(16),
     },
     exportButton: {
         flex: 1,
@@ -759,10 +759,10 @@ const makeStyles = (scale: (size: number) => number, verticalScale: (size: numbe
         justifyContent: 'center',
         borderWidth: 1,
         borderColor: '#FF8A3C',
-        borderRadius: scale(8),
+        borderRadius: moderateScale(8),
         paddingVertical: 10,
-        paddingHorizontal: scale(2),
-        gap: scale(4),
+        paddingHorizontal: moderateScale(2),
+        gap: moderateScale(4),
         backgroundColor: 'white',
     },
     checkStatusButton: {
@@ -774,15 +774,15 @@ const makeStyles = (scale: (size: number) => number, verticalScale: (size: numbe
         borderColor: '#2E7D32',
     },
     statusButtonContainer: {
-        paddingHorizontal: scale(16),
+        paddingHorizontal: moderateScale(16),
         paddingVertical: verticalScale(10),
     },
     menuButton: {
-        padding: scale(8),
+        padding: moderateScale(8),
     },
     menuIcon: {
-        width: scale(20),
-        height: scale(20),
+        width: moderateScale(20),
+        height: moderateScale(20),
         tintColor: '#000000',
     },
     // Header Menu Styles
@@ -793,22 +793,22 @@ const makeStyles = (scale: (size: number) => number, verticalScale: (size: numbe
     headerMenuContainer: {
         position: 'absolute',
         top: Platform.OS === 'ios' ? verticalScale(100) : verticalScale(70),
-        right: scale(20),
+        right: moderateScale(20),
         backgroundColor: 'white',
-        borderRadius: scale(12),
-        width: scale(200),
+        borderRadius: moderateScale(12),
+        width: moderateScale(200),
         // Clean Shadow
         elevation: 8,
         shadowColor: '#000',
         shadowOffset: { width: 0, height: 4 },
         shadowOpacity: 0.1,
-        shadowRadius: scale(12),
+        shadowRadius: moderateScale(12),
         borderWidth: 1,
         borderColor: '#f5f5f5',
     },
     headerMenuItem: {
         paddingVertical: verticalScale(16),
-        paddingHorizontal: scale(20),
+        paddingHorizontal: moderateScale(20),
     },
     headerMenuText: {
         fontSize: moderateScale(FontSize.md),
@@ -826,12 +826,12 @@ const makeStyles = (scale: (size: number) => number, verticalScale: (size: numbe
         textAlign: 'center',
     },
     exportIcon: {
-        width: scale(14),
-        height: scale(14),
+        width: moderateScale(14),
+        height: moderateScale(14),
         tintColor: '#FF8A3C',
     },
     listContent: {
-        paddingHorizontal: scale(20),
+        paddingHorizontal: moderateScale(20),
         paddingBottom: verticalScale(20),
     },
     // arrowContainer removed
@@ -846,15 +846,15 @@ const makeStyles = (scale: (size: number) => number, verticalScale: (size: numbe
     replyInfo: {
         flex: 1,
         justifyContent: 'center',
-        paddingLeft: scale(10),
+        paddingLeft: moderateScale(10),
     },
     actionIconContainer: {
-        padding: scale(8),
-        marginHorizontal: scale(4),
+        padding: moderateScale(8),
+        marginHorizontal: moderateScale(4),
     },
     actionIcon: {
-        width: scale(22),
-        height: scale(22),
+        width: moderateScale(22),
+        height: moderateScale(22),
         tintColor: '#FF8A3C'
     },
     replyName: {
@@ -881,11 +881,11 @@ const makeStyles = (scale: (size: number) => number, verticalScale: (size: numbe
     },
     modalContainer: {
         backgroundColor: 'white',
-        borderTopLeftRadius: scale(20),
-        borderTopRightRadius: scale(20),
+        borderTopLeftRadius: moderateScale(20),
+        borderTopRightRadius: moderateScale(20),
         height: '50%',
         paddingTop: verticalScale(20),
-        paddingHorizontal: scale(20),
+        paddingHorizontal: moderateScale(20),
     },
     modalHeader: {
         flexDirection: 'row',
@@ -901,7 +901,7 @@ const makeStyles = (scale: (size: number) => number, verticalScale: (size: numbe
         color: '#111',
     },
     closeButton: {
-        padding: scale(5),
+        padding: moderateScale(5),
     },
     closeButtonText: {
         fontSize: moderateScale(FontSize.lg),
@@ -923,7 +923,7 @@ const makeStyles = (scale: (size: number) => number, verticalScale: (size: numbe
         color: '#888',
         marginBottom: verticalScale(4),
         textTransform: 'uppercase',
-        letterSpacing: scale(0.5),
+        letterSpacing: moderateScale(0.5),
     },
     detailValue: {
         fontSize: moderateScale(FontSize.md),
@@ -940,34 +940,34 @@ const makeStyles = (scale: (size: number) => number, verticalScale: (size: numbe
     headerActions: {
         flexDirection: 'row',
         alignItems: 'center',
-        gap: scale(16),
+        gap: moderateScale(16),
     },
     infoButton: {
-        padding: scale(4),
+        padding: moderateScale(4),
     },
     infoIcon: {
-        width: scale(24),
-        height: scale(24),
+        width: moderateScale(24),
+        height: moderateScale(24),
         tintColor: '#666',
     },
     popupMenu: {
         position: 'absolute',
         top: verticalScale(60), // Below header
-        right: scale(20),
+        right: moderateScale(20),
         backgroundColor: 'white',
-        borderRadius: scale(12), // Smoother corners for "App UI" feel
+        borderRadius: moderateScale(12), // Smoother corners for "App UI" feel
         elevation: 10, // Higher elevation
         shadowColor: '#000',
         shadowOffset: { width: 0, height: verticalScale(4) },
         shadowOpacity: 0.3,
-        shadowRadius: scale(6),
-        width: scale(180), // Slightly wider
+        shadowRadius: moderateScale(6),
+        width: moderateScale(180), // Slightly wider
         zIndex: 1000, // Ensure top
         paddingVertical: verticalScale(8),
     },
     menuItem: {
         paddingVertical: verticalScale(14),
-        paddingHorizontal: scale(16),
+        paddingHorizontal: moderateScale(16),
     },
     menuItemDestructive: {
         // backgroundColor: '#FFEBEE', // Removed per user request ("nothing selected")
@@ -984,8 +984,8 @@ const makeStyles = (scale: (size: number) => number, verticalScale: (size: numbe
     // Date Modal Styles
     dateModalContainer: {
         backgroundColor: 'white',
-        borderRadius: scale(16),
-        padding: scale(24),
+        borderRadius: moderateScale(16),
+        padding: moderateScale(24),
         width: '90%',
         alignSelf: 'center',
         // Center vertically in overlay
@@ -1012,9 +1012,9 @@ const makeStyles = (scale: (size: number) => number, verticalScale: (size: numbe
         marginBottom: verticalScale(8),
         position: 'absolute',
         top: verticalScale(-10),
-        left: scale(10),
+        left: moderateScale(10),
         backgroundColor: 'white',
-        paddingHorizontal: scale(4),
+        paddingHorizontal: moderateScale(4),
         zIndex: 1,
     },
     inputWrapper: {
@@ -1022,8 +1022,8 @@ const makeStyles = (scale: (size: number) => number, verticalScale: (size: numbe
         alignItems: 'center',
         borderWidth: 1,
         borderColor: '#ddd',
-        borderRadius: scale(8),
-        paddingHorizontal: scale(12),
+        borderRadius: moderateScale(8),
+        paddingHorizontal: moderateScale(12),
         height: verticalScale(50),
     },
     dateInput: {
@@ -1032,8 +1032,8 @@ const makeStyles = (scale: (size: number) => number, verticalScale: (size: numbe
         color: '#333',
     },
     inputIcon: {
-        width: scale(20),
-        height: scale(20),
+        width: moderateScale(20),
+        height: moderateScale(20),
         tintColor: '#333',
     },
     helperText: {
@@ -1045,11 +1045,11 @@ const makeStyles = (scale: (size: number) => number, verticalScale: (size: numbe
         flexDirection: 'row',
         justifyContent: 'flex-end',
         alignItems: 'center',
-        gap: scale(16),
+        gap: moderateScale(16),
     },
     cancelButton: {
         paddingVertical: verticalScale(10),
-        paddingHorizontal: scale(16),
+        paddingHorizontal: moderateScale(16),
     },
     cancelButtonText: {
         fontSize: moderateScale(FontSize.md),
@@ -1059,8 +1059,8 @@ const makeStyles = (scale: (size: number) => number, verticalScale: (size: numbe
     startExportButton: {
         backgroundColor: '#EF6C00',
         paddingVertical: verticalScale(10),
-        paddingHorizontal: scale(24),
-        borderRadius: scale(8),
+        paddingHorizontal: moderateScale(24),
+        borderRadius: moderateScale(8),
     },
     startExportButtonText: {
         fontSize: moderateScale(FontSize.md),
@@ -1070,8 +1070,8 @@ const makeStyles = (scale: (size: number) => number, verticalScale: (size: numbe
     quickActionCard: {
         backgroundColor: 'white',
         width: '80%',
-        borderRadius: scale(16),
-        padding: scale(20),
+        borderRadius: moderateScale(16),
+        padding: moderateScale(20),
         alignItems: 'center',
         elevation: 10,
     },

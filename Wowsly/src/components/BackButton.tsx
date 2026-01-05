@@ -1,6 +1,6 @@
 import React from 'react';
-import { TouchableOpacity, Image, StyleSheet, TouchableOpacityProps, StyleProp, ViewStyle, ImageStyle } from 'react-native';
-import { scale, verticalScale } from '../utils/scaling';
+import { TouchableOpacity, Image, StyleSheet, TouchableOpacityProps, StyleProp, ViewStyle, ImageStyle, useWindowDimensions } from 'react-native';
+import { scale, verticalScale, moderateScale } from '../utils/scaling';
 
 const BACK_ICON = require('../assets/img/common/back.png');
 
@@ -10,10 +10,20 @@ interface BackButtonProps extends TouchableOpacityProps {
 }
 
 const BackButton: React.FC<BackButtonProps> = ({ style, iconStyle, ...props }) => {
+    const { width } = useWindowDimensions();
+    // Use moderateScale for consistent sizing across devices.
+    // 40 is a standard touch target size. Use 0.25 factor to keep it compact on tablets.
+    const buttonSize = moderateScale(40, 0.25);
+    const borderRadius = moderateScale(20, 0.25);
+
     return (
         <TouchableOpacity
             activeOpacity={0.8}
-            style={[styles.button, style]}
+            style={[
+                styles.button,
+                { width: buttonSize, height: buttonSize, borderRadius },
+                style
+            ]}
             {...props}
         >
             <Image source={BACK_ICON} style={[styles.icon, iconStyle]} />
@@ -23,9 +33,6 @@ const BackButton: React.FC<BackButtonProps> = ({ style, iconStyle, ...props }) =
 
 const styles = StyleSheet.create({
     button: {
-        width: scale(40),
-        height: scale(40), // scale height same as width to keep circle
-        borderRadius: scale(20),
         backgroundColor: '#FFFFFF',
         borderWidth: 1,
         borderColor: '#EFE8DE',
@@ -33,8 +40,8 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
     },
     icon: {
-        width: scale(14),
-        height: verticalScale(22),
+        width: moderateScale(14),
+        height: moderateScale(14), // changed from verticalScale(22) for aspect ratio and size control
         resizeMode: 'contain',
         tintColor: '#1F1F1F',
     },

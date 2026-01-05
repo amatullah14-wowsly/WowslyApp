@@ -304,7 +304,7 @@ const makeStyles = (scale: (size: number) => number, verticalScale: (size: numbe
         alignItems: 'center',
         flexDirection: 'row',
         justifyContent: 'space-between',
-        paddingHorizontal: scale(20),
+        paddingHorizontal: moderateScale(20),
         backgroundColor: 'white',
         elevation: 2,
     },
@@ -314,37 +314,37 @@ const makeStyles = (scale: (size: number) => number, verticalScale: (size: numbe
         color: 'black',
     },
     listContent: {
-        padding: scale(16),
+        padding: moderateScale(16),
     },
     ticketCard: {
-        borderRadius: scale(12),
+        borderRadius: moderateScale(12),
         backgroundColor: 'white',
         marginBottom: verticalScale(12),
         elevation: 2,
         shadowColor: '#000',
         shadowOpacity: 0.1,
-        shadowRadius: scale(4),
+        shadowRadius: moderateScale(4),
         shadowOffset: { width: 0, height: verticalScale(2) },
         overflow: 'hidden',
     },
     cardHeader: {
         flexDirection: 'row',
         alignItems: 'center',
-        padding: scale(16),
+        padding: moderateScale(16),
         backgroundColor: 'white',
     },
     iconContainer: {
-        width: scale(44),
-        height: scale(44),
-        borderRadius: scale(22),
+        width: moderateScale(44),
+        height: moderateScale(44),
+        borderRadius: moderateScale(22),
         backgroundColor: '#FFF0E0',
         justifyContent: 'center',
         alignItems: 'center',
-        marginRight: scale(14),
+        marginRight: moderateScale(14),
     },
     ticketIcon: {
-        width: scale(22),
-        height: scale(22),
+        width: moderateScale(22),
+        height: moderateScale(22),
         tintColor: '#FF8A3C',
     },
     headerInfo: {
@@ -361,16 +361,16 @@ const makeStyles = (scale: (size: number) => number, verticalScale: (size: numbe
         marginTop: verticalScale(2),
     },
     arrowContainer: {
-        padding: scale(4),
+        padding: moderateScale(4),
     },
     arrowIcon: {
-        width: scale(16),
-        height: scale(16),
+        width: moderateScale(16),
+        height: moderateScale(16),
         tintColor: '#999',
     },
     expandedContent: {
         backgroundColor: '#FAFAFA',
-        padding: scale(12),
+        padding: moderateScale(12),
         borderTopWidth: 1,
         borderTopColor: '#F0F0F0',
     },
@@ -378,10 +378,10 @@ const makeStyles = (scale: (size: number) => number, verticalScale: (size: numbe
         flexDirection: 'row',
         flexWrap: 'wrap',
         justifyContent: 'space-between',
-        gap: scale(12),
+        gap: moderateScale(12),
     },
     emptyState: {
-        padding: scale(20),
+        padding: moderateScale(20),
         alignItems: 'center',
         justifyContent: 'center',
         width: '100%',
@@ -395,17 +395,17 @@ const makeStyles = (scale: (size: number) => number, verticalScale: (size: numbe
     // REDESIGNED Compact Card Styles
     gridCard: {
         backgroundColor: 'white',
-        borderRadius: scale(12),
-        padding: scale(12),
+        borderRadius: moderateScale(12),
+        padding: moderateScale(12),
         elevation: 2,
         shadowColor: '#000',
         shadowOffset: { width: 0, height: verticalScale(1) },
         shadowOpacity: 0.1,
-        shadowRadius: scale(3),
+        shadowRadius: moderateScale(3),
         width: '48%', // 2 columns with gap
         alignItems: 'center',
         justifyContent: 'space-between',
-        minHeight: verticalScale(130),
+        minHeight: verticalScale(140), // Slightly taller to accommodate name
         borderWidth: 1,
         borderColor: '#EAEAEA',
         marginBottom: verticalScale(4)
@@ -421,14 +421,14 @@ const makeStyles = (scale: (size: number) => number, verticalScale: (size: numbe
         fontWeight: '700',
         color: '#222',
         textAlign: 'center',
-        marginBottom: verticalScale(6),
-        lineHeight: verticalScale(18),
+        marginBottom: verticalScale(8),
+        lineHeight: moderateScale(22), // Increased line height to prevent cutting
     },
     ticketBadge: {
         backgroundColor: '#FFF0E0',
-        paddingHorizontal: scale(8),
+        paddingHorizontal: moderateScale(8),
         paddingVertical: verticalScale(3),
-        borderRadius: scale(8),
+        borderRadius: moderateScale(8),
         marginBottom: verticalScale(6),
         borderWidth: 1,
         borderColor: '#FFD2B3',
@@ -439,7 +439,7 @@ const makeStyles = (scale: (size: number) => number, verticalScale: (size: numbe
         fontWeight: '700',
     },
     gridCheckInTime: {
-        fontSize: moderateScale(FontSize.xs), // 10 -> xs(12) might be too big? 10 is very small. Let's use xs-2? fontSizes doesn't have xxs. Let's use xs (12) or 10 literally if it needs to be tiny. The instruction update says "Systematically apply `moderateScale(FontSize.X)`". If I use 10, I break consistency. I'll use xs (12).
+        fontSize: moderateScale(FontSize.xs),
         color: '#999',
         marginTop: verticalScale(2),
     },
@@ -448,7 +448,7 @@ const makeStyles = (scale: (size: number) => number, verticalScale: (size: numbe
         width: '100%',
         paddingVertical: verticalScale(6),
         backgroundColor: '#fff',
-        borderRadius: scale(6),
+        borderRadius: moderateScale(6),
         alignItems: 'center',
         borderWidth: 1,
         borderColor: '#DDD',
@@ -462,27 +462,27 @@ const makeStyles = (scale: (size: number) => number, verticalScale: (size: numbe
     // Modal Styles
     modalOverlay: {
         flex: 1,
-        backgroundColor: 'rgba(0,0,0,0.5)',
+        backgroundColor: 'rgba(0,0,0,0.8)', // Darker background to hide underlying content
         justifyContent: 'flex-end',
     },
     modalContainer: {
         width: '100%',
         maxHeight: '50%',
         backgroundColor: 'white',
-        borderTopLeftRadius: scale(20),
-        borderTopRightRadius: scale(20),
+        borderTopLeftRadius: moderateScale(20),
+        borderTopRightRadius: moderateScale(20),
         elevation: 5,
         shadowColor: '#000',
         shadowOffset: { width: 0, height: verticalScale(-2) },
         shadowOpacity: 0.2,
-        shadowRadius: scale(10),
+        shadowRadius: moderateScale(10),
         overflow: 'hidden',
     },
     modalHeader: {
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
-        paddingHorizontal: scale(20),
+        paddingHorizontal: moderateScale(20),
         paddingVertical: verticalScale(10),
         borderBottomWidth: 1,
         borderBottomColor: '#F0F0F0',
@@ -493,14 +493,14 @@ const makeStyles = (scale: (size: number) => number, verticalScale: (size: numbe
         color: '#222',
     },
     closeButton: {
-        padding: scale(5),
+        padding: moderateScale(5),
     },
     closeButtonText: {
         fontSize: moderateScale(FontSize.lg), // 18 -> lg (18)
         color: '#999',
     },
     modalBody: {
-        padding: scale(20),
+        padding: moderateScale(20),
         paddingBottom: verticalScale(30),
     },
     modalRow: {
@@ -530,13 +530,13 @@ const makeStyles = (scale: (size: number) => number, verticalScale: (size: numbe
     },
     // Footer restored
     modalFooter: {
-        padding: scale(16),
+        padding: moderateScale(16),
         borderTopWidth: 1,
         borderTopColor: '#F0F0F0',
     },
     modalCloseBtn: {
         backgroundColor: '#FF8A3C',
-        borderRadius: scale(12),
+        borderRadius: moderateScale(12),
         paddingVertical: verticalScale(12), // Slightly reduced padding
         alignItems: 'center',
     },
