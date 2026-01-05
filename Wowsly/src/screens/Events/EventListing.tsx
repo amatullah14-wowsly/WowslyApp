@@ -250,17 +250,6 @@ const EventListing = () => {
     );
   }, [selectedEventId, navigation, activeTab, isFoldable]);
 
-  // 🔄 Loading UI
-  if (loading) {
-    return (
-      <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
-        <Text style={{ fontSize: moderateScale(18), fontWeight: "600" }}>
-          Loading events...
-        </Text>
-      </View>
-    );
-  }
-
   const renderEmptyComponent = () => (
     <View style={styles.emptyContainer}>
       <Image

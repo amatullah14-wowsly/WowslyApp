@@ -73,7 +73,7 @@ const OfflineCard: React.FC<OfflineCardProps> = ({
   );
 };
 
-export default OfflineCard;
+export default React.memo(OfflineCard);
 
 const styles = StyleSheet.create({
   card: {

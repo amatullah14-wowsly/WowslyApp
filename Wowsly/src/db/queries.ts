@@ -18,8 +18,8 @@ export async function saveTickets(tickets: any[]) {
         (event_id, guest_id, ticket_id, guest_name, email, phone, qr_code, status, synced)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1)
       `;
-      for (let t of tickets) {
-        await tx.executeSql(insertQuery, [
+      const promises = tickets.map(t =>
+        tx.executeSql(insertQuery, [
           t.event_id,
           t.guest_id,
           t.ticket_id,
@@ -28,8 +28,9 @@ export async function saveTickets(tickets: any[]) {
           t.phone || t.mobile || t.phone_number || null,
           t.qr_code || t.code || null,
           t.status || 'pending'
-        ]);
-      }
+        ])
+      );
+      await Promise.all(promises);
     });
   } catch (e) {
     console.log("SAVE TICKETS ERROR:", e);
@@ -86,7 +87,3 @@ export async function markTicketsAsSynced(uuidList: string[]) {
   await db.executeSql(query, uuidList);
 }
 
-function formatToSQLDatetime(iso: string) {
-  const d = new Date(iso);
-  return d.toISOString().slice(0, 19).replace("T", " ");
-}

@@ -138,7 +138,7 @@ const TicketsSoldRecords = () => {
         SystemNavigationBar.stickyImmersive(); // Re-enforce on close
     };
 
-    const UserCard = ({ item }: { item: SoldUser }) => (
+    const UserCard = React.useCallback(({ item }: { item: SoldUser }) => (
         <View style={styles.gridCard}>
             <View style={styles.cardHeaderCenter}>
                 <Text style={styles.gridGuestName} numberOfLines={2}>{item.name}</Text>
@@ -159,9 +159,9 @@ const TicketsSoldRecords = () => {
                 <Text style={styles.viewDetailsText}>View Details</Text>
             </TouchableOpacity>
         </View>
-    );
+    ), [handleViewDetails, styles]);
 
-    const renderTicketItem = ({ item }: { item: TicketType }) => {
+    const memoizedRenderTicketItem = React.useCallback(({ item }: { item: TicketType }) => {
         const expanded = expandedTicketId === item.id;
         const soldCount = Number(item.sold_out || 0);
         const users = soldDataCache[item.id] || [];
@@ -213,7 +213,7 @@ const TicketsSoldRecords = () => {
                 )}
             </View>
         );
-    };
+    }, [expandedTicketId, soldDataCache, loadingUsers, toggleExpand, UserCard, styles, scale]);
 
     return (
         <SafeAreaView style={styles.container}>
@@ -226,8 +226,12 @@ const TicketsSoldRecords = () => {
             <FlatList
                 data={tickets}
                 keyExtractor={(item) => item.id.toString()}
-                renderItem={renderTicketItem}
+                renderItem={memoizedRenderTicketItem}
                 contentContainerStyle={styles.listContent}
+                initialNumToRender={10}
+                maxToRenderPerBatch={10}
+                windowSize={5}
+                removeClippedSubviews={true}
             />
 
             {/* Details Modal */}

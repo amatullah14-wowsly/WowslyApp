@@ -278,26 +278,28 @@ const Past = () => {
           </Text>
         </View>
       ) : (
-        <FlatList
-          data={paginatedEvents}
-          keyExtractor={(item: any) => item.id.toString()}
-          renderItem={renderCard}
-          extraData={selectedEventId}
-          contentContainerStyle={[styles.listContent, paginatedEvents.length === 0 && { flexGrow: 1 }]}
-          ListEmptyComponent={renderEmptyComponent}
-          style={{ marginTop: verticalScale(15) }}
-          showsVerticalScrollIndicator={false}
-          refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#FF8A3C']} />
-          }
-        />
-      )}
+        <>
+          <FlatList
+            data={paginatedEvents}
+            keyExtractor={(item: any) => item.id.toString()}
+            renderItem={renderCard}
+            extraData={selectedEventId}
+            contentContainerStyle={[styles.listContent, paginatedEvents.length === 0 && { flexGrow: 1 }]}
+            ListEmptyComponent={renderEmptyComponent}
+            style={{ marginTop: verticalScale(15) }}
+            showsVerticalScrollIndicator={false}
+            refreshControl={
+              <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#FF8A3C']} />
+            }
+          />
 
-      <Pagination
-        currentPage={page}
-        totalPages={totalPages}
-        onPageChange={setPage}
-      />
+          <Pagination
+            currentPage={page}
+            totalPages={totalPages}
+            onPageChange={setPage}
+          />
+        </>
+      )}
     </View>
   );
 

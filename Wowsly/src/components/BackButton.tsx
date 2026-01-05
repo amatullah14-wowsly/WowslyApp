@@ -47,4 +47,4 @@ const styles = StyleSheet.create({
     },
 });
 
-export default BackButton;
+export default React.memo(BackButton);

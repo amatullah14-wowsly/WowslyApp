@@ -1,5 +1,8 @@
 import { Text, View } from 'react-native'
 import React, { Component, useEffect } from 'react'
+import { enableScreens } from 'react-native-screens';
+enableScreens();
+
 import { NavigationContainer } from '@react-navigation/native';
 import StackNavigation from './src/navigation/StackNavigation';
 import SystemNavigationBar from 'react-native-system-navigation-bar';

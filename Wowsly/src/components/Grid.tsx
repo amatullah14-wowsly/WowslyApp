@@ -47,7 +47,7 @@ const Grid = ({ icon, title, value, onPress, showArrow = true, disabled = false 
   );
 };
 
-export default Grid;
+export default React.memo(Grid);
 
 const makeStyles = (scale: (size: number) => number, verticalScale: (size: number) => number, moderateScale: (size: number, factor?: number) => number) => StyleSheet.create({
   card: {

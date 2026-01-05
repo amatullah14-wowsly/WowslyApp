@@ -144,7 +144,7 @@ const CheckInRecords = () => {
         }
     };
 
-    const renderItem = ({ item }: { item: TicketStat }) => {
+    const memoizedRenderItem = React.useCallback(({ item }: { item: TicketStat }) => {
         const checkedIn = Number(item.total_check_in || 0);
         const total = Number(item.total_purchase_ticket || 0);
         const facilities = item.total_facilities_check_in?.facilities || [];
@@ -213,7 +213,7 @@ const CheckInRecords = () => {
                 )}
             </View>
         );
-    };
+    }, [styles, eventId, navigation]);
 
     return (
         <View style={styles.container}>
@@ -229,11 +229,15 @@ const CheckInRecords = () => {
                 </View>
             ) : (
                 <FlatList
-                    key={'check-in-list-simple'} // Changed key to force fresh render for single column
+                    key={'check-in-list-simple'}
                     data={checkInStats}
                     keyExtractor={(item, index) => `${item.ticket_id}-${index}`}
-                    renderItem={renderItem}
+                    renderItem={memoizedRenderItem}
                     contentContainerStyle={styles.listContent}
+                    initialNumToRender={10}
+                    maxToRenderPerBatch={10}
+                    windowSize={5}
+                    removeClippedSubviews={true}
                     ListEmptyComponent={
                         <View style={styles.emptyContainer}>
                             <Text style={styles.emptyText}>No check-in records found.</Text>

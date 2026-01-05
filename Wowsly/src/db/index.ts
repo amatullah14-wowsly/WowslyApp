@@ -135,67 +135,79 @@ export async function insertOrReplaceGuests(eventId: number, guestsArray: any[])
 
   const db = await openDB();
 
-  for (const g of guestsArray) {
-    const qr = (g.qr_code || g.code || g.uuid || g.guest_uuid || '').toString().trim();
-    const guestName = g.name || `${g.first_name || ''} ${g.last_name || ''}`.trim();
+  await db.transaction(async (tx: any) => {
+    const promises = [];
 
-    const ticketId = g.ticket_id || g.id || null;
-    const guestId = g.guest_id || g.user_id || null;
-    const status = g.status || 'pending';
-    const ticketTitle = g.ticket_title || g.ticket_name || g.ticket_type || 'General';
+    for (const g of guestsArray) {
+      const qr = (g.qr_code || g.code || g.uuid || g.guest_uuid || '').toString().trim();
+      const guestName = g.name || `${g.first_name || ''} ${g.last_name || ''}`.trim();
 
-    const totalEntries =
-      g.ticket_data?.tickets_bought ||
-      g.tickets_bought ||
-      g.total_entries ||
-      g.total_pax ||
-      g.quantity ||
-      1;
+      const ticketId = g.ticket_id || g.id || null;
+      const guestId = g.guest_id || g.user_id || null;
+      const status = g.status || 'pending';
+      const ticketTitle = g.ticket_title || g.ticket_name || g.ticket_type || 'General';
 
-    let usedEntries = g.used_entries || g.checked_in_count || 0;
+      const totalEntries =
+        g.ticket_data?.tickets_bought ||
+        g.tickets_bought ||
+        g.total_entries ||
+        g.total_pax ||
+        g.quantity ||
+        1;
 
-    // ⚡⚡⚡ SYNC FIX: If status is checked_in, ensure we mark as used ⚡⚡⚡
-    if (status === 'checked_in' && usedEntries === 0) {
-      usedEntries = 1;
+      let usedEntries = g.used_entries || g.checked_in_count || 0;
+
+      // ⚡⚡⚡ SYNC FIX: If status is checked_in, ensure we mark as used ⚡⚡⚡
+      if (status === 'checked_in' && usedEntries === 0) {
+        usedEntries = 1;
+      }
+
+      const facilities = g.facilities ? JSON.stringify(g.facilities) : null;
+
+      // ⚠️ CRITICAL: Store backend sync required fields
+      const qrGuestUuid = g.guest_uuid || g.uuid || null;
+      const qrTicketId = ticketId;
+
+      // INSERT FACILITIES 
+      if (g.facilities && Array.isArray(g.facilities)) {
+        // Facilities also need to be transaction safe but insertFacilities uses db.executeSql direct.
+        // Ideally we refactor insertFacilities to take a transaction, but that's complex.
+        // For now, we keep facilities as separate awaits or try to inline.
+        // Given complexity, let's keep facilities async but parallelize guest insertion.
+        // We will just await facilities here, it's safer.
+        await insertFacilities(eventId, qrGuestUuid, g.facilities);
+      }
+
+      promises.push(
+        tx.executeSql(
+          `INSERT OR REPLACE INTO tickets 
+            (event_id, ticket_id, guest_id, qr_code, guest_name, email, phone, 
+             status, synced, total_entries, used_entries, facilities, ticket_title,
+             qrGuestUuid, qrTicketId, registration_time, registered_by)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?, ?, ?, ?, ?, ?);`,
+          [
+            eventId,
+            ticketId,
+            guestId,
+            qr,
+            guestName,
+            g.email || null,
+            g.phone || g.mobile || g.phone_number || null,
+            status,
+            totalEntries,
+            usedEntries,
+            facilities,
+            ticketTitle,
+            qrGuestUuid,
+            qrTicketId,
+            g.registration_time || g.created_at || null,
+            g.registered_by || 'Self'
+          ]
+        )
+      );
     }
-
-    const facilities = g.facilities ? JSON.stringify(g.facilities) : null;
-
-    // ⚠️ CRITICAL: Store backend sync required fields
-    const qrGuestUuid = g.guest_uuid || g.uuid || null;
-    const qrTicketId = ticketId;
-
-    // INSERT FACILITIES 
-    if (g.facilities && Array.isArray(g.facilities)) {
-      await insertFacilities(eventId, qrGuestUuid, g.facilities);
-    }
-
-    await db.executeSql(
-      `INSERT OR REPLACE INTO tickets 
-        (event_id, ticket_id, guest_id, qr_code, guest_name, email, phone, 
-         status, synced, total_entries, used_entries, facilities, ticket_title,
-         qrGuestUuid, qrTicketId, registration_time, registered_by)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?, ?, ?, ?, ?, ?);`,
-      [
-        eventId,
-        ticketId,
-        guestId,
-        qr,
-        guestName,
-        g.email || null,
-        g.phone || g.mobile || g.phone_number || null,
-        status,
-        totalEntries,
-        usedEntries,
-        facilities,
-        ticketTitle,
-        qrGuestUuid,
-        qrTicketId,
-        g.registration_time || g.created_at || null,
-        g.registered_by || 'Self'
-      ]
-    );
-  }
+    await Promise.all(promises);
+  });
 }
 
 // ======================================================
