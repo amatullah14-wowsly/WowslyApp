@@ -377,21 +377,19 @@ export const EventDashboardContent = ({ eventData, userRole, eventId, isSplitVie
                 <Text style={styles.start}>Start Check-In</Text>
             </TouchableOpacity>
 
-            {userRole === 'manager' && (
-                <TouchableOpacity
-                    style={[
-                        styles.button,
-                        styles.secondaryButton,
-                        isFoldable && !isSplitView && { width: '48%' },
-                        isSplitView && { width: '100%', marginTop: verticalScale(12), borderRadius: moderateScale(12) }
-                    ]}
-                    onPress={() => navigation.navigate("GuestRegistration", { eventId: displayData.id })}
-                >
-                    <Image source={require('../../assets/img/eventdashboard/registration.png')}
-                        style={[styles.scanicon, { tintColor: '#FF8A3C' }]} />
-                    <Text style={[styles.start, { color: '#FF8A3C' }]}>Register a Guest</Text>
-                </TouchableOpacity>
-            )}
+            <TouchableOpacity
+                style={[
+                    styles.button,
+                    styles.secondaryButton,
+                    isFoldable && !isSplitView && { width: '48%' },
+                    isSplitView && { width: '100%', marginTop: verticalScale(12), borderRadius: moderateScale(12) }
+                ]}
+                onPress={() => navigation.navigate("GuestRegistration", { eventId: displayData.id })}
+            >
+                <Image source={require('../../assets/img/eventdashboard/registration.png')}
+                    style={[styles.scanicon, { tintColor: '#FF8A3C' }]} />
+                <Text style={[styles.start, { color: '#FF8A3C' }]}>Register a Guest</Text>
+            </TouchableOpacity>
 
             {(userRole !== 'manager') && (
                 <>
