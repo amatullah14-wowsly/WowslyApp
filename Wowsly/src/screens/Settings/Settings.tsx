@@ -5,6 +5,8 @@ import BackButton from '../../components/BackButton';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { generateEventToken, updateEventSettings } from '../../api/event';
 import EditEventModal from '../Events/Modals/EditEventModal';
+import Clipboard from '@react-native-clipboard/clipboard';
+import Toast from 'react-native-toast-message';
 
 import { useScale } from '../../utils/useScale';
 import { FontSize } from '../../constants/fontSizes';
@@ -297,6 +299,18 @@ const Settings = () => {
         }
     };
 
+    const handleCopyToken = () => {
+        if (!apiToken || apiToken === 'Your API Token') return;
+        Clipboard.setString(apiToken);
+        Toast.show({
+            type: 'success',
+            text1: 'Copied to Clipboard',
+            text2: 'API Token has been copied successfully.',
+            position: 'bottom',
+            visibilityTime: 2000,
+        });
+    };
+
     return (
         <SafeAreaView style={styles.container}>
 
@@ -563,7 +577,11 @@ const Settings = () => {
                 <View style={styles.apiSection}>
                     <View style={styles.tokenBox}>
                         <Text style={styles.tokenText} numberOfLines={1}>{apiToken}</Text>
-                        <TouchableOpacity activeOpacity={0.7} style={styles.copyButton}>
+                        <TouchableOpacity
+                            activeOpacity={0.7}
+                            style={styles.copyButton}
+                            onPress={handleCopyToken}
+                        >
                             <Image
                                 source={require('../../assets/img/common/copy.png')}
                                 style={styles.copyIcon}
