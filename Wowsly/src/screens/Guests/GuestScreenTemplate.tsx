@@ -30,6 +30,8 @@ import BackButton from '../../components/BackButton';
 import Pagination from '../../components/Pagination';
 import { useScale } from '../../utils/useScale';
 import { FontSize } from '../../constants/fontSizes';
+import { useTabletScale, useTabletModerateScale } from '../../utils/tabletScaling';
+import { ResponsiveContainer } from '../../components/ResponsiveContainer';
 
 export type GuestFilter = 'All' | GuestGroup;
 
@@ -194,6 +196,7 @@ const GuestScreenTemplate: React.FC<GuestScreenTemplateProps> = ({
   const navigation = useNavigation();
 
   const { width } = useWindowDimensions();
+  const isTablet = width >= 720;
   const { scale, verticalScale, moderateScale } = useScale();
   const styles = useMemo(() => makeStyles(scale, verticalScale, moderateScale), [scale, verticalScale, moderateScale]);
 
@@ -495,154 +498,156 @@ const GuestScreenTemplate: React.FC<GuestScreenTemplateProps> = ({
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <StatusBar barStyle="dark-content" backgroundColor="#ffffff" />
-      <View style={styles.header}>
-        <BackButton onPress={() => navigation.canGoBack() && navigation.goBack()} />
-        <Text style={styles.headerTitle}>Guest List</Text>
-        <View style={headerSpacerStyle} />
-      </View>
+      <ResponsiveContainer maxWidth={isTablet ? 900 : 420}>
+        <StatusBar barStyle="dark-content" backgroundColor="#ffffff" />
+        <View style={styles.header}>
+          <BackButton onPress={() => navigation.canGoBack() && navigation.goBack()} />
+          <Text style={styles.headerTitle}>Guest List</Text>
+          <View style={headerSpacerStyle} />
+        </View>
 
-      <View style={styles.tabRow}>
-        {tabs.map((tab) => {
-          const isActive = tab === activeFilter;
-          return (
-            <TouchableOpacity
-              key={tab}
-              activeOpacity={0.8}
-              style={styles.tabButton}
-              onPress={() => setActiveFilter(tab)}
-            >
-              <Text
-                style={[
-                  styles.tabLabel,
-                  isActive && styles.tabLabelActive,
-                ]}
+        <View style={styles.tabRow}>
+          {tabs.map((tab) => {
+            const isActive = tab === activeFilter;
+            return (
+              <TouchableOpacity
+                key={tab}
+                activeOpacity={0.8}
+                style={styles.tabButton}
+                onPress={() => setActiveFilter(tab)}
               >
-                {tab}
-              </Text>
-              {isActive ? <View style={styles.tabIndicator} /> : null}
-            </TouchableOpacity>
-          );
-        })}
-      </View>
-
-      <View style={styles.searchContainer}>
-        <Image source={SEARCH_ICON} style={styles.searchIcon} />
-        <TextInput
-          style={styles.searchInput}
-          placeholder="Search by name"
-          placeholderTextColor="#A1A1A1"
-          value={searchQuery}
-          onChangeText={setSearchQuery}
-        />
-      </View>
-
-      <GestureHandlerRootView style={styles.listWrapper}>
-        {loading ? (
-          <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color="#FF8A3C" />
-          </View>
-        ) : (
-          <FlatList
-            data={filteredGuests}
-            keyExtractor={(item, index) => `${item.id}-${index}`}
-            contentContainerStyle={styles.listContent}
-            ItemSeparatorComponent={() => <View style={styles.separator} />}
-            renderItem={renderItem}
-            initialNumToRender={10}
-            maxToRenderPerBatch={10}
-            windowSize={5}
-            removeClippedSubviews={true}
-            getItemLayout={getItemLayout}
-            ListEmptyComponent={
-              <View style={styles.emptyState}>
-                <Image source={NOGUESTS_ICON} style={styles.emptyIcon} />
-                <Text style={styles.emptyTitle}>No guests found</Text>
-                <Text style={styles.emptySubtitle}>
-                  Try a different name or category.
+                <Text
+                  style={[
+                    styles.tabLabel,
+                    isActive && styles.tabLabelActive,
+                  ]}
+                >
+                  {tab}
                 </Text>
-              </View>
-            }
-            ListFooterComponent={
-              filteredGuests.length > 0 && lastPage > 1 ? (
-                <Pagination
-                  currentPage={currentPage}
-                  totalPages={lastPage}
-                  onPageChange={fetchGuests}
-                />
-              ) : null
-            }
+                {isActive ? <View style={styles.tabIndicator} /> : null}
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+
+        <View style={styles.searchContainer}>
+          <Image source={SEARCH_ICON} style={styles.searchIcon} />
+          <TextInput
+            style={styles.searchInput}
+            placeholder="Search by name"
+            placeholderTextColor="#A1A1A1"
+            value={searchQuery}
+            onChangeText={setSearchQuery}
           />
-        )}
-      </GestureHandlerRootView>
+        </View>
 
-      {/* Action Modal - Reusing RegistrationDashboard Pattern (Centered) */}
-      <Modal
-        visible={actionModalVisible}
-        transparent={true}
-        animationType="fade"
-        onRequestClose={() => setActionModalVisible(false)}
-      >
-        <TouchableOpacity
-          style={styles.modalOverlay}
-          activeOpacity={1}
-          onPress={() => setActionModalVisible(false)}
+        <GestureHandlerRootView style={styles.listWrapper}>
+          {loading ? (
+            <View style={styles.loadingContainer}>
+              <ActivityIndicator size="large" color="#FF8A3C" />
+            </View>
+          ) : (
+            <FlatList
+              data={filteredGuests}
+              keyExtractor={(item, index) => `${item.id}-${index}`}
+              contentContainerStyle={styles.listContent}
+              ItemSeparatorComponent={() => <View style={styles.separator} />}
+              renderItem={renderItem}
+              initialNumToRender={10}
+              maxToRenderPerBatch={10}
+              windowSize={5}
+              removeClippedSubviews={true}
+              getItemLayout={getItemLayout}
+              ListEmptyComponent={
+                <View style={styles.emptyState}>
+                  <Image source={NOGUESTS_ICON} style={styles.emptyIcon} />
+                  <Text style={styles.emptyTitle}>No guests found</Text>
+                  <Text style={styles.emptySubtitle}>
+                    Try a different name or category.
+                  </Text>
+                </View>
+              }
+              ListFooterComponent={
+                filteredGuests.length > 0 && lastPage > 1 ? (
+                  <Pagination
+                    currentPage={currentPage}
+                    totalPages={lastPage}
+                    onPageChange={fetchGuests}
+                  />
+                ) : null
+              }
+            />
+          )}
+        </GestureHandlerRootView>
+
+        {/* Action Modal - Reusing RegistrationDashboard Pattern (Centered) */}
+        <Modal
+          visible={actionModalVisible}
+          transparent={true}
+          animationType="fade"
+          onRequestClose={() => setActionModalVisible(false)}
         >
-          <View style={styles.quickActionCard}>
-            <Text style={styles.quickActionTitle}>Action for Guest</Text>
-            {actionGuest && (
-              <Text style={styles.quickActionsubtitle}>
-                {actionGuest.name || actionGuest.first_name + ' ' + actionGuest.last_name || "Guest"}
-              </Text>
-            )}
-            <TouchableOpacity style={styles.quickActionButton} onPress={() => performAction('accepted')}>
-              <Text style={styles.quickActionText}>Accept</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.quickActionButton} onPress={() => performAction('rejected')}>
-              <Text style={styles.quickActionText}>Reject</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={[styles.quickActionButton]} onPress={() => performAction('blocked')}>
-              <Text style={[styles.quickActionText, { color: '#D32F2F' }]}>Reject & Block</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.cancelActionButton} onPress={() => setActionModalVisible(false)}>
-              <Text style={styles.cancelActionText}>Cancel</Text>
-            </TouchableOpacity>
-          </View>
-        </TouchableOpacity>
-      </Modal>
+          <TouchableOpacity
+            style={styles.modalOverlay}
+            activeOpacity={1}
+            onPress={() => setActionModalVisible(false)}
+          >
+            <View style={styles.quickActionCard}>
+              <Text style={styles.quickActionTitle}>Action for Guest</Text>
+              {actionGuest && (
+                <Text style={styles.quickActionsubtitle}>
+                  {actionGuest.name || actionGuest.first_name + ' ' + actionGuest.last_name || "Guest"}
+                </Text>
+              )}
+              <TouchableOpacity style={styles.quickActionButton} onPress={() => performAction('accepted')}>
+                <Text style={styles.quickActionText}>Accept</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.quickActionButton} onPress={() => performAction('rejected')}>
+                <Text style={styles.quickActionText}>Reject</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={[styles.quickActionButton]} onPress={() => performAction('blocked')}>
+                <Text style={[styles.quickActionText, { color: '#D32F2F' }]}>Reject & Block</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.cancelActionButton} onPress={() => setActionModalVisible(false)}>
+                <Text style={styles.cancelActionText}>Cancel</Text>
+              </TouchableOpacity>
+            </View>
+          </TouchableOpacity>
+        </Modal>
 
-      <GuestDetailsModal
-        visible={modalVisible}
-        onClose={() => {
-          setModalVisible(false);
-          setSelectedGuestId(null);
-        }}
-        eventId={eventId}
-        guestId={selectedGuestId || undefined}
-        guest={guests.find(g => (g.id || '').toString() === selectedGuestId?.toString())}
-        onMakeManager={async (guestId) => {
-          const res = await makeGuestManager(eventId || '', guestId);
-          if (res && res.data) {
-            Toast.show({ type: 'success', text1: 'Success', text2: 'User is now a Manager' });
-            setModalVisible(false); // Close Modal
+        <GuestDetailsModal
+          visible={modalVisible}
+          onClose={() => {
+            setModalVisible(false);
             setSelectedGuestId(null);
-            fetchGuests(currentPageRef.current);
-          } else {
-            Toast.show({ type: 'error', text1: 'Error', text2: res.message || 'Failed to update role' });
-          }
-        }}
-        onMakeGuest={async (guestId) => {
-          const res = await makeGuestUser(eventId || '', guestId);
-          if (res && res.data) {
-            Toast.show({ type: 'success', text1: 'Success', text2: 'User is now a Guest' });
-            setModalVisible(false); // Close Modal
-            setSelectedGuestId(null);
-            fetchGuests(currentPageRef.current);
-          } else {
-            Toast.show({ type: 'error', text1: 'Error', text2: res.message || 'Failed to update role' });
-          }
-        }}
-      />
+          }}
+          eventId={eventId}
+          guestId={selectedGuestId || undefined}
+          guest={guests.find(g => (g.id || '').toString() === selectedGuestId?.toString())}
+          onMakeManager={async (guestId) => {
+            const res = await makeGuestManager(eventId || '', guestId);
+            if (res && res.data) {
+              Toast.show({ type: 'success', text1: 'Success', text2: 'User is now a Manager' });
+              setModalVisible(false); // Close Modal
+              setSelectedGuestId(null);
+              fetchGuests(currentPageRef.current);
+            } else {
+              Toast.show({ type: 'error', text1: 'Error', text2: res.message || 'Failed to update role' });
+            }
+          }}
+          onMakeGuest={async (guestId) => {
+            const res = await makeGuestUser(eventId || '', guestId);
+            if (res && res.data) {
+              Toast.show({ type: 'success', text1: 'Success', text2: 'User is now a Guest' });
+              setModalVisible(false); // Close Modal
+              setSelectedGuestId(null);
+              fetchGuests(currentPageRef.current);
+            } else {
+              Toast.show({ type: 'error', text1: 'Error', text2: res.message || 'Failed to update role' });
+            }
+          }}
+        />
+      </ResponsiveContainer>
     </SafeAreaView>
   );
 };

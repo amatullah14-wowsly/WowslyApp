@@ -3,6 +3,9 @@ import { Modal, View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView,
 import DatePicker from 'react-native-date-picker';
 import { useScale } from '../../../utils/useScale';
 import { FontSize } from '../../../constants/fontSizes';
+import { useTabletScale, useTabletModerateScale } from '../../../utils/tabletScaling';
+import { ResponsiveContainer } from '../../../components/ResponsiveContainer';
+import { useWindowDimensions } from 'react-native';
 
 const THEME_COLOR = '#FF8A3C';
 
@@ -14,6 +17,8 @@ interface EditEventModalProps {
 }
 
 const EditEventModal = ({ visible, onClose, onSubmit, eventData }: EditEventModalProps) => {
+    const { width } = useWindowDimensions();
+    const isTablet = width >= 720;
     const { scale, verticalScale, moderateScale } = useScale();
     const styles = makeStyles(scale, verticalScale, moderateScale);
 
@@ -121,253 +126,255 @@ const EditEventModal = ({ visible, onClose, onSubmit, eventData }: EditEventModa
             onRequestClose={onClose}
         >
             <View style={styles.modalOverlay}>
-                <View style={styles.modalContent}>
-                    <View style={styles.modalHeader}>
-                        <Text style={styles.modalTitle}>Edit Event Details</Text>
-                        <TouchableOpacity onPress={onClose} style={styles.closeButton}>
-                            <Image
-                                source={require('../../../assets/img/common/close.png')}
-                                style={styles.closeIcon}
-                            />
-                        </TouchableOpacity>
-                    </View>
-
-                    <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
-
-                        {/* Title */}
-                        <View style={styles.inputGroup}>
-                            <Text style={styles.label}>Event Title</Text>
-                            <TextInput
-                                style={styles.input}
-                                value={title}
-                                onChangeText={setTitle}
-                                placeholder="Enter event title"
-                                placeholderTextColor="#999"
-                            />
-                        </View>
-
-                        {/* Start Date */}
-                        <View style={styles.inputGroup}>
-                            <Text style={styles.label}>Start Date & Time</Text>
-                            <TouchableOpacity
-                                style={styles.dateInput}
-                                onPress={() => setOpenStartDate(true)}
-                            >
-                                <Text style={styles.dateText}>
-                                    {startDate.toLocaleString()}
-                                </Text>
-
+                <ResponsiveContainer maxWidth={isTablet ? 600 : 420}>
+                    <View style={styles.modalContent}>
+                        <View style={styles.modalHeader}>
+                            <Text style={styles.modalTitle}>Edit Event Details</Text>
+                            <TouchableOpacity onPress={onClose} style={styles.closeButton}>
+                                <Image
+                                    source={require('../../../assets/img/common/close.png')}
+                                    style={styles.closeIcon}
+                                />
                             </TouchableOpacity>
-                            <DatePicker
-                                modal
-                                open={openStartDate}
-                                date={startDate}
-                                onConfirm={(date) => {
-                                    setOpenStartDate(false);
-                                    setStartDate(date);
-                                }}
-                                onCancel={() => {
-                                    setOpenStartDate(false);
-                                }}
-                            />
                         </View>
 
-                        {/* End Date */}
-                        <View style={styles.inputGroup}>
-                            <Text style={styles.label}>End Date & Time</Text>
-                            <TouchableOpacity
-                                style={styles.dateInput}
-                                onPress={() => setOpenEndDate(true)}
-                            >
-                                <Text style={styles.dateText}>
-                                    {endDate.toLocaleString()}
-                                </Text>
+                        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
 
-                            </TouchableOpacity>
-                            <DatePicker
-                                modal
-                                open={openEndDate}
-                                date={endDate}
-                                onConfirm={(date) => {
-                                    setOpenEndDate(false);
-                                    setEndDate(date);
-                                }}
-                                onCancel={() => {
-                                    setOpenEndDate(false);
-                                }}
-                            />
-                        </View>
-
-
-                        {/* Timezone */}
-                        <View style={styles.inputGroup}>
-                            <Text style={styles.label}>Timezone</Text>
-                            <TextInput
-                                style={styles.input}
-                                value={timezone}
-                                onChangeText={setTimezone}
-                                placeholder="e.g. Asia/Kolkata"
-                                placeholderTextColor="#999"
-                            />
-                        </View>
-
-                        {/* Event Location (Offline/Online) */}
-                        <View style={styles.inputGroup}>
-                            <Text style={styles.label}>Event Location</Text>
-                            <View style={styles.radioGroup}>
-                                <TouchableOpacity
-                                    style={[
-                                        styles.radioOption,
-                                        !isOnline && styles.radioOptionSelected
-                                    ]}
-                                    onPress={() => setIsOnline(false)}
-                                    activeOpacity={0.8}
-                                >
-                                    <View style={[
-                                        styles.radioCircle,
-                                        !isOnline && styles.radioCircleSelected
-                                    ]}>
-                                        {!isOnline && <View style={styles.radioDot} />}
-                                    </View>
-                                    <Text style={styles.radioLabel}>Offline</Text>
-                                </TouchableOpacity>
-
-                                <TouchableOpacity
-                                    style={[
-                                        styles.radioOption,
-                                        isOnline && styles.radioOptionSelected
-                                    ]}
-                                    onPress={() => setIsOnline(true)}
-                                    activeOpacity={0.8}
-                                >
-                                    <View style={[
-                                        styles.radioCircle,
-                                        isOnline && styles.radioCircleSelected
-                                    ]}>
-                                        {isOnline && <View style={styles.radioDot} />}
-                                    </View>
-                                    <Text style={styles.radioLabel}>Online</Text>
-                                </TouchableOpacity>
+                            {/* Title */}
+                            <View style={styles.inputGroup}>
+                                <Text style={styles.label}>Event Title</Text>
+                                <TextInput
+                                    style={styles.input}
+                                    value={title}
+                                    onChangeText={setTitle}
+                                    placeholder="Enter event title"
+                                    placeholderTextColor="#999"
+                                />
                             </View>
-                        </View>
 
-                        {/* Multiple Venues Toggle */}
-                        <View style={[styles.inputGroup, styles.toggleContainer]}>
-                            <Text style={[styles.label, { marginBottom: 0 }]}>Event happening on multiple venues</Text>
-                            <Switch
-                                trackColor={{ false: "#767577", true: THEME_COLOR }}
-                                thumbColor={multipleVenues ? "white" : "#f4f3f4"}
-                                ios_backgroundColor="#3e3e3e"
-                                onValueChange={setMultipleVenues}
-                                value={multipleVenues}
-                                style={{ transform: [{ scaleX: 0.8 }, { scaleY: 0.8 }] }}
-                            />
-                        </View>
+                            {/* Start Date */}
+                            <View style={styles.inputGroup}>
+                                <Text style={styles.label}>Start Date & Time</Text>
+                                <TouchableOpacity
+                                    style={styles.dateInput}
+                                    onPress={() => setOpenStartDate(true)}
+                                >
+                                    <Text style={styles.dateText}>
+                                        {startDate.toLocaleString()}
+                                    </Text>
 
-                        {/* Conditional Rendering for Address Fields */}
-                        {!multipleVenues && (
-                            <>
-                                {/* Address */}
-                                <View style={styles.inputGroup}>
-                                    <Text style={styles.label}>Event Address</Text>
-                                    <TextInput
-                                        style={[styles.input, styles.textArea]}
-                                        value={address}
-                                        onChangeText={setAddress}
-                                        placeholder="Enter full address"
-                                        placeholderTextColor="#999"
-                                        multiline
-                                        numberOfLines={3}
-                                    />
+                                </TouchableOpacity>
+                                <DatePicker
+                                    modal
+                                    open={openStartDate}
+                                    date={startDate}
+                                    onConfirm={(date) => {
+                                        setOpenStartDate(false);
+                                        setStartDate(date);
+                                    }}
+                                    onCancel={() => {
+                                        setOpenStartDate(false);
+                                    }}
+                                />
+                            </View>
+
+                            {/* End Date */}
+                            <View style={styles.inputGroup}>
+                                <Text style={styles.label}>End Date & Time</Text>
+                                <TouchableOpacity
+                                    style={styles.dateInput}
+                                    onPress={() => setOpenEndDate(true)}
+                                >
+                                    <Text style={styles.dateText}>
+                                        {endDate.toLocaleString()}
+                                    </Text>
+
+                                </TouchableOpacity>
+                                <DatePicker
+                                    modal
+                                    open={openEndDate}
+                                    date={endDate}
+                                    onConfirm={(date) => {
+                                        setOpenEndDate(false);
+                                        setEndDate(date);
+                                    }}
+                                    onCancel={() => {
+                                        setOpenEndDate(false);
+                                    }}
+                                />
+                            </View>
+
+
+                            {/* Timezone */}
+                            <View style={styles.inputGroup}>
+                                <Text style={styles.label}>Timezone</Text>
+                                <TextInput
+                                    style={styles.input}
+                                    value={timezone}
+                                    onChangeText={setTimezone}
+                                    placeholder="e.g. Asia/Kolkata"
+                                    placeholderTextColor="#999"
+                                />
+                            </View>
+
+                            {/* Event Location (Offline/Online) */}
+                            <View style={styles.inputGroup}>
+                                <Text style={styles.label}>Event Location</Text>
+                                <View style={styles.radioGroup}>
+                                    <TouchableOpacity
+                                        style={[
+                                            styles.radioOption,
+                                            !isOnline && styles.radioOptionSelected
+                                        ]}
+                                        onPress={() => setIsOnline(false)}
+                                        activeOpacity={0.8}
+                                    >
+                                        <View style={[
+                                            styles.radioCircle,
+                                            !isOnline && styles.radioCircleSelected
+                                        ]}>
+                                            {!isOnline && <View style={styles.radioDot} />}
+                                        </View>
+                                        <Text style={styles.radioLabel}>Offline</Text>
+                                    </TouchableOpacity>
+
+                                    <TouchableOpacity
+                                        style={[
+                                            styles.radioOption,
+                                            isOnline && styles.radioOptionSelected
+                                        ]}
+                                        onPress={() => setIsOnline(true)}
+                                        activeOpacity={0.8}
+                                    >
+                                        <View style={[
+                                            styles.radioCircle,
+                                            isOnline && styles.radioCircleSelected
+                                        ]}>
+                                            {isOnline && <View style={styles.radioDot} />}
+                                        </View>
+                                        <Text style={styles.radioLabel}>Online</Text>
+                                    </TouchableOpacity>
                                 </View>
+                            </View>
 
-                                {/* City & Zip Code Row */}
-                                <View style={styles.row}>
-                                    <View style={[styles.inputGroup, { flex: 1, marginRight: scale(10) }]}>
-                                        <Text style={styles.label}>City</Text>
+                            {/* Multiple Venues Toggle */}
+                            <View style={[styles.inputGroup, styles.toggleContainer]}>
+                                <Text style={[styles.label, { marginBottom: 0 }]}>Event happening on multiple venues</Text>
+                                <Switch
+                                    trackColor={{ false: "#767577", true: THEME_COLOR }}
+                                    thumbColor={multipleVenues ? "white" : "#f4f3f4"}
+                                    ios_backgroundColor="#3e3e3e"
+                                    onValueChange={setMultipleVenues}
+                                    value={multipleVenues}
+                                    style={{ transform: [{ scaleX: 0.8 }, { scaleY: 0.8 }] }}
+                                />
+                            </View>
+
+                            {/* Conditional Rendering for Address Fields */}
+                            {!multipleVenues && (
+                                <>
+                                    {/* Address */}
+                                    <View style={styles.inputGroup}>
+                                        <Text style={styles.label}>Event Address</Text>
+                                        <TextInput
+                                            style={[styles.input, styles.textArea]}
+                                            value={address}
+                                            onChangeText={setAddress}
+                                            placeholder="Enter full address"
+                                            placeholderTextColor="#999"
+                                            multiline
+                                            numberOfLines={3}
+                                        />
+                                    </View>
+
+                                    {/* City & Zip Code Row */}
+                                    <View style={styles.row}>
+                                        <View style={[styles.inputGroup, { flex: 1, marginRight: scale(10) }]}>
+                                            <Text style={styles.label}>City</Text>
+                                            <TextInput
+                                                style={styles.input}
+                                                value={location}
+                                                onChangeText={setLocation}
+                                                placeholder="City"
+                                                placeholderTextColor="#999"
+                                            />
+                                        </View>
+                                        <View style={[styles.inputGroup, { flex: 1 }]}>
+                                            <Text style={styles.label}>Zip code</Text>
+                                            <TextInput
+                                                style={styles.input}
+                                                value={zip}
+                                                onChangeText={setZip}
+                                                placeholder="Zip code"
+                                                placeholderTextColor="#999"
+                                                keyboardType="numeric"
+                                            />
+                                        </View>
+                                    </View>
+
+                                    {/* State & Country Row */}
+                                    <View style={styles.row}>
+                                        <View style={[styles.inputGroup, { flex: 1, marginRight: scale(10) }]}>
+                                            <Text style={styles.label}>State</Text>
+                                            <TextInput
+                                                style={styles.input}
+                                                value={state}
+                                                onChangeText={setState}
+                                                placeholder="State"
+                                                placeholderTextColor="#999"
+                                            />
+                                        </View>
+                                        <View style={[styles.inputGroup, { flex: 1 }]}>
+                                            <Text style={styles.label}>Country</Text>
+                                            <TextInput
+                                                style={styles.input}
+                                                value={country}
+                                                onChangeText={setCountry}
+                                                placeholder="Country"
+                                                placeholderTextColor="#999"
+                                            />
+                                        </View>
+                                    </View>
+
+                                    {/* Google Map Link */}
+                                    <View style={styles.inputGroup}>
+                                        <Text style={styles.label}>Google Map Link</Text>
                                         <TextInput
                                             style={styles.input}
-                                            value={location}
-                                            onChangeText={setLocation}
-                                            placeholder="City"
+                                            value={googleMapLink}
+                                            onChangeText={setGoogleMapLink}
+                                            placeholder="Paste Google Map Link"
                                             placeholderTextColor="#999"
                                         />
                                     </View>
-                                    <View style={[styles.inputGroup, { flex: 1 }]}>
-                                        <Text style={styles.label}>Zip code</Text>
-                                        <TextInput
-                                            style={styles.input}
-                                            value={zip}
-                                            onChangeText={setZip}
-                                            placeholder="Zip code"
-                                            placeholderTextColor="#999"
-                                            keyboardType="numeric"
-                                        />
-                                    </View>
-                                </View>
-
-                                {/* State & Country Row */}
-                                <View style={styles.row}>
-                                    <View style={[styles.inputGroup, { flex: 1, marginRight: scale(10) }]}>
-                                        <Text style={styles.label}>State</Text>
-                                        <TextInput
-                                            style={styles.input}
-                                            value={state}
-                                            onChangeText={setState}
-                                            placeholder="State"
-                                            placeholderTextColor="#999"
-                                        />
-                                    </View>
-                                    <View style={[styles.inputGroup, { flex: 1 }]}>
-                                        <Text style={styles.label}>Country</Text>
-                                        <TextInput
-                                            style={styles.input}
-                                            value={country}
-                                            onChangeText={setCountry}
-                                            placeholder="Country"
-                                            placeholderTextColor="#999"
-                                        />
-                                    </View>
-                                </View>
-
-                                {/* Google Map Link */}
-                                <View style={styles.inputGroup}>
-                                    <Text style={styles.label}>Google Map Link</Text>
-                                    <TextInput
-                                        style={styles.input}
-                                        value={googleMapLink}
-                                        onChangeText={setGoogleMapLink}
-                                        placeholder="Paste Google Map Link"
-                                        placeholderTextColor="#999"
-                                    />
-                                </View>
-                            </>
-                        )}
-
-                    </ScrollView>
-
-                    <View style={styles.footer}>
-                        <TouchableOpacity
-                            style={styles.cancelButton}
-                            onPress={onClose}
-                            disabled={loading}
-                        >
-                            <Text style={styles.cancelButtonText}>Cancel</Text>
-                        </TouchableOpacity>
-
-                        <TouchableOpacity
-                            style={styles.saveButton}
-                            onPress={handleSave}
-                            disabled={loading}
-                        >
-                            {loading ? (
-                                <ActivityIndicator color="white" size="small" />
-                            ) : (
-                                <Text style={styles.saveButtonText}>Save</Text>
+                                </>
                             )}
-                        </TouchableOpacity>
+
+                        </ScrollView>
+
+                        <View style={styles.footer}>
+                            <TouchableOpacity
+                                style={styles.cancelButton}
+                                onPress={onClose}
+                                disabled={loading}
+                            >
+                                <Text style={styles.cancelButtonText}>Cancel</Text>
+                            </TouchableOpacity>
+
+                            <TouchableOpacity
+                                style={styles.saveButton}
+                                onPress={handleSave}
+                                disabled={loading}
+                            >
+                                {loading ? (
+                                    <ActivityIndicator color="white" size="small" />
+                                ) : (
+                                    <Text style={styles.saveButtonText}>Save</Text>
+                                )}
+                            </TouchableOpacity>
+                        </View>
                     </View>
-                </View>
+                </ResponsiveContainer>
             </View>
         </Modal>
     );

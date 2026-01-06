@@ -19,6 +19,8 @@ import { getGuestCount } from '../../db';
 import Toast from 'react-native-toast-message';
 import { useScale } from '../../utils/useScale';
 import { FontSize } from '../../constants/fontSizes';
+import { useTabletScale, useTabletModerateScale } from '../../utils/tabletScaling';
+import { ResponsiveContainer } from '../../components/ResponsiveContainer';
 
 type ModeInfo = {
   id: string;
@@ -115,7 +117,7 @@ const ModeSelection = () => {
   const route = useRoute<ModeSelectionRoute>();
 
   const { width } = useWindowDimensions();
-  const isTablet = width >= 768; // Tablet breakpoint
+  const isTablet = width >= 720;
   const { scale, verticalScale, moderateScale } = useScale();
   const styles = useMemo(() => makeStyles(scale, verticalScale, moderateScale, isTablet), [scale, verticalScale, moderateScale, isTablet]);
 
@@ -263,51 +265,52 @@ const ModeSelection = () => {
         <Text style={styles.headerTitle} numberOfLines={1}>{eventTitle}</Text>
         <View style={headerSpacerStyle} />
       </View>
+      <ResponsiveContainer maxWidth={isTablet ? 900 : 420}>
+        <View style={styles.container}>
 
-      <View style={styles.container}>
-
-        <View style={styles.cardStack}>
-          {MODES.map((mode) => {
-            const isExpanded = expandedMode === mode.id;
-            return (
-              <View key={mode.id} style={styles.cardWrapper}>
-                <TouchableOpacity
-                  activeOpacity={0.9}
-                  style={[styles.card, isExpanded && styles.cardExpanded]}
-                  onPress={() => handleModePress(mode.id)}
-                >
-                  <View
-                    style={[
-                      styles.modeIconWrapper,
-                      { backgroundColor: mode.accent },
-                    ]}
+          <View style={styles.cardStack}>
+            {MODES.map((mode) => {
+              const isExpanded = expandedMode === mode.id;
+              return (
+                <View key={mode.id} style={styles.cardWrapper}>
+                  <TouchableOpacity
+                    activeOpacity={0.9}
+                    style={[styles.card, isExpanded && styles.cardExpanded]}
+                    onPress={() => handleModePress(mode.id)}
                   >
-                    <Image
-                      source={mode.icon}
-                      style={[styles.modeIcon, { tintColor: mode.accentTint }]}
-                    />
-                  </View>
+                    <View
+                      style={[
+                        styles.modeIconWrapper,
+                        { backgroundColor: mode.accent },
+                      ]}
+                    >
+                      <Image
+                        source={mode.icon}
+                        style={[styles.modeIcon, { tintColor: mode.accentTint }]}
+                      />
+                    </View>
 
-                  <View style={styles.cardText}>
-                    <Text style={styles.cardTitle}>{mode.title}</Text>
-                    <Text style={styles.cardSubtitle}>{mode.subtitle}</Text>
-                  </View>
+                    <View style={styles.cardText}>
+                      <Text style={styles.cardTitle}>{mode.title}</Text>
+                      <Text style={styles.cardSubtitle}>{mode.subtitle}</Text>
+                    </View>
 
-                  <Text style={[styles.chevron, isExpanded && styles.chevronRotated]}>
-                    ›
-                  </Text>
-                </TouchableOpacity>
+                    <Text style={[styles.chevron, isExpanded && styles.chevronRotated]}>
+                      ›
+                    </Text>
+                  </TouchableOpacity>
 
-                {isExpanded && renderSubOptions(mode.id)}
-              </View>
-            );
-          })}
+                  {isExpanded && renderSubOptions(mode.id)}
+                </View>
+              );
+            })}
+          </View>
+
+          <Text style={styles.footerNote}>
+            Most users choose ‘Online’ when internet is stable.
+          </Text>
         </View>
-
-        <Text style={styles.footerNote}>
-          Most users choose ‘Online’ when internet is stable.
-        </Text>
-      </View>
+      </ResponsiveContainer>
     </SafeAreaView>
   );
 };

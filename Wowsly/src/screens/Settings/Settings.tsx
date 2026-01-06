@@ -10,6 +10,8 @@ import Toast from 'react-native-toast-message';
 
 import { useScale } from '../../utils/useScale';
 import { FontSize } from '../../constants/fontSizes';
+import { useTabletScale, useTabletModerateScale } from '../../utils/tabletScaling';
+import { ResponsiveContainer } from '../../components/ResponsiveContainer';
 
 const THEME_COLOR = '#FF8A3C';
 
@@ -42,6 +44,7 @@ const Settings = () => {
     const [localEventData, setLocalEventData] = useState<any>(eventData);
 
     const { width } = useWindowDimensions();
+    const isTablet = width >= 720;
     const { scale, verticalScale, moderateScale } = useScale();
     const styles = useMemo(() => makeStyles(scale, verticalScale, moderateScale), [scale, verticalScale, moderateScale]);
 
@@ -321,381 +324,382 @@ const Settings = () => {
                 <BackButton onPress={() => navigation.goBack()} />
                 <Text style={styles.headerTitle}>Settings</Text>
             </View>
-
-            <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-                {/* Event Title Section */}
-                <View style={styles.profileCard}>
-                    <View style={styles.avatarContainer}>
-                        <Image
-                            source={localEventData?.image ? { uri: localEventData.image } : require('../../assets/img/common/noimage.png')}
-                            style={styles.avatar}
-                        />
-                    </View>
-                    <View style={styles.profileInfo}>
-                        <Text style={styles.profileName} numberOfLines={1}>{localEventData?.title || "Event Name"}</Text>
-                        <Text style={styles.profileEmail} numberOfLines={1}>{localEventData?.date || "Event Date"}</Text>
-                    </View>
-                    <TouchableOpacity
-                        style={styles.editButton}
-                        onPress={() => setEditModalVisible(true)}
-                    >
-                        <Image
-                            source={require('../../assets/img/form/edit.png')}
-                            style={styles.editIcon}
-                            resizeMode="contain"
-                        />
-                    </TouchableOpacity>
-                </View>
-
-                {/* Event Type Section */}
-                <Text style={styles.sectionTitle}>Event type</Text>
-                <View style={styles.radioGroup}>
-                    <TouchableOpacity
-                        style={[
-                            styles.radioOption,
-                            eventType === 'public' && styles.radioOptionSelected
-                        ]}
-                        onPress={() => setEventType('public')}
-                        activeOpacity={0.8}
-                    >
-                        <View style={[
-                            styles.radioCircle,
-                            eventType === 'public' && styles.radioCircleSelected
-                        ]}>
-                            {eventType === 'public' && <View style={styles.radioDot} />}
+            <ResponsiveContainer maxWidth={isTablet ? 900 : 420}>
+                <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+                    {/* Event Title Section */}
+                    <View style={styles.profileCard}>
+                        <View style={styles.avatarContainer}>
+                            <Image
+                                source={localEventData?.image ? { uri: localEventData.image } : require('../../assets/img/common/noimage.png')}
+                                style={styles.avatar}
+                            />
                         </View>
-                        <Text style={styles.radioLabel}>Public</Text>
-                    </TouchableOpacity>
-
-                    <TouchableOpacity
-                        style={[
-                            styles.radioOption,
-                            eventType === 'invite' && styles.radioOptionSelected
-                        ]}
-                        onPress={() => setEventType('invite')}
-                        activeOpacity={0.8}
-                    >
-                        <View style={[
-                            styles.radioCircle,
-                            eventType === 'invite' && styles.radioCircleSelected
-                        ]}>
-                            {eventType === 'invite' && <View style={styles.radioDot} />}
+                        <View style={styles.profileInfo}>
+                            <Text style={styles.profileName} numberOfLines={1}>{localEventData?.title || "Event Name"}</Text>
+                            <Text style={styles.profileEmail} numberOfLines={1}>{localEventData?.date || "Event Date"}</Text>
                         </View>
-                        <Text style={styles.radioLabel}>Invite only</Text>
-                    </TouchableOpacity>
-                </View>
-
-                {/* Ticket Type Section */}
-                <Text style={[styles.sectionTitle, { marginTop: verticalScale(25) }]}>Ticket type</Text>
-                <View style={styles.radioGroup}>
-                    <TouchableOpacity
-                        style={[
-                            styles.radioOption,
-                            ticketType === 'free' && styles.radioOptionSelected
-                        ]}
-                        onPress={() => setTicketType('free')}
-                        activeOpacity={0.8}
-                    >
-                        <View style={[
-                            styles.radioCircle,
-                            ticketType === 'free' && styles.radioCircleSelected
-                        ]}>
-                            {ticketType === 'free' && <View style={styles.radioDot} />}
-                        </View>
-                        <Text style={styles.radioLabel}>Free</Text>
-                    </TouchableOpacity>
-
-                    <TouchableOpacity
-                        style={[
-                            styles.radioOption,
-                            ticketType === 'paid' && styles.radioOptionSelected
-                        ]}
-                        onPress={() => setTicketType('paid')}
-                        activeOpacity={0.8}
-                    >
-                        <View style={[
-                            styles.radioCircle,
-                            ticketType === 'paid' && styles.radioCircleSelected
-                        ]}>
-                            {ticketType === 'paid' && <View style={styles.radioDot} />}
-                        </View>
-                        <Text style={styles.radioLabel}>Paid</Text>
-                    </TouchableOpacity>
-                </View>
-
-                {/* Main Settings Section */}
-                <Text style={[styles.sectionTitle, { marginTop: verticalScale(25) }]}>Main Settings</Text>
-
-                <View style={styles.settingsList}>
-                    {ticketType === 'paid' && (
                         <TouchableOpacity
-                            style={styles.settingItem}
-                            onPress={() => Alert.alert("Select Bank", "Bank selection modal to be implemented")}
-                            activeOpacity={0.7}
-                        >
-                            <Text style={styles.settingLabel}>Choose Bank</Text>
-                            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                                <Image
-                                    source={require('../../assets/img/common/forwardarrow.png')}
-                                    style={{ width: scale(20), height: scale(20) }} // Increased size slightly and removed tint
-                                    resizeMode="contain"
-                                />
-                            </View>
-                        </TouchableOpacity>
-                    )}
-
-                    <SettingItem
-                        label="Event Registration Form Required"
-                        value={settings.registrationRequired}
-                        onToggle={() => toggleSetting('registrationRequired')}
-                        disabled={ticketType === 'paid'}
-                        styles={styles}
-                        scale={moderateScale}
-                    />
-                    <SettingItem label="Self Check-in" value={settings.selfCheckIn} onToggle={() => toggleSetting('selfCheckIn')} styles={styles} scale={moderateScale} />
-                    <SettingItem
-                        label="Has Polls"
-                        value={settings.hasPolls}
-                        onToggle={() => toggleSetting('hasPolls')}
-                        disabled={settings.registerAgain}
-                        styles={styles}
-                        scale={moderateScale}
-                    />
-                    <SettingItem
-                        label="Registration On Approval Basis"
-                        value={settings.approvalBasis}
-                        onToggle={() => toggleSetting('approvalBasis')}
-                        disabled={settings.registerAgain}
-                        styles={styles}
-                        scale={moderateScale}
-                    />
-                    <SettingItem label="Guest Can Exchange Details" value={settings.exchangeDetails} onToggle={() => toggleSetting('exchangeDetails')} styles={styles} scale={moderateScale} />
-                    <SettingItem label="Buy Multiple Tickets" value={settings.buyMultipleTickets} onToggle={() => toggleSetting('buyMultipleTickets')} styles={styles} scale={moderateScale} />
-                    <SettingItem
-                        label="Enable User to Register Again"
-                        value={settings.registerAgain}
-                        onToggle={() => toggleSetting('registerAgain')}
-                        disabled={settings.hasPolls || settings.approvalBasis}
-                        styles={styles}
-                        scale={moderateScale}
-                    />
-                    <SettingItem label="Has Exhibitors" value={settings.hasExhibitors} onToggle={() => toggleSetting('hasExhibitors')} styles={styles} scale={moderateScale} />
-                    <SettingItem label="OTP On Registration Form" value={settings.otpOnRegistration} onToggle={() => toggleSetting('otpOnRegistration')} last styles={styles} scale={moderateScale} />
-                </View>
-
-                {/* WhatsApp Integration Section */}
-                <Text style={[styles.sectionTitle, { marginTop: verticalScale(25) }]}>WhatsApp Integration</Text>
-                <TouchableOpacity
-                    style={styles.whatsappContainer}
-                    onPress={() => setWhatsappExpanded(!whatsappExpanded)}
-                    activeOpacity={0.8}
-                >
-                    <Text style={styles.whatsappLabel}>Add Your WhatsApp Number</Text>
-                    <Image
-                        source={require('../../assets/img/common/forwardarrow.png')}
-                        style={[
-                            styles.forwardArrow,
-                            whatsappExpanded && { transform: [{ rotate: '90deg' }] }
-                        ]}
-                        resizeMode="contain"
-                    />
-                </TouchableOpacity>
-
-                {whatsappExpanded && (
-                    <View style={styles.whatsappFormContainer}>
-                        <View style={styles.inputGroup}>
-                            <Text style={styles.inputLabel}>WhatsApp Key</Text>
-                            <TextInput
-                                style={styles.modalInput}
-                                placeholder="WhatsApp Key"
-                                placeholderTextColor="#999"
-                                value={whatsappSettings.key}
-                                onChangeText={(t) => setWhatsappSettings(prev => ({ ...prev, key: t }))}
-                            />
-                        </View>
-
-                        <View style={styles.inputGroup}>
-                            <Text style={styles.inputLabel}>Phone Number ID</Text>
-                            <TextInput
-                                style={styles.modalInput}
-                                placeholder="Phone Number ID"
-                                placeholderTextColor="#999"
-                                value={whatsappSettings.phoneNumberId}
-                                onChangeText={(t) => setWhatsappSettings(prev => ({ ...prev, phoneNumberId: t }))}
-                            />
-                        </View>
-
-                        <Text style={styles.groupLabel}>Send Ticket Template</Text>
-                        <View style={styles.inputGroupNoLabel}>
-                            <TextInput
-                                style={styles.modalInput}
-                                placeholder="Template ID"
-                                placeholderTextColor="#999"
-                                value={whatsappSettings.templateId}
-                                onChangeText={(t) => setWhatsappSettings(prev => ({ ...prev, templateId: t }))}
-                            />
-                        </View>
-
-                        <Text style={styles.groupLabel}>Send Ticket With details Template</Text>
-                        <View style={styles.inputGroupNoLabel}>
-                            <TextInput
-                                style={styles.modalInput}
-                                placeholder="Template ID"
-                                placeholderTextColor="#999"
-                                value={whatsappSettings.detailsTemplateId}
-                                onChangeText={(t) => setWhatsappSettings(prev => ({ ...prev, detailsTemplateId: t }))}
-                            />
-                        </View>
-
-                        <Text style={styles.groupLabel}>Send Ticket when new user registered Template</Text>
-                        <View style={styles.inputGroupNoLabel}>
-                            <TextInput
-                                style={styles.modalInput}
-                                placeholder="Template ID"
-                                placeholderTextColor="#999"
-                                value={whatsappSettings.newUserTemplateId}
-                                onChangeText={(t) => setWhatsappSettings(prev => ({ ...prev, newUserTemplateId: t }))}
-                            />
-                        </View>
-
-                        <View style={styles.inlineActions}>
-                            <TouchableOpacity onPress={() => setWhatsappExpanded(false)}>
-                                <Text style={styles.cancelText}>Cancel</Text>
-                            </TouchableOpacity>
-                            <TouchableOpacity
-                                style={styles.saveButton}
-                                onPress={() => setWhatsappExpanded(false)}
-                            >
-                                <Text style={styles.saveButtonText}>Save WhatsApp Settings</Text>
-                            </TouchableOpacity>
-                        </View>
-                    </View>
-                )}
-
-                {/* API Token Section */}
-                <Text style={[styles.sectionTitle, { marginTop: verticalScale(25) }]}>Your API Token</Text>
-                <View style={styles.apiSection}>
-                    <View style={styles.tokenBox}>
-                        <Text style={styles.tokenText} numberOfLines={1}>{apiToken}</Text>
-                        <TouchableOpacity
-                            activeOpacity={0.7}
-                            style={styles.copyButton}
-                            onPress={handleCopyToken}
+                            style={styles.editButton}
+                            onPress={() => setEditModalVisible(true)}
                         >
                             <Image
-                                source={require('../../assets/img/common/copy.png')}
-                                style={styles.copyIcon}
+                                source={require('../../assets/img/form/edit.png')}
+                                style={styles.editIcon}
                                 resizeMode="contain"
                             />
                         </TouchableOpacity>
                     </View>
 
+                    {/* Event Type Section */}
+                    <Text style={styles.sectionTitle}>Event type</Text>
+                    <View style={styles.radioGroup}>
+                        <TouchableOpacity
+                            style={[
+                                styles.radioOption,
+                                eventType === 'public' && styles.radioOptionSelected
+                            ]}
+                            onPress={() => setEventType('public')}
+                            activeOpacity={0.8}
+                        >
+                            <View style={[
+                                styles.radioCircle,
+                                eventType === 'public' && styles.radioCircleSelected
+                            ]}>
+                                {eventType === 'public' && <View style={styles.radioDot} />}
+                            </View>
+                            <Text style={styles.radioLabel}>Public</Text>
+                        </TouchableOpacity>
+
+                        <TouchableOpacity
+                            style={[
+                                styles.radioOption,
+                                eventType === 'invite' && styles.radioOptionSelected
+                            ]}
+                            onPress={() => setEventType('invite')}
+                            activeOpacity={0.8}
+                        >
+                            <View style={[
+                                styles.radioCircle,
+                                eventType === 'invite' && styles.radioCircleSelected
+                            ]}>
+                                {eventType === 'invite' && <View style={styles.radioDot} />}
+                            </View>
+                            <Text style={styles.radioLabel}>Invite only</Text>
+                        </TouchableOpacity>
+                    </View>
+
+                    {/* Ticket Type Section */}
+                    <Text style={[styles.sectionTitle, { marginTop: verticalScale(25) }]}>Ticket type</Text>
+                    <View style={styles.radioGroup}>
+                        <TouchableOpacity
+                            style={[
+                                styles.radioOption,
+                                ticketType === 'free' && styles.radioOptionSelected
+                            ]}
+                            onPress={() => setTicketType('free')}
+                            activeOpacity={0.8}
+                        >
+                            <View style={[
+                                styles.radioCircle,
+                                ticketType === 'free' && styles.radioCircleSelected
+                            ]}>
+                                {ticketType === 'free' && <View style={styles.radioDot} />}
+                            </View>
+                            <Text style={styles.radioLabel}>Free</Text>
+                        </TouchableOpacity>
+
+                        <TouchableOpacity
+                            style={[
+                                styles.radioOption,
+                                ticketType === 'paid' && styles.radioOptionSelected
+                            ]}
+                            onPress={() => setTicketType('paid')}
+                            activeOpacity={0.8}
+                        >
+                            <View style={[
+                                styles.radioCircle,
+                                ticketType === 'paid' && styles.radioCircleSelected
+                            ]}>
+                                {ticketType === 'paid' && <View style={styles.radioDot} />}
+                            </View>
+                            <Text style={styles.radioLabel}>Paid</Text>
+                        </TouchableOpacity>
+                    </View>
+
+                    {/* Main Settings Section */}
+                    <Text style={[styles.sectionTitle, { marginTop: verticalScale(25) }]}>Main Settings</Text>
+
+                    <View style={styles.settingsList}>
+                        {ticketType === 'paid' && (
+                            <TouchableOpacity
+                                style={styles.settingItem}
+                                onPress={() => Alert.alert("Select Bank", "Bank selection modal to be implemented")}
+                                activeOpacity={0.7}
+                            >
+                                <Text style={styles.settingLabel}>Choose Bank</Text>
+                                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                                    <Image
+                                        source={require('../../assets/img/common/forwardarrow.png')}
+                                        style={{ width: scale(20), height: scale(20) }} // Increased size slightly and removed tint
+                                        resizeMode="contain"
+                                    />
+                                </View>
+                            </TouchableOpacity>
+                        )}
+
+                        <SettingItem
+                            label="Event Registration Form Required"
+                            value={settings.registrationRequired}
+                            onToggle={() => toggleSetting('registrationRequired')}
+                            disabled={ticketType === 'paid'}
+                            styles={styles}
+                            scale={moderateScale}
+                        />
+                        <SettingItem label="Self Check-in" value={settings.selfCheckIn} onToggle={() => toggleSetting('selfCheckIn')} styles={styles} scale={moderateScale} />
+                        <SettingItem
+                            label="Has Polls"
+                            value={settings.hasPolls}
+                            onToggle={() => toggleSetting('hasPolls')}
+                            disabled={settings.registerAgain}
+                            styles={styles}
+                            scale={moderateScale}
+                        />
+                        <SettingItem
+                            label="Registration On Approval Basis"
+                            value={settings.approvalBasis}
+                            onToggle={() => toggleSetting('approvalBasis')}
+                            disabled={settings.registerAgain}
+                            styles={styles}
+                            scale={moderateScale}
+                        />
+                        <SettingItem label="Guest Can Exchange Details" value={settings.exchangeDetails} onToggle={() => toggleSetting('exchangeDetails')} styles={styles} scale={moderateScale} />
+                        <SettingItem label="Buy Multiple Tickets" value={settings.buyMultipleTickets} onToggle={() => toggleSetting('buyMultipleTickets')} styles={styles} scale={moderateScale} />
+                        <SettingItem
+                            label="Enable User to Register Again"
+                            value={settings.registerAgain}
+                            onToggle={() => toggleSetting('registerAgain')}
+                            disabled={settings.hasPolls || settings.approvalBasis}
+                            styles={styles}
+                            scale={moderateScale}
+                        />
+                        <SettingItem label="Has Exhibitors" value={settings.hasExhibitors} onToggle={() => toggleSetting('hasExhibitors')} styles={styles} scale={moderateScale} />
+                        <SettingItem label="OTP On Registration Form" value={settings.otpOnRegistration} onToggle={() => toggleSetting('otpOnRegistration')} last styles={styles} scale={moderateScale} />
+                    </View>
+
+                    {/* WhatsApp Integration Section */}
+                    <Text style={[styles.sectionTitle, { marginTop: verticalScale(25) }]}>WhatsApp Integration</Text>
                     <TouchableOpacity
+                        style={styles.whatsappContainer}
+                        onPress={() => setWhatsappExpanded(!whatsappExpanded)}
                         activeOpacity={0.8}
-                        style={[
-                            styles.generateButton,
-                            (!!apiToken && apiToken !== 'Your API Token') ? { backgroundColor: '#ccc', opacity: 0.7 } : undefined
-                        ]}
-                        onPress={handleGenerateToken}
-                        disabled={!!apiToken && apiToken !== 'Your API Token'}
                     >
-                        <Text style={styles.generateButtonText}>Generate API Token</Text>
+                        <Text style={styles.whatsappLabel}>Add Your WhatsApp Number</Text>
+                        <Image
+                            source={require('../../assets/img/common/forwardarrow.png')}
+                            style={[
+                                styles.forwardArrow,
+                                whatsappExpanded && { transform: [{ rotate: '90deg' }] }
+                            ]}
+                            resizeMode="contain"
+                        />
                     </TouchableOpacity>
-                </View>
 
-                {/* Advanced Settings Section */}
-                <Text style={[styles.sectionTitle, { marginTop: verticalScale(25) }]}>Advanced Settings</Text>
+                    {whatsappExpanded && (
+                        <View style={styles.whatsappFormContainer}>
+                            <View style={styles.inputGroup}>
+                                <Text style={styles.inputLabel}>WhatsApp Key</Text>
+                                <TextInput
+                                    style={styles.modalInput}
+                                    placeholder="WhatsApp Key"
+                                    placeholderTextColor="#999"
+                                    value={whatsappSettings.key}
+                                    onChangeText={(t) => setWhatsappSettings(prev => ({ ...prev, key: t }))}
+                                />
+                            </View>
 
-                {/* Sender Email Settings */}
-                <View style={styles.advancedSection}>
-                    <View style={styles.advancedHeader}>
-                        <Text style={styles.settingLabel}>Add Sender Email ID</Text>
-                        <CustomSwitch value={advancedSettings.senderEmail} onValueChange={() => toggleAdvancedSetting('senderEmail')} styles={styles} scale={moderateScale} />
-                    </View>
+                            <View style={styles.inputGroup}>
+                                <Text style={styles.inputLabel}>Phone Number ID</Text>
+                                <TextInput
+                                    style={styles.modalInput}
+                                    placeholder="Phone Number ID"
+                                    placeholderTextColor="#999"
+                                    value={whatsappSettings.phoneNumberId}
+                                    onChangeText={(t) => setWhatsappSettings(prev => ({ ...prev, phoneNumberId: t }))}
+                                />
+                            </View>
 
-                    {advancedSettings.senderEmail && (
-                        <View style={styles.advancedInputsRow}>
-                            <TextInput
-                                style={[styles.advancedInput, { flex: 1, marginRight: scale(10) }]}
-                                placeholder="Sender Email"
-                                placeholderTextColor="#999"
-                                value={advancedValues.senderEmail}
-                                onChangeText={(t) => setAdvancedValues(prev => ({ ...prev, senderEmail: t }))}
-                            />
-                            <TextInput
-                                style={[styles.advancedInput, { flex: 1 }]}
-                                placeholder="Sender Name"
-                                placeholderTextColor="#999"
-                                value={advancedValues.senderName}
-                                onChangeText={(t) => setAdvancedValues(prev => ({ ...prev, senderName: t }))}
-                            />
+                            <Text style={styles.groupLabel}>Send Ticket Template</Text>
+                            <View style={styles.inputGroupNoLabel}>
+                                <TextInput
+                                    style={styles.modalInput}
+                                    placeholder="Template ID"
+                                    placeholderTextColor="#999"
+                                    value={whatsappSettings.templateId}
+                                    onChangeText={(t) => setWhatsappSettings(prev => ({ ...prev, templateId: t }))}
+                                />
+                            </View>
+
+                            <Text style={styles.groupLabel}>Send Ticket With details Template</Text>
+                            <View style={styles.inputGroupNoLabel}>
+                                <TextInput
+                                    style={styles.modalInput}
+                                    placeholder="Template ID"
+                                    placeholderTextColor="#999"
+                                    value={whatsappSettings.detailsTemplateId}
+                                    onChangeText={(t) => setWhatsappSettings(prev => ({ ...prev, detailsTemplateId: t }))}
+                                />
+                            </View>
+
+                            <Text style={styles.groupLabel}>Send Ticket when new user registered Template</Text>
+                            <View style={styles.inputGroupNoLabel}>
+                                <TextInput
+                                    style={styles.modalInput}
+                                    placeholder="Template ID"
+                                    placeholderTextColor="#999"
+                                    value={whatsappSettings.newUserTemplateId}
+                                    onChangeText={(t) => setWhatsappSettings(prev => ({ ...prev, newUserTemplateId: t }))}
+                                />
+                            </View>
+
+                            <View style={styles.inlineActions}>
+                                <TouchableOpacity onPress={() => setWhatsappExpanded(false)}>
+                                    <Text style={styles.cancelText}>Cancel</Text>
+                                </TouchableOpacity>
+                                <TouchableOpacity
+                                    style={styles.saveButton}
+                                    onPress={() => setWhatsappExpanded(false)}
+                                >
+                                    <Text style={styles.saveButtonText}>Save WhatsApp Settings</Text>
+                                </TouchableOpacity>
+                            </View>
                         </View>
                     )}
-                </View>
 
-                {/* Owner Notification Settings */}
-                <View style={styles.advancedSection}>
-                    <View style={styles.advancedHeader}>
-                        <Text style={styles.settingLabel}>Owner Notified When Ticket Booked</Text>
-                        <CustomSwitch value={advancedSettings.ownerNotified} onValueChange={() => toggleAdvancedSetting('ownerNotified')} styles={styles} scale={moderateScale} />
+                    {/* API Token Section */}
+                    <Text style={[styles.sectionTitle, { marginTop: verticalScale(25) }]}>Your API Token</Text>
+                    <View style={styles.apiSection}>
+                        <View style={styles.tokenBox}>
+                            <Text style={styles.tokenText} numberOfLines={1}>{apiToken}</Text>
+                            <TouchableOpacity
+                                activeOpacity={0.7}
+                                style={styles.copyButton}
+                                onPress={handleCopyToken}
+                            >
+                                <Image
+                                    source={require('../../assets/img/common/copy.png')}
+                                    style={styles.copyIcon}
+                                    resizeMode="contain"
+                                />
+                            </TouchableOpacity>
+                        </View>
+
+                        <TouchableOpacity
+                            activeOpacity={0.8}
+                            style={[
+                                styles.generateButton,
+                                (!!apiToken && apiToken !== 'Your API Token') ? { backgroundColor: '#ccc', opacity: 0.7 } : undefined
+                            ]}
+                            onPress={handleGenerateToken}
+                            disabled={!!apiToken && apiToken !== 'Your API Token'}
+                        >
+                            <Text style={styles.generateButtonText}>Generate API Token</Text>
+                        </TouchableOpacity>
                     </View>
 
-                    {advancedSettings.ownerNotified && (
-                        <View style={styles.advancedInputsRow}>
-                            <TextInput
-                                style={[styles.advancedInput, { flex: 1 }]}
-                                placeholder="Owner Notification Email"
-                                placeholderTextColor="#999"
-                                value={advancedValues.ownerEmail}
-                                onChangeText={(t) => setAdvancedValues(prev => ({ ...prev, ownerEmail: t }))}
-                            />
-                        </View>
-                    )}
-                </View>
+                    {/* Advanced Settings Section */}
+                    <Text style={[styles.sectionTitle, { marginTop: verticalScale(25) }]}>Advanced Settings</Text>
 
-                {/* Print Dimensions Settings */}
-                <View style={styles.advancedSection}>
-                    <View style={styles.advancedHeader}>
-                        <Text style={styles.settingLabel}>Add Print Dimensions</Text>
-                        <CustomSwitch value={advancedSettings.printDimensions} onValueChange={() => toggleAdvancedSetting('printDimensions')} styles={styles} scale={moderateScale} />
+                    {/* Sender Email Settings */}
+                    <View style={styles.advancedSection}>
+                        <View style={styles.advancedHeader}>
+                            <Text style={styles.settingLabel}>Add Sender Email ID</Text>
+                            <CustomSwitch value={advancedSettings.senderEmail} onValueChange={() => toggleAdvancedSetting('senderEmail')} styles={styles} scale={moderateScale} />
+                        </View>
+
+                        {advancedSettings.senderEmail && (
+                            <View style={styles.advancedInputsRow}>
+                                <TextInput
+                                    style={[styles.advancedInput, { flex: 1, marginRight: scale(10) }]}
+                                    placeholder="Sender Email"
+                                    placeholderTextColor="#999"
+                                    value={advancedValues.senderEmail}
+                                    onChangeText={(t) => setAdvancedValues(prev => ({ ...prev, senderEmail: t }))}
+                                />
+                                <TextInput
+                                    style={[styles.advancedInput, { flex: 1 }]}
+                                    placeholder="Sender Name"
+                                    placeholderTextColor="#999"
+                                    value={advancedValues.senderName}
+                                    onChangeText={(t) => setAdvancedValues(prev => ({ ...prev, senderName: t }))}
+                                />
+                            </View>
+                        )}
                     </View>
 
-                    {advancedSettings.printDimensions && (
-                        <View style={styles.advancedInputsRow}>
-                            <TextInput
-                                style={[styles.advancedInput, { flex: 1, marginRight: scale(10) }]}
-                                placeholder="Height (CM)"
-                                placeholderTextColor="#999"
-                                value={advancedValues.printHeight}
-                                onChangeText={(t) => setAdvancedValues(prev => ({ ...prev, printHeight: t }))}
-                                keyboardType="numeric"
-                            />
-                            <TextInput
-                                style={[styles.advancedInput, { flex: 1 }]}
-                                placeholder="Width (CM)"
-                                placeholderTextColor="#999"
-                                value={advancedValues.printWidth}
-                                onChangeText={(t) => setAdvancedValues(prev => ({ ...prev, printWidth: t }))}
-                                keyboardType="numeric"
-                            />
+                    {/* Owner Notification Settings */}
+                    <View style={styles.advancedSection}>
+                        <View style={styles.advancedHeader}>
+                            <Text style={styles.settingLabel}>Owner Notified When Ticket Booked</Text>
+                            <CustomSwitch value={advancedSettings.ownerNotified} onValueChange={() => toggleAdvancedSetting('ownerNotified')} styles={styles} scale={moderateScale} />
                         </View>
-                    )}
-                </View>
 
-                {/* Main Save Button */}
-                <View style={styles.footerActions}>
-                    <TouchableOpacity
-                        style={styles.mainSaveButton}
-                        activeOpacity={0.8}
-                        onPress={handleSaveSettings}
-                    >
-                        {/* If we had an icon it would go here */}
-                        {/* <Image source={require('../../assets/img/common/save.png')} ... /> */}
-                        <Text style={styles.mainSaveButtonText}>Save Settings</Text>
-                    </TouchableOpacity>
-                </View>
+                        {advancedSettings.ownerNotified && (
+                            <View style={styles.advancedInputsRow}>
+                                <TextInput
+                                    style={[styles.advancedInput, { flex: 1 }]}
+                                    placeholder="Owner Notification Email"
+                                    placeholderTextColor="#999"
+                                    value={advancedValues.ownerEmail}
+                                    onChangeText={(t) => setAdvancedValues(prev => ({ ...prev, ownerEmail: t }))}
+                                />
+                            </View>
+                        )}
+                    </View>
 
-            </ScrollView>
+                    {/* Print Dimensions Settings */}
+                    <View style={styles.advancedSection}>
+                        <View style={styles.advancedHeader}>
+                            <Text style={styles.settingLabel}>Add Print Dimensions</Text>
+                            <CustomSwitch value={advancedSettings.printDimensions} onValueChange={() => toggleAdvancedSetting('printDimensions')} styles={styles} scale={moderateScale} />
+                        </View>
+
+                        {advancedSettings.printDimensions && (
+                            <View style={styles.advancedInputsRow}>
+                                <TextInput
+                                    style={[styles.advancedInput, { flex: 1, marginRight: scale(10) }]}
+                                    placeholder="Height (CM)"
+                                    placeholderTextColor="#999"
+                                    value={advancedValues.printHeight}
+                                    onChangeText={(t) => setAdvancedValues(prev => ({ ...prev, printHeight: t }))}
+                                    keyboardType="numeric"
+                                />
+                                <TextInput
+                                    style={[styles.advancedInput, { flex: 1 }]}
+                                    placeholder="Width (CM)"
+                                    placeholderTextColor="#999"
+                                    value={advancedValues.printWidth}
+                                    onChangeText={(t) => setAdvancedValues(prev => ({ ...prev, printWidth: t }))}
+                                    keyboardType="numeric"
+                                />
+                            </View>
+                        )}
+                    </View>
+
+                    {/* Main Save Button */}
+                    <View style={styles.footerActions}>
+                        <TouchableOpacity
+                            style={styles.mainSaveButton}
+                            activeOpacity={0.8}
+                            onPress={handleSaveSettings}
+                        >
+                            {/* If we had an icon it would go here */}
+                            {/* <Image source={require('../../assets/img/common/save.png')} ... /> */}
+                            <Text style={styles.mainSaveButtonText}>Save Settings</Text>
+                        </TouchableOpacity>
+                    </View>
+
+                </ScrollView>
+            </ResponsiveContainer>
 
             <EditEventModal
                 visible={editModalVisible}

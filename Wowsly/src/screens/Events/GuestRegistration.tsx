@@ -7,6 +7,8 @@ import { getEventTickets, getRegistrationFormStatus, getRegistrationFormDetails,
 import Toast from 'react-native-toast-message';
 import BackButton from '../../components/BackButton';
 import DocumentPicker from 'react-native-document-picker';
+import { useTabletScale, useTabletModerateScale } from '../../utils/tabletScaling';
+import { ResponsiveContainer } from '../../components/ResponsiveContainer';
 
 const GuestRegistration = () => {
     const navigation = useNavigation();
@@ -14,7 +16,7 @@ const GuestRegistration = () => {
     const { eventId, registeredBy } = route.params || {};
 
     const { width } = useWindowDimensions();
-    const isTablet = width >= 768;
+    const isTablet = width >= 720;
     const { scale, verticalScale, moderateScale } = useScale();
     const styles = useMemo(() => makeStyles(scale, verticalScale, moderateScale, isTablet), [scale, verticalScale, moderateScale, isTablet]);
 
@@ -459,102 +461,104 @@ const GuestRegistration = () => {
     };
 
     return (
-        <SafeAreaView style={{ flex: 1, backgroundColor: 'white' }}>
-            <View style={styles.header}>
-                <BackButton onPress={() => navigation.goBack()} />
-                <Text style={styles.headerTitle}>Register a Guest</Text>
-                <View style={{ width: scale(40) }} />
-            </View>
-
-            <ScrollView contentContainerStyle={styles.content}>
-                {/* Ticket Selection - Matching style mostly but ensuring it fits in the 'Form' look */}
-                {/* Ticket Selection Removed to match Preview Mode */}
-                <View />
-
-                {/* Form Title & Separator - MATCHING PREVIEW UI */}
-                <View style={{ marginBottom: verticalScale(30), marginTop: verticalScale(10) }}>
-                    <Text style={{ fontSize: moderateScale(FontSize.xxl), fontWeight: '700', color: '#000', textAlign: 'center' }}>{formTitle}</Text>
-                    <View style={{ height: 2, width: scale(40), backgroundColor: '#000', marginTop: verticalScale(10), alignSelf: 'center' }} />
+        <ResponsiveContainer maxWidth={isTablet ? 800 : 420}>
+            <SafeAreaView style={{ flex: 1, backgroundColor: 'white' }}>
+                <View style={styles.header}>
+                    <BackButton onPress={() => navigation.goBack()} />
+                    <Text style={styles.headerTitle}>Register a Guest</Text>
+                    <View style={{ width: scale(40) }} />
                 </View>
 
-                {/* Fields */}
-                <View style={{ gap: verticalScale(20) }}>
-                    {formFields.map((field: any) => {
-                        const isCountry = field.question?.toLowerCase().includes('country code');
-                        const isMobile = field.question?.toLowerCase().includes('mobile');
+                <ScrollView contentContainerStyle={styles.content}>
+                    {/* Ticket Selection - Matching style mostly but ensuring it fits in the 'Form' look */}
+                    {/* Ticket Selection Removed to match Preview Mode */}
+                    <View />
 
-                        // Unique rendering for Country Code + Mobile Number Combo
-                        if (isCountry) {
-                            const mobileField = formFields.find(f => f.question?.toLowerCase().includes('mobile'));
-                            if (mobileField) {
-                                return (
-                                    <View key={field.id}>
-                                        {/* Single Heading - using Mobile Field's label since it's the primary content */}
-                                        <Text style={{ fontSize: moderateScale(FontSize.md), color: '#333', marginBottom: verticalScale(8), fontWeight: '500' }}>
-                                            {mobileField.question} {mobileField.mandatory ? <Text style={{ color: 'red' }}>*</Text> : null}
-                                        </Text>
+                    {/* Form Title & Separator - MATCHING PREVIEW UI */}
+                    <View style={{ marginBottom: verticalScale(30), marginTop: verticalScale(10) }}>
+                        <Text style={{ fontSize: moderateScale(FontSize.xxl), fontWeight: '700', color: '#000', textAlign: 'center' }}>{formTitle}</Text>
+                        <View style={{ height: 2, width: scale(40), backgroundColor: '#000', marginTop: verticalScale(10), alignSelf: 'center' }} />
+                    </View>
 
-                                        <View style={{ flexDirection: 'row', gap: scale(10) }}>
-                                            {/* Country Code - Small Box (flex 0.28) */}
-                                            <View style={{ flex: 0.28 }}>
-                                                <TextInput
-                                                    style={[styles.input, { textAlign: 'center', borderColor: errors[field.id] ? 'red' : '#E0E0E0' }]}
-                                                    placeholder="+91"
-                                                    placeholderTextColor="#999"
-                                                    value={formValues[field.id]}
-                                                    onChangeText={(t) => handleInputChange(field.id, t)}
-                                                    keyboardType="phone-pad"
-                                                />
+                    {/* Fields */}
+                    <View style={{ gap: verticalScale(20) }}>
+                        {formFields.map((field: any) => {
+                            const isCountry = field.question?.toLowerCase().includes('country code');
+                            const isMobile = field.question?.toLowerCase().includes('mobile');
+
+                            // Unique rendering for Country Code + Mobile Number Combo
+                            if (isCountry) {
+                                const mobileField = formFields.find(f => f.question?.toLowerCase().includes('mobile'));
+                                if (mobileField) {
+                                    return (
+                                        <View key={field.id}>
+                                            {/* Single Heading - using Mobile Field's label since it's the primary content */}
+                                            <Text style={{ fontSize: moderateScale(FontSize.md), color: '#333', marginBottom: verticalScale(8), fontWeight: '500' }}>
+                                                {mobileField.question} {mobileField.mandatory ? <Text style={{ color: 'red' }}>*</Text> : null}
+                                            </Text>
+
+                                            <View style={{ flexDirection: 'row', gap: scale(10) }}>
+                                                {/* Country Code - Small Box (flex 0.28) */}
+                                                <View style={{ flex: 0.28 }}>
+                                                    <TextInput
+                                                        style={[styles.input, { textAlign: 'center', borderColor: errors[field.id] ? 'red' : '#E0E0E0' }]}
+                                                        placeholder="+91"
+                                                        placeholderTextColor="#999"
+                                                        value={formValues[field.id]}
+                                                        onChangeText={(t) => handleInputChange(field.id, t)}
+                                                        keyboardType="phone-pad"
+                                                    />
+                                                </View>
+
+                                                {/* Mobile Number - Large Box (flex 0.72) */}
+                                                <View style={{ flex: 0.72 }}>
+                                                    <TextInput
+                                                        style={[styles.input, { borderColor: errors[mobileField.id] ? 'red' : '#E0E0E0' }]}
+                                                        placeholder={mobileField.question || "Mobile Number"}
+                                                        placeholderTextColor="#999"
+                                                        value={formValues[mobileField.id]}
+                                                        onChangeText={(t) => handleInputChange(mobileField.id, t)}
+                                                        keyboardType="phone-pad"
+                                                        maxLength={10}
+                                                    />
+                                                </View>
                                             </View>
 
-                                            {/* Mobile Number - Large Box (flex 0.72) */}
-                                            <View style={{ flex: 0.72 }}>
-                                                <TextInput
-                                                    style={[styles.input, { borderColor: errors[mobileField.id] ? 'red' : '#E0E0E0' }]}
-                                                    placeholder={mobileField.question || "Mobile Number"}
-                                                    placeholderTextColor="#999"
-                                                    value={formValues[mobileField.id]}
-                                                    onChangeText={(t) => handleInputChange(mobileField.id, t)}
-                                                    keyboardType="phone-pad"
-                                                    maxLength={10}
-                                                />
-                                            </View>
+                                            {/* Errors for either field */}
+                                            {errors[field.id] && <Text style={{ color: 'red', fontSize: moderateScale(FontSize.xs), marginTop: verticalScale(5) }}>{errors[field.id]}</Text>}
+                                            {errors[mobileField.id] && <Text style={{ color: 'red', fontSize: moderateScale(FontSize.xs), marginTop: verticalScale(5) }}>{errors[mobileField.id]}</Text>}
                                         </View>
-
-                                        {/* Errors for either field */}
-                                        {errors[field.id] && <Text style={{ color: 'red', fontSize: moderateScale(FontSize.xs), marginTop: verticalScale(5) }}>{errors[field.id]}</Text>}
-                                        {errors[mobileField.id] && <Text style={{ color: 'red', fontSize: moderateScale(FontSize.xs), marginTop: verticalScale(5) }}>{errors[mobileField.id]}</Text>}
-                                    </View>
-                                );
+                                    );
+                                }
                             }
-                        }
 
-                        // Skip Mobile Key if we already rendered it with Country
-                        if (isMobile) {
-                            const countryField = formFields.find(f => f.question?.toLowerCase().includes('country code'));
-                            if (countryField) return null;
-                        }
+                            // Skip Mobile Key if we already rendered it with Country
+                            if (isMobile) {
+                                const countryField = formFields.find(f => f.question?.toLowerCase().includes('country code'));
+                                if (countryField) return null;
+                            }
 
-                        // Default rendering for other fields
-                        return (
-                            <View key={field.id}>
-                                {renderField(field)}
-                            </View>
-                        );
-                    })}
-                </View>
+                            // Default rendering for other fields
+                            return (
+                                <View key={field.id}>
+                                    {renderField(field)}
+                                </View>
+                            );
+                        })}
+                    </View>
 
-                {/* Submit Button */}
-                <View style={{ marginTop: verticalScale(40), marginBottom: verticalScale(40) }}>
-                    <TouchableOpacity
-                        style={styles.submitButton}
-                        onPress={handleSubmit}
-                    >
-                        <Text style={styles.submitText}>{buttonText}</Text>
-                    </TouchableOpacity>
-                </View>
-            </ScrollView>
-        </SafeAreaView>
+                    {/* Submit Button */}
+                    <View style={{ marginTop: verticalScale(40), marginBottom: verticalScale(40) }}>
+                        <TouchableOpacity
+                            style={styles.submitButton}
+                            onPress={handleSubmit}
+                        >
+                            <Text style={styles.submitText}>{buttonText}</Text>
+                        </TouchableOpacity>
+                    </View>
+                </ScrollView>
+            </SafeAreaView>
+        </ResponsiveContainer>
     );
 };
 
@@ -582,7 +586,6 @@ const makeStyles = (scale: (size: number) => number, verticalScale: (size: numbe
         padding: scale(20),
         paddingBottom: verticalScale(100),
         width: '100%',
-        maxWidth: isTablet ? 600 : '100%',
         alignSelf: 'center',
     },
     fieldContainer: {

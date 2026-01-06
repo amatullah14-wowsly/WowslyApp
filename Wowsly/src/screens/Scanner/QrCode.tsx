@@ -17,6 +17,8 @@ import {
 } from 'react-native'
 import { useScale } from '../../utils/useScale';
 import { FontSize } from '../../constants/fontSizes';
+import { useTabletScale, useTabletModerateScale } from '../../utils/tabletScaling';
+import { ResponsiveContainer } from '../../components/ResponsiveContainer';
 
 import { initDB, findTicketByQr, updateTicketStatusLocal, getTicketsForEvent, insertOrReplaceGuests, getFacilitiesForGuest, updateFacilityCheckInLocal, insertFacilityForGuest } from '../../db'
 import { RouteProp, useRoute, useNavigation, useFocusEffect } from '@react-navigation/native'
@@ -49,7 +51,8 @@ const TORCH_OFF_ICON = require('../../assets/img/common/torchoff.png')
 const QrCode = () => {
   const navigation = useNavigation()
   const route = useRoute<QrCodeRoute>()
-  const { height } = useWindowDimensions();
+  const { height, width } = useWindowDimensions();
+  const isTablet = width >= 720;
   const { scale, verticalScale, moderateScale } = useScale();
 
   const [flashOn, setFlashOn] = useState(false)
@@ -1521,321 +1524,323 @@ const QrCode = () => {
   return (
     <SafeAreaView style={styles.safeArea}>
       <StatusBar barStyle="light-content" />
-      <View style={styles.container}>
-        {hasPermission && (
-          <View style={StyleSheet.absoluteFill}>
-            <Camera
-              style={{ flex: 1 }}
-              scanBarcode={true}
-              onReadCode={onReadCode}
-              showFrame={false}
-              laserColor="transparent"
-              frameColor="transparent"
-              torchMode={flashOn ? 'on' : 'off'}
-            />
-          </View>
-        )}
-
-        <View style={styles.topRow}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: scale(30) }}>
-            <BackButton onPress={() => navigation.goBack()} />
-            <View style={styles.modeRow}>
-              <Image
-                source={modeTitle === 'Online Mode' ? WIFI_ICON : OFFLINE_ICON}
-                style={styles.modeIcon}
+      <ResponsiveContainer maxWidth={isTablet ? 900 : 420}>
+        <View style={styles.container}>
+          {hasPermission && (
+            <View style={StyleSheet.absoluteFill}>
+              <Camera
+                style={{ flex: 1 }}
+                scanBarcode={true}
+                onReadCode={onReadCode}
+                showFrame={false}
+                laserColor="transparent"
+                frameColor="transparent"
+                torchMode={flashOn ? 'on' : 'off'}
               />
-              <View>
-                <Text style={styles.modeTitle}>{modeTitle}</Text>
-                <Text style={styles.eventName}>{eventTitle}</Text>
+            </View>
+          )}
+
+          <View style={styles.topRow}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: scale(30) }}>
+              <BackButton onPress={() => navigation.goBack()} />
+              <View style={styles.modeRow}>
+                <Image
+                  source={modeTitle === 'Online Mode' ? WIFI_ICON : OFFLINE_ICON}
+                  style={styles.modeIcon}
+                />
+                <View>
+                  <Text style={styles.modeTitle}>{modeTitle}</Text>
+                  <Text style={styles.eventName}>{eventTitle}</Text>
+                </View>
               </View>
             </View>
+
+            <TouchableOpacity
+              style={[styles.flashButton, flashOn && styles.flashButtonActive]}
+              activeOpacity={0.8}
+              onPress={() => setFlashOn(!flashOn)}
+            >
+              <Image
+                source={flashOn ? TORCH_ON_ICON : TORCH_OFF_ICON}
+                style={styles.flashIcon}
+                resizeMode="contain"
+              />
+            </TouchableOpacity>
           </View>
 
-          <TouchableOpacity
-            style={[styles.flashButton, flashOn && styles.flashButtonActive]}
-            activeOpacity={0.8}
-            onPress={() => setFlashOn(!flashOn)}
-          >
-            <Image
-              source={flashOn ? TORCH_ON_ICON : TORCH_OFF_ICON}
-              style={styles.flashIcon}
-              resizeMode="contain"
-            />
-          </TouchableOpacity>
-        </View>
-
-        {/* ⚡⚡⚡ ON-SCREEN STATUS BANNER ⚡⚡⚡ */}
-        {scanStatus && (
-          <View style={[
-            styles.statusBanner,
-            scanStatus.type === 'success' && styles.statusBannerSuccess,
-            scanStatus.type === 'error' && styles.statusBannerError,
-            scanStatus.type === 'warning' && styles.statusBannerWarning,
-          ]}>
-            <View style={styles.statusIconWrapper}>
-              <Text style={styles.statusIconText}>
-                {scanStatus.type === 'success' ? '✓' : scanStatus.type === 'error' ? '✕' : '!'}
-              </Text>
+          {/* ⚡⚡⚡ ON-SCREEN STATUS BANNER ⚡⚡⚡ */}
+          {scanStatus && (
+            <View style={[
+              styles.statusBanner,
+              scanStatus.type === 'success' && styles.statusBannerSuccess,
+              scanStatus.type === 'error' && styles.statusBannerError,
+              scanStatus.type === 'warning' && styles.statusBannerWarning,
+            ]}>
+              <View style={styles.statusIconWrapper}>
+                <Text style={styles.statusIconText}>
+                  {scanStatus.type === 'success' ? '✓' : scanStatus.type === 'error' ? '✕' : '!'}
+                </Text>
+              </View>
+              <Text style={styles.statusBannerText}>{scanStatus.text}</Text>
             </View>
-            <Text style={styles.statusBannerText}>{scanStatus.text}</Text>
+          )}
+
+          <View style={styles.scannerWrapper}>
+            <View style={styles.dashedBox}>
+              <View style={[styles.corner, styles.cornerTopLeft]} />
+              <View style={[styles.corner, styles.cornerTopRight]} />
+              <View style={[styles.corner, styles.cornerBottomLeft]} />
+              <View style={[styles.corner, styles.cornerBottomRight]} />
+            </View>
+            <Text style={styles.scanHint}>Place QR code inside the frame</Text>
           </View>
-        )}
 
-        <View style={styles.scannerWrapper}>
-          <View style={styles.dashedBox}>
-            <View style={[styles.corner, styles.cornerTopLeft]} />
-            <View style={[styles.corner, styles.cornerTopRight]} />
-            <View style={[styles.corner, styles.cornerBottomLeft]} />
-            <View style={[styles.corner, styles.cornerBottomRight]} />
-          </View>
-          <Text style={styles.scanHint}>Place QR code inside the frame</Text>
-        </View>
+          {guestData && (
+            <Animated.View
+              style={[
+                styles.sheet,
+                {
+                  height: SHEET_MAX_HEIGHT,
+                  transform: [{ translateY }],
+                  bottom: - (SHEET_MAX_HEIGHT - SHEET_MIN_HEIGHT) // Push it down initially so only MIN_HEIGHT is visible
+                }
+              ]}
+            >
+              {/* ⚡⚡⚡ DRAG HANDLE AREA ONLY ⚡⚡⚡ */}
+              <View {...panResponder.panHandlers}>
+                <View style={styles.sheetHandle} />
+                <View style={styles.guestRow}>
+                  <View>
+                    <Text style={styles.guestName}>
+                      {isVerifying ? 'Verifying...' : (guestData?.name || 'Scan a QR Code')}
+                    </Text>
+                    <Text style={styles.ticketId}>
+                      Ticket ID: {guestData?.ticketId || '---'}
+                    </Text>
 
-        {guestData && (
-          <Animated.View
-            style={[
-              styles.sheet,
-              {
-                height: SHEET_MAX_HEIGHT,
-                transform: [{ translateY }],
-                bottom: - (SHEET_MAX_HEIGHT - SHEET_MIN_HEIGHT) // Push it down initially so only MIN_HEIGHT is visible
-              }
-            ]}
-          >
-            {/* ⚡⚡⚡ DRAG HANDLE AREA ONLY ⚡⚡⚡ */}
-            <View {...panResponder.panHandlers}>
-              <View style={styles.sheetHandle} />
-              <View style={styles.guestRow}>
-                <View>
-                  <Text style={styles.guestName}>
-                    {isVerifying ? 'Verifying...' : (guestData?.name || 'Scan a QR Code')}
-                  </Text>
-                  <Text style={styles.ticketId}>
-                    Ticket ID: {guestData?.ticketId || '---'}
-                  </Text>
-
-                  {/* ⚡⚡⚡ CONDITIONAL STATS (DYNAMIC) ⚡⚡⚡ */}
+                    {/* ⚡⚡⚡ CONDITIONAL STATS (DYNAMIC) ⚡⚡⚡ */}
+                    {guestData && (
+                      <View style={styles.statsContainer}>
+                        <View style={styles.statItem}>
+                          <Text style={styles.statLabel}>Bought</Text>
+                          <Text style={styles.statValue}>{stats.bought}</Text>
+                        </View>
+                        <View style={styles.statDivider} />
+                        <View style={styles.statItem}>
+                          <Text style={styles.statLabel}>Scanned</Text>
+                          <Text style={styles.statValue}>{stats.scanned}</Text>
+                        </View>
+                        <View style={styles.statDivider} />
+                        <View style={styles.statItem}>
+                          <Text style={styles.statLabel}>Remaining</Text>
+                          <Text style={styles.statValue}>{stats.remaining}</Text>
+                        </View>
+                      </View>
+                    )}
+                  </View>
                   {guestData && (
-                    <View style={styles.statsContainer}>
-                      <View style={styles.statItem}>
-                        <Text style={styles.statLabel}>Bought</Text>
-                        <Text style={styles.statValue}>{stats.bought}</Text>
-                      </View>
-                      <View style={styles.statDivider} />
-                      <View style={styles.statItem}>
-                        <Text style={styles.statLabel}>Scanned</Text>
-                        <Text style={styles.statValue}>{stats.scanned}</Text>
-                      </View>
-                      <View style={styles.statDivider} />
-                      <View style={styles.statItem}>
-                        <Text style={styles.statLabel}>Remaining</Text>
-                        <Text style={styles.statValue}>{stats.remaining}</Text>
-                      </View>
+                    <View style={[
+                      styles.statusPill,
+                      !guestData?.isValid && styles.statusPillInvalid
+                    ]}>
+                      <Text style={styles.statusPillText}>
+                        {guestData?.status || 'VALID ENTRY'}
+                      </Text>
                     </View>
                   )}
                 </View>
-                {guestData && (
-                  <View style={[
-                    styles.statusPill,
-                    !guestData?.isValid && styles.statusPillInvalid
-                  ]}>
-                    <Text style={styles.statusPillText}>
-                      {guestData?.status || 'VALID ENTRY'}
-                    </Text>
+              </View>
+
+              {/* ScrollView for content if it gets too long */}
+              <ScrollView
+
+                style={{ flex: 1, marginTop: 16 }}
+                contentContainerStyle={{ paddingBottom: 20 }}
+                showsVerticalScrollIndicator={false}
+              >
+                {guestData?.facilities && guestData.facilities.length > 0 && (
+                  <View style={styles.facilitiesContainer}>
+                    <Text style={styles.facilitiesTitle}>Facilities:</Text>
+                    <View style={styles.facilitiesList}>
+                      {guestData.facilities.map((facility: any, index: number) => (
+                        <View key={index} style={styles.facilityBadge}>
+                          <Text style={styles.facilityText}>{typeof facility === 'string' ? facility : facility.name}</Text>
+                        </View>
+                      ))}
+                    </View>
                   </View>
                 )}
-              </View>
-            </View>
+                {/* ⚡⚡⚡ SELECT SCANNING OPTION (Wrapped) ⚡⚡⚡ */}
+                <View style={styles.scanningOptionsContainer}>
+                  <Text style={styles.scanningForTitle}>Scanning for</Text>
 
-            {/* ScrollView for content if it gets too long */}
-            <ScrollView
+                  <View style={styles.radioGroup}>
+                    {/* CHECK-IN RADIO */}
+                    {(() => {
+                      // Main Check-in Status Calculation
+                      const total = guestData?.totalEntries || 1;
+                      const used = guestData?.usedEntries || 0;
+                      // ⚡⚡⚡ UPDATED: Disable if checked in ONCE ⚡⚡⚡
+                      const isFullyCheckedIn = used > 0;
 
-              style={{ flex: 1, marginTop: 16 }}
-              contentContainerStyle={{ paddingBottom: 20 }}
-              showsVerticalScrollIndicator={false}
-            >
-              {guestData?.facilities && guestData.facilities.length > 0 && (
-                <View style={styles.facilitiesContainer}>
-                  <Text style={styles.facilitiesTitle}>Facilities:</Text>
-                  <View style={styles.facilitiesList}>
-                    {guestData.facilities.map((facility: any, index: number) => (
-                      <View key={index} style={styles.facilityBadge}>
-                        <Text style={styles.facilityText}>{typeof facility === 'string' ? facility : facility.name}</Text>
-                      </View>
-                    ))}
-                  </View>
-                </View>
-              )}
-              {/* ⚡⚡⚡ SELECT SCANNING OPTION (Wrapped) ⚡⚡⚡ */}
-              <View style={styles.scanningOptionsContainer}>
-                <Text style={styles.scanningForTitle}>Scanning for</Text>
+                      return (
+                        <TouchableOpacity
+                          style={styles.radioItem}
+                          onPress={() => !isFullyCheckedIn && setSelectedScanningOption('check_in')}
+                          activeOpacity={isFullyCheckedIn ? 1 : 0.7}
+                        >
+                          <View style={[styles.radioOuter, { borderColor: isFullyCheckedIn ? '#555' : '#FF8A3C' }]}>
+                            {selectedScanningOption === 'check_in' && <View style={[styles.radioInner, { backgroundColor: isFullyCheckedIn ? '#555' : '#FF8A3C' }]} />}
+                          </View>
+                          <Text style={[styles.radioLabel, isFullyCheckedIn && styles.disabledText]}>Check-In</Text>
+                        </TouchableOpacity>
+                      );
+                    })()}
 
-                <View style={styles.radioGroup}>
-                  {/* CHECK-IN RADIO */}
-                  {(() => {
-                    // Main Check-in Status Calculation
-                    const total = guestData?.totalEntries || 1;
-                    const used = guestData?.usedEntries || 0;
-                    // ⚡⚡⚡ UPDATED: Disable if checked in ONCE ⚡⚡⚡
-                    const isFullyCheckedIn = used > 0;
+                    {/* FACILITIES RADIOS */}
+                    {guestData?.facilities && guestData.facilities.map((fac: any) => {
+                      const isMainCheckedIn = (guestData?.usedEntries || 0) > 0;
+                      let facilityDisabled = !isMainCheckedIn;
 
-                    return (
-                      <TouchableOpacity
-                        style={styles.radioItem}
-                        onPress={() => !isFullyCheckedIn && setSelectedScanningOption('check_in')}
-                        activeOpacity={isFullyCheckedIn ? 1 : 0.7}
-                      >
-                        <View style={[styles.radioOuter, { borderColor: isFullyCheckedIn ? '#555' : '#FF8A3C' }]}>
-                          {selectedScanningOption === 'check_in' && <View style={[styles.radioInner, { backgroundColor: isFullyCheckedIn ? '#555' : '#FF8A3C' }]} />}
-                        </View>
-                        <Text style={[styles.radioLabel, isFullyCheckedIn && styles.disabledText]}>Check-In</Text>
-                      </TouchableOpacity>
-                    );
-                  })()}
+                      // Optimistic Status Check & Local Data Check combined
+                      if (!facilityDisabled) {
+                        const available = fac.quantity ?? fac.total_scans ?? fac.availableScans ?? 1;
+                        const scanned = fac.scanned_count ?? fac.checkIn ?? fac.used_scans ?? 0;
 
-                  {/* FACILITIES RADIOS */}
-                  {guestData?.facilities && guestData.facilities.map((fac: any) => {
-                    const isMainCheckedIn = (guestData?.usedEntries || 0) > 0;
-                    let facilityDisabled = !isMainCheckedIn;
+                        // Global status check (from API or other signal)
+                        if (facilityStatus.length > 0) {
+                          const status = facilityStatus.find((s: any) => String(s.id) === String(fac.id));
+                          if (status && status.available_scans <= 0) {
+                            facilityDisabled = true;
+                          }
+                        }
 
-                    // Optimistic Status Check & Local Data Check combined
-                    if (!facilityDisabled) {
-                      const available = fac.quantity ?? fac.total_scans ?? fac.availableScans ?? 1;
-                      const scanned = fac.scanned_count ?? fac.checkIn ?? fac.used_scans ?? 0;
-
-                      // Global status check (from API or other signal)
-                      if (facilityStatus.length > 0) {
-                        const status = facilityStatus.find((s: any) => String(s.id) === String(fac.id));
-                        if (status && status.available_scans <= 0) {
+                        // Count check
+                        if (scanned >= available) {
                           facilityDisabled = true;
                         }
                       }
 
-                      // Count check
-                      if (scanned >= available) {
-                        facilityDisabled = true;
-                      }
-                    }
-
-                    return (
-                      <TouchableOpacity
-                        key={fac.id || fac.name}
-                        style={styles.radioItem}
-                        onPress={() => !facilityDisabled && setSelectedScanningOption(fac.id)}
-                        activeOpacity={facilityDisabled ? 1 : 0.7}
-                      >
-                        <View style={[styles.radioOuter, { borderColor: facilityDisabled ? '#555' : '#FF8A3C' }]}>
-                          {selectedScanningOption === fac.id && <View style={[styles.radioInner, { backgroundColor: facilityDisabled ? '#555' : '#FF8A3C' }]} />}
-                        </View>
-                        <Text style={[styles.radioLabel, facilityDisabled && styles.disabledText]}>{fac.name}</Text>
-                      </TouchableOpacity>
-                    );
-                  })}
-                </View>
-              </View>
-
-              {/* ⚡⚡⚡ QUANTITY SELECTOR (only when no facilities and multi-entry) ⚡⚡⚡ */}
-              {showQuantitySelector && (
-                <View style={styles.quantityContainer}>
-                  <Text style={styles.quantityLabel}>Check-in Quantity:</Text>
-                  <View style={styles.quantityControls}>
-                    <TouchableOpacity
-                      style={styles.qtyButton}
-                      onPress={() => {
-                        if (selectedQuantity > 1) setSelectedQuantity(q => q - 1);
-                      }}
-                    >
-                      <Text style={styles.qtyButtonText}>-</Text>
-                    </TouchableOpacity>
-                    <Text style={styles.qtyValue}>{selectedQuantity}</Text>
-                    <TouchableOpacity
-                      style={styles.qtyButton}
-                      onPress={() => {
-                        const remaining = guestData.totalEntries - guestData.usedEntries;
-                        if (selectedQuantity < remaining) {
-                          const newQty = selectedQuantity + 1;
-                          setSelectedQuantity(newQty);
-
-                          // ⚡⚡⚡ AUTO-SUBMIT IF MAX REACHED ⚡⚡⚡
-                          if (newQty === remaining) {
-                            handleDirectCheckIn(guestData, newQty);
-                          }
-                        } else {
-                          showStatus(`Limit Reached: Max ${guestData.totalEntries} tickets`, 'warning');
-                        }
-                      }}
-                    >
-                      <Text style={styles.qtyButtonText}>+</Text>
-                    </TouchableOpacity>
+                      return (
+                        <TouchableOpacity
+                          key={fac.id || fac.name}
+                          style={styles.radioItem}
+                          onPress={() => !facilityDisabled && setSelectedScanningOption(fac.id)}
+                          activeOpacity={facilityDisabled ? 1 : 0.7}
+                        >
+                          <View style={[styles.radioOuter, { borderColor: facilityDisabled ? '#555' : '#FF8A3C' }]}>
+                            {selectedScanningOption === fac.id && <View style={[styles.radioInner, { backgroundColor: facilityDisabled ? '#555' : '#FF8A3C' }]} />}
+                          </View>
+                          <Text style={[styles.radioLabel, facilityDisabled && styles.disabledText]}>{fac.name}</Text>
+                        </TouchableOpacity>
+                      );
+                    })}
                   </View>
                 </View>
-              )}
-            </ScrollView>
 
-            {(() => {
-              // ⚡⚡⚡ DYNAMIC BUTTON DISABLED STATE ⚡⚡⚡
-              let isSelectionDisabled = false;
-              let buttonText = 'Check In';
+                {/* ⚡⚡⚡ QUANTITY SELECTOR (only when no facilities and multi-entry) ⚡⚡⚡ */}
+                {showQuantitySelector && (
+                  <View style={styles.quantityContainer}>
+                    <Text style={styles.quantityLabel}>Check-in Quantity:</Text>
+                    <View style={styles.quantityControls}>
+                      <TouchableOpacity
+                        style={styles.qtyButton}
+                        onPress={() => {
+                          if (selectedQuantity > 1) setSelectedQuantity(q => q - 1);
+                        }}
+                      >
+                        <Text style={styles.qtyButtonText}>-</Text>
+                      </TouchableOpacity>
+                      <Text style={styles.qtyValue}>{selectedQuantity}</Text>
+                      <TouchableOpacity
+                        style={styles.qtyButton}
+                        onPress={() => {
+                          const remaining = guestData.totalEntries - guestData.usedEntries;
+                          if (selectedQuantity < remaining) {
+                            const newQty = selectedQuantity + 1;
+                            setSelectedQuantity(newQty);
 
-              // 1. GLOBAL FULL CHECK
-              const isMainFull = (guestData.usedEntries || 0) >= (guestData.totalEntries || 1);
-              let areAllFacilitiesFull = true;
-              if (guestData.facilities && guestData.facilities.length > 0) {
-                areAllFacilitiesFull = guestData.facilities.every((f: any) => {
-                  const avail = f.quantity ?? f.total_scans ?? f.availableScans ?? 1;
-                  const used = f.scanned_count ?? f.checkIn ?? f.used_scans ?? 0;
-                  return used >= avail;
-                });
-              } else {
-                areAllFacilitiesFull = true; // No facilities means "all full" logic depends only on main
-              }
+                            // ⚡⚡⚡ AUTO-SUBMIT IF MAX REACHED ⚡⚡⚡
+                            if (newQty === remaining) {
+                              handleDirectCheckIn(guestData, newQty);
+                            }
+                          } else {
+                            showStatus(`Limit Reached: Max ${guestData.totalEntries} tickets`, 'warning');
+                          }
+                        }}
+                      >
+                        <Text style={styles.qtyButtonText}>+</Text>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                )}
+              </ScrollView>
 
-              if (isMainFull && areAllFacilitiesFull) {
-                isSelectionDisabled = true;
-                buttonText = 'Fully Checked In';
-              } else if (isVerifying) {
-                isSelectionDisabled = true;
-                buttonText = 'Verifying...';
-              } else if (selectedScanningOption === 'check_in') {
-                // Main Ticket Logic
-                if (isMainFull) {
-                  isSelectionDisabled = true;
-                  buttonText = 'Already Checked In';
+              {(() => {
+                // ⚡⚡⚡ DYNAMIC BUTTON DISABLED STATE ⚡⚡⚡
+                let isSelectionDisabled = false;
+                let buttonText = 'Check In';
+
+                // 1. GLOBAL FULL CHECK
+                const isMainFull = (guestData.usedEntries || 0) >= (guestData.totalEntries || 1);
+                let areAllFacilitiesFull = true;
+                if (guestData.facilities && guestData.facilities.length > 0) {
+                  areAllFacilitiesFull = guestData.facilities.every((f: any) => {
+                    const avail = f.quantity ?? f.total_scans ?? f.availableScans ?? 1;
+                    const used = f.scanned_count ?? f.checkIn ?? f.used_scans ?? 0;
+                    return used >= avail;
+                  });
+                } else {
+                  areAllFacilitiesFull = true; // No facilities means "all full" logic depends only on main
                 }
-              } else {
-                // Facility Logic
-                const facId = Number(selectedScanningOption);
-                const fac = guestData.facilities?.find((f: any) => f.id === facId);
-                if (fac) {
-                  const available = fac.quantity ?? fac.total_scans ?? fac.availableScans ?? 1;
-                  const scanned = fac.scanned_count ?? fac.checkIn ?? fac.used_scans ?? 0;
-                  if (scanned >= available) {
+
+                if (isMainFull && areAllFacilitiesFull) {
+                  isSelectionDisabled = true;
+                  buttonText = 'Fully Checked In';
+                } else if (isVerifying) {
+                  isSelectionDisabled = true;
+                  buttonText = 'Verifying...';
+                } else if (selectedScanningOption === 'check_in') {
+                  // Main Ticket Logic
+                  if (isMainFull) {
                     isSelectionDisabled = true;
-                    buttonText = `${fac.name} Checked In`;
+                    buttonText = 'Already Checked In';
+                  }
+                } else {
+                  // Facility Logic
+                  const facId = Number(selectedScanningOption);
+                  const fac = guestData.facilities?.find((f: any) => f.id === facId);
+                  if (fac) {
+                    const available = fac.quantity ?? fac.total_scans ?? fac.availableScans ?? 1;
+                    const scanned = fac.scanned_count ?? fac.checkIn ?? fac.used_scans ?? 0;
+                    if (scanned >= available) {
+                      isSelectionDisabled = true;
+                      buttonText = `${fac.name} Checked In`;
+                    }
                   }
                 }
-              }
 
-              return (
-                <TouchableOpacity
-                  style={[
-                    styles.primaryButton,
-                    isSelectionDisabled && styles.primaryButtonDisabled
-                  ]}
-                  activeOpacity={0.9}
-                  disabled={isSelectionDisabled}
-                  onPress={handleBulkCheckIn}
-                >
-                  <Text style={styles.primaryButtonText}>
-                    {buttonText}
-                  </Text>
-                </TouchableOpacity>
-              );
-            })()}
-          </Animated.View>
-        )
-        }
-      </View >
+                return (
+                  <TouchableOpacity
+                    style={[
+                      styles.primaryButton,
+                      isSelectionDisabled && styles.primaryButtonDisabled
+                    ]}
+                    activeOpacity={0.9}
+                    disabled={isSelectionDisabled}
+                    onPress={handleBulkCheckIn}
+                  >
+                    <Text style={styles.primaryButtonText}>
+                      {buttonText}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })()}
+            </Animated.View>
+          )
+          }
+        </View >
+      </ResponsiveContainer>
     </SafeAreaView >
   )
 }

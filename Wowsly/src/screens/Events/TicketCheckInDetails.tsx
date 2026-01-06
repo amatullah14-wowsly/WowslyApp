@@ -15,6 +15,8 @@ import { useNavigation, useRoute } from '@react-navigation/native';
 import { getTicketCheckInRecords, getTicketCheckInCount } from '../../api/event';
 import BackButton from '../../components/BackButton';
 import { useScale } from '../../utils/useScale';
+import { useTabletScale, useTabletModerateScale } from '../../utils/tabletScaling';
+import { ResponsiveContainer } from '../../components/ResponsiveContainer';
 import Pagination from '../../components/Pagination';
 import { numberToWords } from '../../utils/stringUtils';
 import SystemNavigationBar from 'react-native-system-navigation-bar';
@@ -55,6 +57,10 @@ const TicketCheckInDetails = () => {
     const navigation = useNavigation();
     const route = useRoute<any>();
     const { eventId, ticketId, ticketName } = route.params || {};
+
+    const { width } = useWindowDimensions();
+    const isTablet = width >= 720;
+    const numColumns = isTablet ? 3 : 2;
 
     const [statsLoading, setStatsLoading] = useState(true);
     const [stats, setStats] = useState<TicketStats | null>(null);
@@ -197,7 +203,7 @@ const TicketCheckInDetails = () => {
             shadowOffset: { width: 0, height: 2 },
             shadowOpacity: 0.08,
             shadowRadius: moderateScale(4),
-            width: '48%',
+            width: isTablet ? '31%' : '48%',
             alignItems: 'center',
             justifyContent: 'space-between',
             minHeight: verticalScale(150),
@@ -549,147 +555,150 @@ const TicketCheckInDetails = () => {
     };
 
     return (
-        <View style={styles.container}>
-            <View style={styles.header}>
-                <BackButton onPress={() => navigation.goBack()} />
-                <Text style={styles.title}>Ticket Check In Details</Text>
-                <View style={styles.headerSpacer} />
-            </View>
+        <ResponsiveContainer maxWidth={isTablet ? 900 : 420}>
+            <View style={styles.container}>
+                <View style={styles.header}>
+                    <BackButton onPress={() => navigation.goBack()} />
+                    <Text style={styles.title}>Ticket Check In Details</Text>
+                    <View style={styles.headerSpacer} />
+                </View>
 
-            <View style={styles.content}>
-                {statsLoading ? (
-                    <ActivityIndicator size="small" color="#FF8A3C" />
-                ) : stats ? (
-                    <View style={styles.statsPanel}>
-                        <View style={styles.statCard}>
-                            <Text style={styles.statsTotalTitle}>Total Check In</Text>
+                <View style={styles.content}>
+                    {statsLoading ? (
+                        <ActivityIndicator size="small" color="#FF8A3C" />
+                    ) : stats ? (
+                        <View style={styles.statsPanel}>
+                            <View style={styles.statCard}>
+                                <Text style={styles.statsTotalTitle}>Total Check In</Text>
 
-                            <View style={styles.statsRowHorizontal}>
-                                <View style={styles.statItemHalf}>
-                                    <Text style={styles.statLabel}>Checked In</Text>
-                                    <Text style={styles.statValueHighlight}>
-                                        {numberToWords(stats.total_event_check_in.total_check_in)}
-                                    </Text>
-                                </View>
-                                <View style={styles.statDividerVertical} />
-                                <View style={styles.statItemHalf}>
-                                    <Text style={styles.statLabel}>Total Guests</Text>
-                                    <Text style={styles.statValue}>
-                                        {numberToWords(stats.total_event_check_in.total_purchase_ticket)}
-                                    </Text>
+                                <View style={styles.statsRowHorizontal}>
+                                    <View style={styles.statItemHalf}>
+                                        <Text style={styles.statLabel}>Checked In</Text>
+                                        <Text style={styles.statValueHighlight}>
+                                            {numberToWords(stats.total_event_check_in.total_check_in)}
+                                        </Text>
+                                    </View>
+                                    <View style={styles.statDividerVertical} />
+                                    <View style={styles.statItemHalf}>
+                                        <Text style={styles.statLabel}>Total Guests</Text>
+                                        <Text style={styles.statValue}>
+                                            {numberToWords(stats.total_event_check_in.total_purchase_ticket)}
+                                        </Text>
+                                    </View>
                                 </View>
                             </View>
-                        </View>
-                        <View style={styles.facilitiesStatsRow}>
-                            {stats.total_facilities_check_in?.facilities.map((fac, index) => (
-                                <View key={index} style={styles.statChip}>
-                                    <Text style={styles.statChipText}>
-                                        {fac.facility_name}: {fac.check_in_count}/{fac.facilities_taken_by_user}
-                                    </Text>
-                                </View>
-                            ))}
-                        </View>
-                    </View>
-                ) : null}
-
-                {recordsLoading ? (
-                    <ActivityIndicator size="large" color="#FF8A3C" style={{ marginTop: verticalScale(20) }} />
-                ) : (
-                    <FlatList
-                        data={records}
-                        key={'grid-view-records-compact'} // New key for layout change
-                        keyExtractor={(item) => item.id.toString()}
-                        renderItem={renderRecordItem}
-                        contentContainerStyle={styles.listContent}
-                        numColumns={2}
-                        columnWrapperStyle={styles.columnWrapper}
-                    />
-                )}
-
-                {!recordsLoading && (
-                    <Pagination
-                        currentPage={page}
-                        totalPages={totalPages}
-                        onPageChange={fetchRecords}
-                    />
-                )}
-            </View>
-
-            {/* Details Modal */}
-            <Modal
-                animationType="slide"
-                transparent={true}
-                visible={modalVisible}
-                onRequestClose={closeModal}
-            >
-                <View style={styles.modalOverlay}>
-                    <View style={styles.modalContainer}>
-                        <View style={styles.modalHeader}>
-                            <Text style={styles.modalTitle}>Guest Details</Text>
-                            <TouchableOpacity onPress={closeModal} style={styles.closeButton}>
-                                <Text style={styles.closeButtonText}>✕</Text>
-                            </TouchableOpacity>
-                        </View>
-
-                        {selectedGuest && (
-                            <ScrollView contentContainerStyle={styles.modalBody}>
-                                <View style={styles.modalRow}>
-                                    <Text style={styles.modalLabel}>Name:</Text>
-                                    <Text style={styles.modalValueMain}>{selectedGuest.name}</Text>
-                                </View>
-                                <View style={styles.separator} />
-
-                                <View style={styles.modalRow}>
-                                    <Text style={styles.modalLabel}>Email:</Text>
-                                    <Text style={styles.modalValue}>{selectedGuest.email}</Text>
-                                </View>
-                                <View style={styles.modalRow}>
-                                    <Text style={styles.modalLabel}>Mobile:</Text>
-                                    <Text style={styles.modalValue}>+{selectedGuest.mobile}</Text>
-                                </View>
-                                <View style={styles.modalRow}>
-                                    <Text style={styles.modalLabel}>Invited By:</Text>
-                                    <Text style={styles.modalValue}>{selectedGuest.invited_by_name || 'N/A'}</Text>
-                                </View>
-                                <View style={styles.modalRow}>
-                                    <Text style={styles.modalLabel}>Check-In:</Text>
-                                    <Text style={styles.modalValue}>
-                                        {formatTime(selectedGuest.check_in_time)}
-                                    </Text>
-                                </View>
-
-                                {selectedGuest.facilities && selectedGuest.facilities.length > 0 && (
-                                    <View style={styles.modalFacilitiesContainer}>
-                                        <Text style={styles.modalSectionTitle}>Facility Usage</Text>
-                                        {selectedGuest.facilities.map((fac, idx) => (
-                                            <View key={idx} style={styles.modalFacilityItem}>
-                                                <View style={styles.modalFacilityHeader}>
-                                                    <Text style={styles.modalFacilityName}>{fac.facility_name}</Text>
-                                                    <Text style={styles.modalFacilityCount}>Used: {fac.check_in_count}</Text>
-                                                </View>
-                                                <View style={styles.facilityTimes}>
-                                                    {fac.check_in_time.map((t, tIdx) => (
-                                                        <Text key={tIdx} style={styles.facilityTimeText}>
-                                                            {formatTime(t)}
-                                                        </Text>
-                                                    ))}
-                                                </View>
-                                            </View>
-                                        ))}
+                            <View style={styles.facilitiesStatsRow}>
+                                {stats.total_facilities_check_in?.facilities.map((fac, index) => (
+                                    <View key={index} style={styles.statChip}>
+                                        <Text style={styles.statChipText}>
+                                            {fac.facility_name}: {fac.check_in_count}/{fac.facilities_taken_by_user}
+                                        </Text>
                                     </View>
-                                )}
-                            </ScrollView>
-                        )}
+                                ))}
+                            </View>
+                        </View>
+                    ) : null}
 
-                        <View style={styles.modalFooter}>
-                            <TouchableOpacity style={styles.modalCloseBtn} onPress={closeModal}>
-                                <Text style={styles.modalCloseBtnText}>Close</Text>
-                            </TouchableOpacity>
+                    {recordsLoading ? (
+                        <ActivityIndicator size="large" color="#FF8A3C" style={{ marginTop: verticalScale(20) }} />
+                    ) : (
+                        <FlatList
+                            data={records}
+                            key={'grid-view-records-compact'} // New key for layout change
+                            keyExtractor={(item) => item.id.toString()}
+                            renderItem={renderRecordItem}
+                            contentContainerStyle={styles.listContent}
+                            numColumns={numColumns}
+                            key={`grid-view-records-${numColumns}`} // Force re-render on column change
+                            columnWrapperStyle={styles.columnWrapper}
+                        />
+                    )}
+
+                    {!recordsLoading && (
+                        <Pagination
+                            currentPage={page}
+                            totalPages={totalPages}
+                            onPageChange={fetchRecords}
+                        />
+                    )}
+                </View>
+
+                {/* Details Modal */}
+                <Modal
+                    animationType="slide"
+                    transparent={true}
+                    visible={modalVisible}
+                    onRequestClose={closeModal}
+                >
+                    <View style={styles.modalOverlay}>
+                        <View style={styles.modalContainer}>
+                            <View style={styles.modalHeader}>
+                                <Text style={styles.modalTitle}>Guest Details</Text>
+                                <TouchableOpacity onPress={closeModal} style={styles.closeButton}>
+                                    <Text style={styles.closeButtonText}>✕</Text>
+                                </TouchableOpacity>
+                            </View>
+
+                            {selectedGuest && (
+                                <ScrollView contentContainerStyle={styles.modalBody}>
+                                    <View style={styles.modalRow}>
+                                        <Text style={styles.modalLabel}>Name:</Text>
+                                        <Text style={styles.modalValueMain}>{selectedGuest.name}</Text>
+                                    </View>
+                                    <View style={styles.separator} />
+
+                                    <View style={styles.modalRow}>
+                                        <Text style={styles.modalLabel}>Email:</Text>
+                                        <Text style={styles.modalValue}>{selectedGuest.email}</Text>
+                                    </View>
+                                    <View style={styles.modalRow}>
+                                        <Text style={styles.modalLabel}>Mobile:</Text>
+                                        <Text style={styles.modalValue}>+{selectedGuest.mobile}</Text>
+                                    </View>
+                                    <View style={styles.modalRow}>
+                                        <Text style={styles.modalLabel}>Invited By:</Text>
+                                        <Text style={styles.modalValue}>{selectedGuest.invited_by_name || 'N/A'}</Text>
+                                    </View>
+                                    <View style={styles.modalRow}>
+                                        <Text style={styles.modalLabel}>Check-In:</Text>
+                                        <Text style={styles.modalValue}>
+                                            {formatTime(selectedGuest.check_in_time)}
+                                        </Text>
+                                    </View>
+
+                                    {selectedGuest.facilities && selectedGuest.facilities.length > 0 && (
+                                        <View style={styles.modalFacilitiesContainer}>
+                                            <Text style={styles.modalSectionTitle}>Facility Usage</Text>
+                                            {selectedGuest.facilities.map((fac, idx) => (
+                                                <View key={idx} style={styles.modalFacilityItem}>
+                                                    <View style={styles.modalFacilityHeader}>
+                                                        <Text style={styles.modalFacilityName}>{fac.facility_name}</Text>
+                                                        <Text style={styles.modalFacilityCount}>Used: {fac.check_in_count}</Text>
+                                                    </View>
+                                                    <View style={styles.facilityTimes}>
+                                                        {fac.check_in_time.map((t, tIdx) => (
+                                                            <Text key={tIdx} style={styles.facilityTimeText}>
+                                                                {formatTime(t)}
+                                                            </Text>
+                                                        ))}
+                                                    </View>
+                                                </View>
+                                            ))}
+                                        </View>
+                                    )}
+                                </ScrollView>
+                            )}
+
+                            <View style={styles.modalFooter}>
+                                <TouchableOpacity style={styles.modalCloseBtn} onPress={closeModal}>
+                                    <Text style={styles.modalCloseBtnText}>Close</Text>
+                                </TouchableOpacity>
+                            </View>
                         </View>
                     </View>
-                </View>
-            </Modal>
-        </View>
+                </Modal>
+            </View>
+        </ResponsiveContainer>
     );
 };
 

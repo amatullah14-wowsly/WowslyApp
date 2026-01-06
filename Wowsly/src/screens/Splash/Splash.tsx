@@ -3,11 +3,14 @@ import { View, Image, ImageBackground, StyleSheet, Animated } from 'react-native
 import { useNavigation } from '@react-navigation/native';
 import { initDB } from '../../db';
 import { scale } from '../../utils/scaling';
+import { useScale } from '../../utils/useScale';
+import { useTabletScale } from '../../utils/tabletScaling';
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const Splash = () => {
 
+  const { scale } = useScale();
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const navigation = useNavigation<any>();
 

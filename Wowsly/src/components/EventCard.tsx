@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { StyleSheet, Text, TouchableOpacity, View, useWindowDimensions } from 'react-native'
+import { StyleSheet, Text, TouchableOpacity, View, useWindowDimensions, ViewStyle } from 'react-native'
 import { FontSize } from '../constants/fontSizes'
 import { useScale } from '../utils/useScale'
 import FastImage from 'react-native-fast-image'
@@ -12,16 +12,17 @@ export type EventCardProps = {
   selected?: boolean
   onPress?: () => void
   isPlaceholder?: boolean
+  style?: ViewStyle
 }
 
-const EventCard = ({ title, date, location, image, selected, onPress, isPlaceholder = false }: EventCardProps) => {
+const EventCard = ({ title, date, location, image, selected, onPress, isPlaceholder = false, style }: EventCardProps) => {
   const { scale, verticalScale, moderateScale } = useScale();
   const { width } = useWindowDimensions();
   const styles = useMemo(() => makeStyles(scale, verticalScale, moderateScale, width), [scale, verticalScale, moderateScale, width]);
 
   return (
     <TouchableOpacity activeOpacity={0.9} onPress={onPress}>
-      <View style={[styles.card, selected && styles.cardSelected]}>
+      <View style={[styles.card, selected && styles.cardSelected, style]}>
         {/* FastImage acting as Background */}
         <FastImage
           source={image}

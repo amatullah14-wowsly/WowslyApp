@@ -11,11 +11,13 @@ import {
   RefreshControl,
   BackHandler,
   useWindowDimensions,
+  ActivityIndicator,
 } from "react-native";
 import FastImage from 'react-native-fast-image';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { FontSize } from '../../constants/fontSizes';
 import { useScale } from '../../utils/useScale';
+import { useTabletScale, useTabletModerateScale } from '../../utils/tabletScaling';
 import React, { useEffect, useMemo, useState, useCallback } from "react";
 import EventCard from "../../components/EventCard";
 import { useNavigation, useFocusEffect } from "@react-navigation/native";
@@ -37,6 +39,7 @@ const EventListing = () => {
 
   // Foldable Logic
   const isFoldable = width >= 600;
+  const isTablet = width >= 720;
 
   // Responsive Grid Logic
   // List is always 1 column (vertical list), whether on Phone or in Left Panel of Foldable
@@ -250,15 +253,25 @@ const EventListing = () => {
     );
   }, [selectedEventId, navigation, activeTab, isFoldable]);
 
-  const renderEmptyComponent = () => (
-    <View style={styles.emptyContainer}>
-      <Image
-        source={require('../../assets/img/common/noguests.png')}
-        style={styles.emptyImage}
-        resizeMode="contain"
-      />
-    </View>
-  );
+  const renderEmptyComponent = () => {
+    if (loading) {
+      return (
+        <View style={styles.emptyContainer}>
+          <ActivityIndicator size="large" color="#FF8A3C" />
+          <Text style={{ marginTop: 10, color: '#999' }}>Loading Events...</Text>
+        </View>
+      );
+    }
+    return (
+      <View style={styles.emptyContainer}>
+        <Image
+          source={require('../../assets/img/common/noguests.png')}
+          style={styles.emptyImage}
+          resizeMode="contain"
+        />
+      </View>
+    );
+  };
 
   // RENDER HELPERS
   const renderListPanel = () => (
@@ -344,7 +357,7 @@ const EventListing = () => {
   );
 
   return (
-    <ResponsiveContainer maxWidth={isFoldable ? "100%" : 420}>
+    <ResponsiveContainer maxWidth={isTablet ? 900 : (isFoldable ? "100%" : 420)}>
       <View style={styles.container}>
         <StatusBar hidden />
 
@@ -489,7 +502,7 @@ const makeStyles = (scale: (size: number) => number, verticalScale: (size: numbe
     backgroundColor: 'white',
     marginHorizontal: width >= 600 ? 20 : scale(20),
     marginTop: verticalScale(20),
-    borderRadius: width >= 600 ? 16 : scale(20),
+    borderRadius: width >= 720 ? 8 : (width >= 600 ? 16 : scale(20)),
     paddingHorizontal: scale(20),
     height: verticalScale(55),
     shadowColor: '#999',

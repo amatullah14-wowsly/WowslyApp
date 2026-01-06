@@ -7,6 +7,7 @@ import { verifyOTP, sendOTP } from '../../api/api'
 import { useScale } from '../../utils/useScale';
 import { FontSize } from '../../constants/fontSizes';
 import { ResponsiveContainer } from '../../components/ResponsiveContainer';
+import { useTabletScale, useTabletModerateScale } from '../../utils/tabletScaling';
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
@@ -22,6 +23,11 @@ const Otp = () => {
     const route = useRoute<RouteProp<{ params: OtpRouteParams }, 'params'>>();
     const { scale, verticalScale, moderateScale } = useScale();
     const { width } = useWindowDimensions();
+    const isTablet = width >= 720;
+
+    const tabletTitleSize = isTablet ? FontSize.lg : useTabletModerateScale(FontSize.lg);
+    const tabletButtonHeight = isTablet ? 50 : useTabletScale(45);
+    const tabletButtonFontSize = isTablet ? FontSize.md : useTabletScale(FontSize.md);
 
     const { dialing_code = "91", mobile = "" } = route.params || {};
 
@@ -103,7 +109,7 @@ const Otp = () => {
     }
 
     return (
-        <ResponsiveContainer maxWidth={width >= 600 ? "100%" : 420}>
+        <ResponsiveContainer maxWidth={900}>
             <ImageBackground
                 source={require('../../assets/img/splash/Splashbg.jpg')}
                 style={styles.bgImage}
@@ -116,7 +122,9 @@ const Otp = () => {
                     <ScrollView
                         contentContainerStyle={[
                             styles.scrollContent,
-                            width >= 600 ? { justifyContent: 'center' } : undefined
+                            isTablet
+                                ? { alignItems: 'center', paddingTop: 40, justifyContent: 'flex-start' }
+                                : { justifyContent: 'center', alignItems: 'center', paddingTop: moderateScale(50) }
                         ]}
                         showsVerticalScrollIndicator={false}
                     >
@@ -129,7 +137,7 @@ const Otp = () => {
                         </View>
 
                         <View style={styles.box}>
-                            <Text style={styles.title}>Enter OTP</Text>
+                            <Text style={[styles.title, { fontSize: tabletTitleSize }]}>Enter OTP</Text>
                             <Text style={styles.instructionText}>We sent a 6-digit code to +{dialing_code}</Text>
                             <Text style={styles.phoneNumber}>{mobile}</Text>
 
@@ -139,9 +147,8 @@ const Otp = () => {
                                     onTextChange={setOtp}
                                     focusColor={'#FF8A3C'}
                                     theme={{
-                                        containerStyle: styles.otpInputContainer,
-                                        pinCodeContainerStyle: styles.otpBox,
-                                        pinCodeTextStyle: styles.otpText,
+                                        pinCodeContainerStyle: isTablet ? { ...StyleSheet.flatten(styles.otpBox), width: 50, height: 50, borderRadius: 10 } : styles.otpBox,
+                                        pinCodeTextStyle: isTablet ? { ...StyleSheet.flatten(styles.otpText), fontSize: 20 } : styles.otpText,
                                     }}
                                     onFilled={(code) => {
                                         setOtp(code);
@@ -161,8 +168,8 @@ const Otp = () => {
 
                             <Text style={styles.timerText}>Resend in {resendTimer}s</Text>
 
-                            <TouchableOpacity style={styles.verifyButton} onPress={() => handleVerify()}>
-                                <Text style={styles.verifyButtonText}>Verify OTP</Text>
+                            <TouchableOpacity style={[styles.verifyButton, { height: tabletButtonHeight }]} onPress={() => handleVerify()}>
+                                <Text style={[styles.verifyButtonText, { fontSize: tabletButtonFontSize }]}>Verify OTP</Text>
                             </TouchableOpacity>
                         </View>
                     </ScrollView>
@@ -176,17 +183,15 @@ export default Otp
 
 const makeStyles = (scale: any, verticalScale: any, moderateScale: any, width: any) => StyleSheet.create({
     bgImage: {
-        flex: 1,
+        width: '100%',
+        height: '100%',
     },
     container: {
         flex: 1,
     },
     scrollContent: {
         flexGrow: 1,
-        justifyContent: 'center',
-        alignItems: 'center',
         paddingBottom: moderateScale(20),
-        paddingTop: moderateScale(50),
     },
     wowsly: {
         flexDirection: 'column',
@@ -209,7 +214,8 @@ const makeStyles = (scale: any, verticalScale: any, moderateScale: any, width: a
     },
     box: {
         backgroundColor: 'white',
-        width: width >= 600 ? moderateScale(400) : '85%',
+        width: '100%',
+        maxWidth: width >= 720 ? 600 : 420,
         borderRadius: moderateScale(25),
         padding: moderateScale(20),
         alignItems: 'center',

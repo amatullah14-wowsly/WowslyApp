@@ -32,6 +32,8 @@ import {
 
 import BackButton from '../../components/BackButton';
 import { scale, verticalScale, moderateScale } from '../../utils/scaling';
+import { useTabletScale, useTabletModerateScale } from '../../utils/tabletScaling';
+import { ResponsiveContainer } from '../../components/ResponsiveContainer';
 import { FontSize } from '../../constants/fontSizes';
 
 const OFFLINE_ICON = require('../../assets/img/Mode/offlinemode.png');
@@ -50,12 +52,19 @@ const OfflineDashboard = () => {
   const { eventId } = route.params || {};
 
   // Responsive Layout
+  // Responsive Layout
   const { width } = useWindowDimensions();
-  const isTablet = width >= 768;
+  const isTablet = width >= 720;
   const numColumns = isTablet ? 3 : 2;
   const gap = scale(16);
   const paddingH = scale(20);
-  const cardWidth = (width - (paddingH * 2) - (gap * (numColumns - 1))) / numColumns;
+
+  // Create a constrained width for calculation if on tablet
+  const containerWidth = isTablet ? Math.min(width, 900) : width;
+  const cardWidth = (containerWidth - (paddingH * 2) - (gap * (numColumns - 1))) / numColumns;
+
+  const tabletTitleSize = isTablet ? FontSize.xl : useTabletModerateScale(FontSize.xl);
+  const tabletSubtitleSize = isTablet ? FontSize.md : useTabletModerateScale(FontSize.md);
 
 
   const [downloading, setDownloading] = useState(false);
@@ -297,151 +306,152 @@ const OfflineDashboard = () => {
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent}>
+      <ResponsiveContainer maxWidth={900}>
+        <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent}>
 
-        <View style={styles.header}>
-          <View style={styles.backButtonContainer}>
-            <BackButton onPress={handleBackPress} />
-          </View>
-          <Text style={styles.headerTitle}>Offline Mode</Text>
-        </View>
-
-        <Text style={styles.subHeader}>
-          Last synced: Just now | {totals.unique} guests downloaded
-        </Text>
-
-        <View style={styles.cardGrid}>
-
-          {/* Download card */}
-          <View style={[styles.cardItem, { width: cardWidth }]}>
-            <OfflineCard
-              icon={DOWNLOAD_ICON}
-              title="Download Data"
-              subtitle="Get the latest guest list"
-              meta={offlineData ? `Total: ${totals.unique} guests` : 'Tap to download'}
-              onPress={() => handleDownloadData(false)}
-            />
-            {downloading && (
-              <View style={styles.downloadingOverlay}>
-                <ActivityIndicator size="small" color="#FF8A3C" />
-              </View>
-            )}
+          <View style={styles.header}>
+            <View style={styles.backButtonContainer}>
+              <BackButton onPress={handleBackPress} />
+            </View>
+            <Text style={styles.headerTitle}>Offline Mode</Text>
           </View>
 
-          {/* Scan */}
-          <View style={[styles.cardItem, { width: cardWidth }]}>
-            <OfflineCard
-              icon={QR_ICON}
-              title="Scan Ticket"
-              subtitle="Check-in attendees"
-              badge="Offline Check-in"
-              onPress={() =>
-                navigation.navigate('QrCode', {
-                  modeTitle: 'Offline Mode',
-                  eventTitle: 'Offline Event',
-                  eventId,
-                  offline: true,
-                })
-              }
-            />
-          </View>
+          <Text style={styles.subHeader}>
+            Last synced: Just now | {totals.unique} guests downloaded
+          </Text>
 
-          {/* Upload */}
-          <View style={[styles.cardItem, { width: cardWidth }]}>
-            <OfflineCard
-              icon={UPLOAD_ICON}
-              title="Upload Data"
-              subtitle="Upload new check-ins"
-              meta={`${pendingCount} pending`}
-              onPress={handleUploadData}
-            />
-            {uploading && (
-              <View style={styles.downloadingOverlay}>
-                <ActivityIndicator size="small" color="#FF8A3C" />
-              </View>
-            )}
-          </View>
+          <View style={styles.cardGrid}>
 
-          {/* Guests */}
-          <View style={[styles.cardItem, { width: cardWidth }]}>
-            <OfflineCard
-              icon={GUEST_ICON}
-              title="Guest List"
-              subtitle="View downloaded guests"
-              meta={`Total: ${totals.total} | Checked: ${totals.checkedIn}`}
-              onPress={() => {
-                navigation.navigate('OfflineGuestList', {
-                  eventId,
-                  offlineData,
-                });
-              }}
-            />
-          </View>
-        </View>
+            {/* Download card */}
+            <View style={[styles.cardItem, { width: cardWidth }]}>
+              <OfflineCard
+                icon={DOWNLOAD_ICON}
+                title="Download Data"
+                subtitle="Get the latest guest list"
+                meta={offlineData ? `Total: ${totals.unique} guests` : 'Tap to download'}
+                onPress={() => handleDownloadData(false)}
+              />
+              {downloading && (
+                <View style={styles.downloadingOverlay}>
+                  <ActivityIndicator size="small" color="#FF8A3C" />
+                </View>
+              )}
+            </View>
 
-        {/* SUMMARY */}
-        <View style={[styles.summaryCard, isTablet && { marginHorizontal: scale(100) }]}>
-          <Text style={styles.summaryTitle}>Offline Guest Summary</Text>
+            {/* Scan */}
+            <View style={[styles.cardItem, { width: cardWidth }]}>
+              <OfflineCard
+                icon={QR_ICON}
+                title="Scan Ticket"
+                subtitle="Check-in attendees"
+                badge="Offline Check-in"
+                onPress={() =>
+                  navigation.navigate('QrCode', {
+                    modeTitle: 'Offline Mode',
+                    eventTitle: 'Offline Event',
+                    eventId,
+                    offline: true,
+                  })
+                }
+              />
+            </View>
 
-          <View style={styles.summaryRow}>
-            <Text style={styles.summaryStat}>Total Guests: <Text style={styles.summaryValue}>{totals.total}</Text></Text>
-            <Text style={styles.summaryStat}>Checked-in: <Text style={styles.summaryValue}>{totals.checkedIn}</Text></Text>
-            <Text style={styles.summaryStat}>Remaining: <Text style={styles.summaryValue}>{totals.remaining}</Text></Text>
-          </View>
+            {/* Upload */}
+            <View style={[styles.cardItem, { width: cardWidth }]}>
+              <OfflineCard
+                icon={UPLOAD_ICON}
+                title="Upload Data"
+                subtitle="Upload new check-ins"
+                meta={`${pendingCount} pending`}
+                onPress={handleUploadData}
+              />
+              {uploading && (
+                <View style={styles.downloadingOverlay}>
+                  <ActivityIndicator size="small" color="#FF8A3C" />
+                </View>
+              )}
+            </View>
 
-          <View style={styles.bucketGrid}>
-            {guestBuckets.map((b: any) => (
-              <View key={b.id} style={styles.bucketCard}>
-                <Text style={styles.bucketTitle}>{b.title}</Text>
-                <Text style={styles.bucketMeta}>Total: {b.total} | Checked: {b.checkedIn}</Text>
-                <Text style={styles.bucketRemaining}>Remaining: {b.total - b.checkedIn}</Text>
-              </View>
-            ))}
-          </View>
-
-          <View style={styles.pendingRow}>
-            <Text style={styles.pendingText}>{pendingCount} offline check-ins pending sync</Text>
-            <Text style={styles.storageText}>Local storage used: 3.2MB</Text>
-          </View>
-
-        </View>
-
-      </ScrollView>
-
-      {/* ⚠️ EXIT WARNING MODAL ⚠️ */}
-      <Modal
-        visible={showExitWarning}
-        transparent={true}
-        animationType="fade"
-        onRequestClose={() => setShowExitWarning(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={[styles.modalContent, isTablet && { maxWidth: scale(500) }]}>
-            <Text style={styles.modalTitle}>Pending Uploads</Text>
-            <Text style={styles.modalText}>
-              Your uploads are remaining. If you exit, your scanned data will be lost.
-            </Text>
-            <View style={styles.modalButtons}>
-              <TouchableOpacity
-                style={[styles.modalButton, styles.cancelButton]}
-                onPress={() => setShowExitWarning(false)}
-              >
-                <Text style={styles.modalButtonText}>Cancel</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.modalButton, styles.exitButton]}
+            {/* Guests */}
+            <View style={[styles.cardItem, { width: cardWidth }]}>
+              <OfflineCard
+                icon={GUEST_ICON}
+                title="Guest List"
+                subtitle="View downloaded guests"
+                meta={`Total: ${totals.total} | Checked: ${totals.checkedIn}`}
                 onPress={() => {
-                  setShowExitWarning(false);
-                  navigation.goBack();
+                  navigation.navigate('OfflineGuestList', {
+                    eventId,
+                    offlineData,
+                  });
                 }}
-              >
-                <Text style={[styles.modalButtonText, styles.exitButtonText]}>Exit Anyway</Text>
-              </TouchableOpacity>
+              />
             </View>
           </View>
-        </View>
-      </Modal>
 
+          {/* SUMMARY */}
+          <View style={[styles.summaryCard, isTablet && { marginHorizontal: scale(100) }]}>
+            <Text style={styles.summaryTitle}>Offline Guest Summary</Text>
+
+            <View style={styles.summaryRow}>
+              <Text style={styles.summaryStat}>Total Guests: <Text style={styles.summaryValue}>{totals.total}</Text></Text>
+              <Text style={styles.summaryStat}>Checked-in: <Text style={styles.summaryValue}>{totals.checkedIn}</Text></Text>
+              <Text style={styles.summaryStat}>Remaining: <Text style={styles.summaryValue}>{totals.remaining}</Text></Text>
+            </View>
+
+            <View style={styles.bucketGrid}>
+              {guestBuckets.map((b: any) => (
+                <View key={b.id} style={styles.bucketCard}>
+                  <Text style={styles.bucketTitle}>{b.title}</Text>
+                  <Text style={styles.bucketMeta}>Total: {b.total} | Checked: {b.checkedIn}</Text>
+                  <Text style={styles.bucketRemaining}>Remaining: {b.total - b.checkedIn}</Text>
+                </View>
+              ))}
+            </View>
+
+            <View style={styles.pendingRow}>
+              <Text style={styles.pendingText}>{pendingCount} offline check-ins pending sync</Text>
+              <Text style={styles.storageText}>Local storage used: 3.2MB</Text>
+            </View>
+
+          </View>
+
+        </ScrollView>
+
+        {/* ⚠️ EXIT WARNING MODAL ⚠️ */}
+        <Modal
+          visible={showExitWarning}
+          transparent={true}
+          animationType="fade"
+          onRequestClose={() => setShowExitWarning(false)}
+        >
+          <View style={styles.modalOverlay}>
+            <View style={[styles.modalContent, isTablet && { maxWidth: scale(500) }]}>
+              <Text style={styles.modalTitle}>Pending Uploads</Text>
+              <Text style={styles.modalText}>
+                Your uploads are remaining. If you exit, your scanned data will be lost.
+              </Text>
+              <View style={styles.modalButtons}>
+                <TouchableOpacity
+                  style={[styles.modalButton, styles.cancelButton]}
+                  onPress={() => setShowExitWarning(false)}
+                >
+                  <Text style={styles.modalButtonText}>Cancel</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.modalButton, styles.exitButton]}
+                  onPress={() => {
+                    setShowExitWarning(false);
+                    navigation.goBack();
+                  }}
+                >
+                  <Text style={[styles.modalButtonText, styles.exitButtonText]}>Exit Anyway</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </Modal>
+      </ResponsiveContainer>
     </SafeAreaView>
   );
 };

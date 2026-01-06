@@ -21,6 +21,7 @@ import {
 import Pagination from '../../components/Pagination';
 import { useScale } from '../../utils/useScale';
 import { FontSize } from '../../constants/fontSizes';
+import { useTabletScale, useTabletModerateScale } from '../../utils/tabletScaling';
 import { ResponsiveContainer } from '../../components/ResponsiveContainer';
 
 import { EventDashboardContent } from './EventDashboard';
@@ -33,6 +34,7 @@ const Past = () => {
 
   // Foldable Logic
   const isFoldable = width >= 600;
+  const isTablet = width >= 720;
 
   const [events, setEvents] = useState<any[]>([]);
   const [allEvents, setAllEvents] = useState<any[]>([]); // Store all fetched events
@@ -304,7 +306,7 @@ const Past = () => {
   );
 
   return (
-    <ResponsiveContainer maxWidth={width >= 600 ? "100%" : 420}>
+    <ResponsiveContainer maxWidth={isTablet ? 900 : (width >= 600 ? "100%" : 420)}>
       <View style={{ flex: 1, flexDirection: isFoldable ? 'row' : 'column' }}>
         {renderListPanel()}
 
@@ -369,10 +371,10 @@ const makeStyles = (scale: (size: number) => number, verticalScale: (size: numbe
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: 'white',
-    marginHorizontal: width >= 600 ? 20 : moderateScale(20),
+    marginHorizontal: width >= 600 ? 20 : scale(20),
     marginTop: verticalScale(20),
-    borderRadius: width >= 600 ? 16 : moderateScale(20),
-    paddingHorizontal: moderateScale(20),
+    borderRadius: width >= 720 ? 8 : (width >= 600 ? 16 : scale(20)),
+    paddingHorizontal: scale(20),
     height: verticalScale(55),
     shadowColor: '#999',
     shadowOpacity: 0.1,

@@ -7,6 +7,7 @@ import { useScale } from '../../utils/useScale';
 import { FontSize } from '../../constants/fontSizes';
 import { sendOTP } from '../../api/api';  // ✅ API IMPORT
 import { ResponsiveContainer } from '../../components/ResponsiveContainer';
+import { useTabletScale, useTabletModerateScale } from '../../utils/tabletScaling';
 
 const Number = () => {
   const phoneInput = useRef<PhoneNumberInput>(null);
@@ -18,6 +19,13 @@ const Number = () => {
   const navigation = useNavigation<any>();
   const { scale, verticalScale, moderateScale } = useScale();
   const { width } = useWindowDimensions();
+  const isTablet = width >= 720;
+
+  // Tablet Scaling overrides
+  // Tablet Scaling overrides - FORCE standard sizes on tablet to avoid "fat" UI
+  const tabletTitleSize = isTablet ? FontSize.xxl : useTabletModerateScale(FontSize.xxl);
+  const tabletButtonHeight = isTablet ? 50 : useTabletScale(50);
+  const tabletButtonFontSize = isTablet ? FontSize.md : useTabletScale(FontSize.md);
 
   const styles = useMemo(() => makeStyles(scale, verticalScale, moderateScale, width), [scale, verticalScale, moderateScale, width]);
 
@@ -97,7 +105,7 @@ const Number = () => {
   const isSendOtpDisabled = isSending || !acceptedTerms;
 
   return (
-    <ResponsiveContainer maxWidth={width >= 600 ? "100%" : 420}>
+    <ResponsiveContainer maxWidth={900}>
       <ImageBackground
         source={require('../../assets/img/splash/Splashbg.jpg')}
         style={styles.bgImage}
@@ -110,7 +118,9 @@ const Number = () => {
           <ScrollView
             contentContainerStyle={[
               styles.scrollContent,
-              width >= 600 ? { justifyContent: 'center' } : undefined
+              isTablet
+                ? { alignItems: 'center', paddingTop: 40, justifyContent: 'flex-start' }
+                : { justifyContent: 'center', alignItems: 'center', paddingTop: moderateScale(50) }
             ]}
             showsVerticalScrollIndicator={false}
           >
@@ -123,7 +133,7 @@ const Number = () => {
               </View>
 
               <View style={styles.heading}>
-                <Text style={styles.headingText}>Welcome to Wowsly</Text>
+                <Text style={[styles.headingText, { fontSize: tabletTitleSize }]}>Welcome to Wowsly</Text>
                 <Text style={styles.organizer}>Organizer App</Text>
               </View>
 
@@ -140,7 +150,7 @@ const Number = () => {
                   layout="first"
                   onChangeText={setValue}
                   onChangeCountry={(country) => setCountryCode(country.callingCode[0])}
-                  containerStyle={styles.phoneContainer}
+                  containerStyle={[styles.phoneContainer, isTablet && { height: 50 }]}
                   textContainerStyle={styles.phoneTextContainer}
                   textInputStyle={styles.phoneInput}
                   codeTextStyle={styles.phoneCodeText}
@@ -152,7 +162,7 @@ const Number = () => {
                     onSubmitEditing: handleSendOTP,
                     placeholder: 'Mobile Number',
                     placeholderTextColor: '#9E9E9E',
-                    style: styles.phoneInput
+                    style: [styles.phoneInput, isTablet && { fontSize: 14, height: 50 }]
                   }}
                 />
                 {countryCode === '91' && (
@@ -169,7 +179,7 @@ const Number = () => {
 
               {/* TERMS CHECKBOX */}
 
-              <View style={styles.checkboxRow}>
+              <View style={[styles.checkboxRow, isTablet && { marginTop: 20 }]}>
                 <TouchableOpacity
                   onPress={() => setAcceptedTerms((prev) => !prev)}
                   activeOpacity={0.8}
@@ -191,11 +201,11 @@ const Number = () => {
 
               {/* SEND OTP BUTTON */}
               <TouchableOpacity
-                style={[styles.button, isSendOtpDisabled && styles.buttonDisabled]}
+                style={[styles.button, isSendOtpDisabled && styles.buttonDisabled, { height: tabletButtonHeight }]}
                 onPress={handleSendOTP}
                 disabled={isSendOtpDisabled}
               >
-                <Text style={styles.buttonText}>
+                <Text style={[styles.buttonText, { fontSize: tabletButtonFontSize }]}>
                   {isWhatsAppLoading ? "Sending..." : "Send OTP"}
                 </Text>
               </TouchableOpacity>
@@ -226,7 +236,6 @@ export default Number;
 
 const makeStyles = (scale: any, verticalScale: any, moderateScale: any, width: any) => StyleSheet.create({
   bgImage: {
-    flex: 1,
     width: '100%',
     height: '100%',
   },
@@ -235,13 +244,11 @@ const makeStyles = (scale: any, verticalScale: any, moderateScale: any, width: a
   },
   scrollContent: {
     flexGrow: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
     paddingBottom: moderateScale(20),
-    paddingTop: moderateScale(50),
   },
   mainbox: {
-    width: width >= 600 ? moderateScale(400) : '90%',
+    width: '100%',
+    maxWidth: width >= 720 ? 600 : 420,
     paddingVertical: moderateScale(10),
     backgroundColor: '#fff',
     borderRadius: moderateScale(25),
@@ -279,7 +286,7 @@ const makeStyles = (scale: any, verticalScale: any, moderateScale: any, width: a
   },
   number: {
     alignSelf: 'flex-start',
-    marginLeft: '8%',
+    marginLeft: '10%',
     marginTop: moderateScale(10),
     width: '100%', // Ensure container takes width
   },
@@ -289,7 +296,7 @@ const makeStyles = (scale: any, verticalScale: any, moderateScale: any, width: a
     fontWeight: '500',
   },
   phoneContainer: {
-    width: '85%', // Reduced slightly to look better centered if needed, or keep 90
+    width: '80%', // Reduced slightly to look better centered if needed, or keep 90
     marginTop: moderateScale(10),
     borderWidth: 1,
     borderColor: '#E0E0E0',
@@ -353,8 +360,8 @@ const makeStyles = (scale: any, verticalScale: any, moderateScale: any, width: a
     alignItems: 'center',
     gap: moderateScale(8),
     alignSelf: 'flex-start',
-    marginLeft: '7%',
-    marginTop: verticalScale(15),
+    marginLeft: '9%',
+    marginTop: verticalScale(8),
   },
   checkbox: {
     width: width >= 600 ? 20 : moderateScale(20), // Fix massive size on tablets

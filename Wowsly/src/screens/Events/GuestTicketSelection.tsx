@@ -6,6 +6,8 @@ import { FontSize } from '../../constants/fontSizes';
 import { getEventTickets, selectGuestTicket } from '../../api/event';
 import BackButton from '../../components/BackButton';
 import Toast from 'react-native-toast-message';
+import { useTabletScale, useTabletModerateScale } from '../../utils/tabletScaling';
+import { ResponsiveContainer } from '../../components/ResponsiveContainer';
 
 const GuestTicketSelection = () => {
     const navigation = useNavigation<any>();
@@ -13,7 +15,7 @@ const GuestTicketSelection = () => {
     const { eventId, guestUuid, registeredBy } = route.params || {};
 
     const { width } = useWindowDimensions();
-    const isTablet = width >= 768;
+    const isTablet = width >= 720;
     const { scale, verticalScale, moderateScale } = useScale();
     const styles = useMemo(() => makeStyles(scale, verticalScale, moderateScale, isTablet), [scale, verticalScale, moderateScale, isTablet]);
 
@@ -115,106 +117,108 @@ const GuestTicketSelection = () => {
     const selectedTicket = tickets.find(t => t.id === selectedTicketId);
 
     return (
-        <SafeAreaView style={{ flex: 1, backgroundColor: '#F8F9FA' }}>
-            {/* Header */}
-            <View style={styles.header}>
-                <BackButton onPress={() => navigation.goBack()} />
-                <Text style={styles.headerTitle}>Select Ticket</Text>
-                <View style={{ width: scale(40) }} />
-            </View>
+        <ResponsiveContainer maxWidth={isTablet ? 800 : 420}>
+            <SafeAreaView style={{ flex: 1, backgroundColor: '#F8F9FA' }}>
+                {/* Header */}
+                <View style={styles.header}>
+                    <BackButton onPress={() => navigation.goBack()} />
+                    <Text style={styles.headerTitle}>Select Ticket</Text>
+                    <View style={{ width: scale(40) }} />
+                </View>
 
-            <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+                <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
 
-                {/* Section Title */}
-                <Text style={styles.sectionTitle}>Available Tickets</Text>
+                    {/* Section Title */}
+                    <Text style={styles.sectionTitle}>Available Tickets</Text>
 
-                {/* Vertical List of Tickets */}
-                <View style={styles.ticketList}>
-                    {tickets.map((ticket) => {
-                        const isSelected = selectedTicketId === ticket.id;
-                        return (
-                            <TouchableOpacity
-                                key={ticket.id}
-                                style={[styles.ticketCard, isSelected && styles.ticketCardSelected]}
-                                onPress={() => { setSelectedTicketId(ticket.id); setQuantity(1); }}
-                                activeOpacity={0.9}
-                            >
-                                <View style={styles.cardContent}>
-                                    {/* Radio Indicator */}
-                                    <View style={[styles.radioCircle, isSelected && styles.radioCircleSelected]}>
-                                        {isSelected && <View style={styles.radioDot} />}
-                                    </View>
-
-                                    {/* Ticket Info */}
-                                    <View style={{ flex: 1 }}>
-                                        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-                                            <Text style={[styles.ticketTitle, isSelected && styles.ticketTitleSelected]}>{ticket.title}</Text>
+                    {/* Vertical List of Tickets */}
+                    <View style={styles.ticketList}>
+                        {tickets.map((ticket) => {
+                            const isSelected = selectedTicketId === ticket.id;
+                            return (
+                                <TouchableOpacity
+                                    key={ticket.id}
+                                    style={[styles.ticketCard, isSelected && styles.ticketCardSelected]}
+                                    onPress={() => { setSelectedTicketId(ticket.id); setQuantity(1); }}
+                                    activeOpacity={0.9}
+                                >
+                                    <View style={styles.cardContent}>
+                                        {/* Radio Indicator */}
+                                        <View style={[styles.radioCircle, isSelected && styles.radioCircleSelected]}>
+                                            {isSelected && <View style={styles.radioDot} />}
                                         </View>
-                                        <Text style={styles.ticketType}>{ticket.amount > 0 ? `${ticket.currency} ${ticket.amount}` : 'Free'}</Text>
+
+                                        {/* Ticket Info */}
+                                        <View style={{ flex: 1 }}>
+                                            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                                                <Text style={[styles.ticketTitle, isSelected && styles.ticketTitleSelected]}>{ticket.title}</Text>
+                                            </View>
+                                            <Text style={styles.ticketType}>{ticket.amount > 0 ? `${ticket.currency} ${ticket.amount}` : 'Free'}</Text>
+                                        </View>
+
+                                        {/* Checkmark or Info (Optional, keeping clean for now) */}
                                     </View>
+                                </TouchableOpacity>
+                            );
+                        })}
+                    </View>
 
-                                    {/* Checkmark or Info (Optional, keeping clean for now) */}
-                                </View>
+                    {/* Selected Ticket Details (Amenities) */}
+                    {selectedTicket && selectedTicket.facilities && selectedTicket.facilities.length > 0 && (
+                        <View style={styles.detailsContainer}>
+                            <Text style={styles.amenitiesTitle}>Included Facilities</Text>
+                            <View style={styles.chipContainer}>
+                                {selectedTicket.facilities.map((facility: any, index: number) => (
+                                    <View key={index} style={styles.amenityChip}>
+                                        <Text style={styles.amenityText}>{facility.name}</Text>
+                                    </View>
+                                ))}
+                            </View>
+                        </View>
+                    )}
+
+                    <View style={styles.divider} />
+
+                    {/* Quantity Selector */}
+                    <View style={styles.actionRow}>
+                        <Text style={styles.quantityLabel}>Number of tickets</Text>
+                        <View style={styles.quantityControls}>
+                            <TouchableOpacity onPress={() => handleQuantityChange(-1)} style={styles.controlButton}>
+                                <Text style={styles.controlButtonText}>-</Text>
                             </TouchableOpacity>
-                        );
-                    })}
-                </View>
 
-                {/* Selected Ticket Details (Amenities) */}
-                {selectedTicket && selectedTicket.facilities && selectedTicket.facilities.length > 0 && (
-                    <View style={styles.detailsContainer}>
-                        <Text style={styles.amenitiesTitle}>Included Facilities</Text>
-                        <View style={styles.chipContainer}>
-                            {selectedTicket.facilities.map((facility: any, index: number) => (
-                                <View key={index} style={styles.amenityChip}>
-                                    <Text style={styles.amenityText}>{facility.name}</Text>
-                                </View>
-                            ))}
+                            <View style={styles.quantityBox}>
+                                <Text style={styles.quantityText}>{quantity}</Text>
+                            </View>
+
+                            <TouchableOpacity onPress={() => handleQuantityChange(1)} style={styles.controlButton}>
+                                <Text style={styles.controlButtonText}>+</Text>
+                            </TouchableOpacity>
                         </View>
                     </View>
-                )}
 
-                <View style={styles.divider} />
-
-                {/* Quantity Selector */}
-                <View style={styles.actionRow}>
-                    <Text style={styles.quantityLabel}>Number of tickets</Text>
-                    <View style={styles.quantityControls}>
-                        <TouchableOpacity onPress={() => handleQuantityChange(-1)} style={styles.controlButton}>
-                            <Text style={styles.controlButtonText}>-</Text>
-                        </TouchableOpacity>
-
-                        <View style={styles.quantityBox}>
-                            <Text style={styles.quantityText}>{quantity}</Text>
+                    {/* WhatsApp Toggle */}
+                    <TouchableOpacity
+                        style={styles.actionRow}
+                        onPress={() => setSendToWhatsapp(!sendToWhatsapp)}
+                        activeOpacity={0.8}
+                    >
+                        <Text style={styles.whatsappText}>Get ticket on WhatsApp</Text>
+                        <View style={[styles.checkbox, sendToWhatsapp && styles.checkboxChecked]}>
+                            {sendToWhatsapp && <Text style={styles.checkmark}>✓</Text>}
                         </View>
+                    </TouchableOpacity>
 
-                        <TouchableOpacity onPress={() => handleQuantityChange(1)} style={styles.controlButton}>
-                            <Text style={styles.controlButtonText}>+</Text>
-                        </TouchableOpacity>
-                    </View>
+                </ScrollView>
+
+                {/* Bottom Button */}
+                <View style={styles.footer}>
+                    <TouchableOpacity style={styles.nextButton} onPress={handleSubmit} disabled={loading}>
+                        <Text style={styles.nextButtonText}>{loading ? 'Processing...' : 'Confirm Selection'}</Text>
+                    </TouchableOpacity>
                 </View>
-
-                {/* WhatsApp Toggle */}
-                <TouchableOpacity
-                    style={styles.actionRow}
-                    onPress={() => setSendToWhatsapp(!sendToWhatsapp)}
-                    activeOpacity={0.8}
-                >
-                    <Text style={styles.whatsappText}>Get ticket on WhatsApp</Text>
-                    <View style={[styles.checkbox, sendToWhatsapp && styles.checkboxChecked]}>
-                        {sendToWhatsapp && <Text style={styles.checkmark}>✓</Text>}
-                    </View>
-                </TouchableOpacity>
-
-            </ScrollView>
-
-            {/* Bottom Button */}
-            <View style={styles.footer}>
-                <TouchableOpacity style={styles.nextButton} onPress={handleSubmit} disabled={loading}>
-                    <Text style={styles.nextButtonText}>{loading ? 'Processing...' : 'Confirm Selection'}</Text>
-                </TouchableOpacity>
-            </View>
-        </SafeAreaView>
+            </SafeAreaView>
+        </ResponsiveContainer>
     );
 };
 
@@ -241,7 +245,6 @@ const makeStyles = (scale: (size: number) => number, verticalScale: (size: numbe
         padding: scale(20),
         paddingBottom: verticalScale(100),
         width: '100%',
-        maxWidth: isTablet ? 600 : '100%',
         alignSelf: 'center',
     },
     sectionTitle: {

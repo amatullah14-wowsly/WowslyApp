@@ -7,6 +7,8 @@ import BackButton from '../../components/BackButton';
 import { getRegistrationAnswers, exportRegistrationReplies, getExportStatus, getEventDetails, updateGuestStatus } from '../../api/event';
 import { ToastAndroid, Alert, Platform, Linking, useWindowDimensions } from 'react-native';
 import RegistrationFormEditor from './RegistrationFormEditor';
+import { useTabletScale, useTabletModerateScale } from '../../utils/tabletScaling';
+import { ResponsiveContainer } from '../../components/ResponsiveContainer';
 import { useScale } from '../../utils/useScale';
 import { FontSize } from '../../constants/fontSizes';
 
@@ -87,6 +89,7 @@ const RegistrationDashboard = () => {
     const { eventId } = route.params || {};
 
     const { width } = useWindowDimensions();
+    const isTablet = width >= 720;
     const { scale, verticalScale, moderateScale } = useScale();
     const styles = useMemo(() => makeStyles(scale, verticalScale, moderateScale), [scale, verticalScale, moderateScale]);
 
@@ -383,211 +386,213 @@ const RegistrationDashboard = () => {
 
     return (
         <SafeAreaView style={styles.container}>
-            {/* Header */}
-            <View style={styles.header}>
-                <BackButton onPress={() => navigation.goBack()} />
-                <Text style={styles.title}>Replies</Text>
-                <TouchableOpacity onPress={() => setShowHeaderMenu(true)} style={styles.menuButton}>
-                    <Image source={require('../../assets/img/form/menu.png')} style={styles.menuIcon} resizeMode="contain" />
-                </TouchableOpacity>
-            </View>
-
-            {/* Content */}
-            <View style={styles.content}>
-                <View style={styles.repliesContainer}>
-
-                    {/* Status / Download Button (Only visible if active/completed) */}
-                    {(exportStatus === 'processing' || exportStatus === 'completed') && (
-                        <View style={styles.statusButtonContainer}>
-                            {exportStatus === 'processing' ? (
-                                <TouchableOpacity style={[styles.exportButton, styles.checkStatusButton]} onPress={handleCheckStatus}>
-                                    <Image source={require('../../assets/img/eventdashboard/clock.png')} style={[styles.exportIcon, { tintColor: 'white' }]} resizeMode="contain" />
-                                    <Text style={[styles.exportButtonText, { color: 'white' }]}>Check Status</Text>
-                                </TouchableOpacity>
-                            ) : (
-                                <TouchableOpacity style={[styles.exportButton, styles.downloadButton]} onPress={handleDownload}>
-                                    <Image source={require('../../assets/img/eventdashboard/export.png')} style={[styles.exportIcon, { tintColor: 'white', transform: [{ rotate: '180deg' }] }]} resizeMode="contain" />
-                                    <Text style={[styles.exportButtonText, { color: 'white' }]}>Download File</Text>
-                                </TouchableOpacity>
-                            )}
-                        </View>
-                    )}
-
-                    {/* List */}
-                    {loading && replies.length === 0 ? (
-                        <ActivityIndicator size="large" color="#FF8A3C" style={{ marginTop: verticalScale(50) }} />
-                    ) : (
-                        <FlatList
-                            data={replies}
-                            renderItem={renderReplyItem}
-                            keyExtractor={(item, index) => item.id?.toString() || index.toString()}
-                            onEndReached={() => {
-                                if (!loading && hasMore) {
-                                    fetchReplies(currentPage + 1);
-                                }
-                            }}
-                            onEndReachedThreshold={0.5}
-                            ListFooterComponent={loading && replies.length > 0 ? <ActivityIndicator color="#FF8A3C" style={{ margin: scale(20) }} /> : null}
-                            ListEmptyComponent={!loading ? <Text style={styles.emptyText}>No replies found</Text> : null}
-                        />
-                    )}
+            <ResponsiveContainer maxWidth={900}>
+                {/* Header */}
+                <View style={styles.header}>
+                    <BackButton onPress={() => navigation.goBack()} />
+                    <Text style={styles.title}>Replies</Text>
+                    <TouchableOpacity onPress={() => setShowHeaderMenu(true)} style={styles.menuButton}>
+                        <Image source={require('../../assets/img/form/menu.png')} style={styles.menuIcon} resizeMode="contain" />
+                    </TouchableOpacity>
                 </View>
-            </View>
 
-            {/* Reply Details Modal */}
-            <Modal
-                visible={showReplyModal}
-                transparent={true}
-                animationType="none"
-                onRequestClose={() => setShowReplyModal(false)}
-            >
-                <View style={styles.modalOverlay}>
-                    <View style={styles.modalContainer}>
-                        <View style={styles.modalHeader}>
-                            <Text style={styles.modalTitle}>Guest Details</Text>
-                            <View style={styles.headerActions}>
-                                <TouchableOpacity onPress={() => { setShowReplyModal(false); setShowActionMenu(false); }} style={styles.closeButton}>
+                {/* Content */}
+                <View style={styles.content}>
+                    <View style={styles.repliesContainer}>
+
+                        {/* Status / Download Button (Only visible if active/completed) */}
+                        {(exportStatus === 'processing' || exportStatus === 'completed') && (
+                            <View style={styles.statusButtonContainer}>
+                                {exportStatus === 'processing' ? (
+                                    <TouchableOpacity style={[styles.exportButton, styles.checkStatusButton]} onPress={handleCheckStatus}>
+                                        <Image source={require('../../assets/img/eventdashboard/clock.png')} style={[styles.exportIcon, { tintColor: 'white' }]} resizeMode="contain" />
+                                        <Text style={[styles.exportButtonText, { color: 'white' }]}>Check Status</Text>
+                                    </TouchableOpacity>
+                                ) : (
+                                    <TouchableOpacity style={[styles.exportButton, styles.downloadButton]} onPress={handleDownload}>
+                                        <Image source={require('../../assets/img/eventdashboard/export.png')} style={[styles.exportIcon, { tintColor: 'white', transform: [{ rotate: '180deg' }] }]} resizeMode="contain" />
+                                        <Text style={[styles.exportButtonText, { color: 'white' }]}>Download File</Text>
+                                    </TouchableOpacity>
+                                )}
+                            </View>
+                        )}
+
+                        {/* List */}
+                        {loading && replies.length === 0 ? (
+                            <ActivityIndicator size="large" color="#FF8A3C" style={{ marginTop: verticalScale(50) }} />
+                        ) : (
+                            <FlatList
+                                data={replies}
+                                renderItem={renderReplyItem}
+                                keyExtractor={(item, index) => item.id?.toString() || index.toString()}
+                                onEndReached={() => {
+                                    if (!loading && hasMore) {
+                                        fetchReplies(currentPage + 1);
+                                    }
+                                }}
+                                onEndReachedThreshold={0.5}
+                                ListFooterComponent={loading && replies.length > 0 ? <ActivityIndicator color="#FF8A3C" style={{ margin: scale(20) }} /> : null}
+                                ListEmptyComponent={!loading ? <Text style={styles.emptyText}>No replies found</Text> : null}
+                            />
+                        )}
+                    </View>
+                </View>
+
+                {/* Reply Details Modal */}
+                <Modal
+                    visible={showReplyModal}
+                    transparent={true}
+                    animationType="none"
+                    onRequestClose={() => setShowReplyModal(false)}
+                >
+                    <View style={styles.modalOverlay}>
+                        <View style={styles.modalContainer}>
+                            <View style={styles.modalHeader}>
+                                <Text style={styles.modalTitle}>Guest Details</Text>
+                                <View style={styles.headerActions}>
+                                    <TouchableOpacity onPress={() => { setShowReplyModal(false); setShowActionMenu(false); }} style={styles.closeButton}>
+                                        <Text style={styles.closeButtonText}>✕</Text>
+                                    </TouchableOpacity>
+                                </View>
+                            </View>
+
+                            <FlatList
+                                data={selectedReply?.form_replies}
+                                keyExtractor={(_, i) => i.toString()}
+                                renderItem={({ item }) => (
+                                    <View style={styles.detailRow}>
+                                        <Text style={styles.detailLabel}>{item.question}</Text>
+                                        <Text style={styles.detailValue}>{item.answer || "-"}</Text>
+                                    </View>
+                                )}
+                                contentContainerStyle={styles.modalContent}
+                            />
+
+                            {/* Popup Menu (for Details Modal) */}
+                            {showActionMenu && <ActionMenu onSelect={handleUpdateStatus} styles={styles} />}
+                        </View>
+                    </View>
+                </Modal>
+
+                {/* Quick Action Modal (Center) */}
+                <Modal
+                    visible={showQuickActionModal}
+                    transparent={true}
+                    animationType="fade"
+                    onRequestClose={() => setShowQuickActionModal(false)}
+                >
+                    <View style={[styles.modalOverlay, { justifyContent: 'center', alignItems: 'center' }]}>
+                        <View style={styles.quickActionCard}>
+                            <Text style={styles.quickActionTitle}>Action for Guest</Text>
+                            {selectedReply && (
+                                <Text style={styles.quickActionsubtitle}>
+                                    {selectedReply.form_replies?.find((q: any) => q.question.toLowerCase().includes('name'))?.answer || "Guest"}
+                                </Text>
+                            )}
+                            <TouchableOpacity style={styles.quickActionButton} onPress={() => handleQuickAction('accepted')}>
+                                <Text style={styles.quickActionText}>Accept</Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity style={styles.quickActionButton} onPress={() => handleQuickAction('rejected')}>
+                                <Text style={styles.quickActionText}>Reject</Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity style={[styles.quickActionButton, { borderBottomWidth: 0 }]} onPress={() => handleQuickAction('blocked')}>
+                                <Text style={[styles.quickActionText, { color: '#D32F2F' }]}>Reject & Block</Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity style={styles.cancelActionButton} onPress={() => setShowQuickActionModal(false)}>
+                                <Text style={styles.cancelActionText}>Cancel</Text>
+                            </TouchableOpacity>
+                        </View>
+                    </View>
+                </Modal>
+
+                {/* Date Range Modal */}
+                <Modal
+                    visible={showDateModal}
+                    transparent={true}
+                    animationType="fade"
+                    onRequestClose={() => setShowDateModal(false)}
+                >
+                    <View style={styles.modalOverlay}>
+                        <View style={styles.dateModalContainer}>
+                            <View style={styles.dateModalHeader}>
+                                <Text style={styles.dateModalTitle}>Select Date Range</Text>
+                                <TouchableOpacity onPress={() => setShowDateModal(false)}>
                                     <Text style={styles.closeButtonText}>✕</Text>
                                 </TouchableOpacity>
                             </View>
-                        </View>
 
-                        <FlatList
-                            data={selectedReply?.form_replies}
-                            keyExtractor={(_, i) => i.toString()}
-                            renderItem={({ item }) => (
-                                <View style={styles.detailRow}>
-                                    <Text style={styles.detailLabel}>{item.question}</Text>
-                                    <Text style={styles.detailValue}>{item.answer || "-"}</Text>
-                                </View>
-                            )}
-                            contentContainerStyle={styles.modalContent}
-                        />
+                            <View style={styles.dateInputContainer}>
+                                <Text style={styles.dateLabel}>Start Date</Text>
+                                <TouchableOpacity
+                                    style={styles.inputWrapper}
+                                    onPress={() => setStartPickerOpen(true)}
+                                >
+                                    <Text style={[styles.dateInput, !startDate && { color: '#999' }]}>
+                                        {getDisplayDate(startDate)}
+                                    </Text>
+                                    <Image source={require('../../assets/img/eventdashboard/calendar.png')} style={styles.inputIcon} resizeMode="contain" />
+                                </TouchableOpacity>
+                            </View>
 
-                        {/* Popup Menu (for Details Modal) */}
-                        {showActionMenu && <ActionMenu onSelect={handleUpdateStatus} styles={styles} />}
-                    </View>
-                </View>
-            </Modal>
+                            <View style={styles.dateInputContainer}>
+                                <Text style={styles.dateLabel}>End Date</Text>
+                                <TouchableOpacity
+                                    style={styles.inputWrapper}
+                                    onPress={() => setEndPickerOpen(true)}
+                                >
+                                    <Text style={[styles.dateInput, !endDate && { color: '#999' }]}>
+                                        {getDisplayDate(endDate)}
+                                    </Text>
+                                    <Image source={require('../../assets/img/eventdashboard/calendar.png')} style={styles.inputIcon} resizeMode="contain" />
+                                </TouchableOpacity>
+                            </View>
 
-            {/* Quick Action Modal (Center) */}
-            <Modal
-                visible={showQuickActionModal}
-                transparent={true}
-                animationType="fade"
-                onRequestClose={() => setShowQuickActionModal(false)}
-            >
-                <View style={[styles.modalOverlay, { justifyContent: 'center', alignItems: 'center' }]}>
-                    <View style={styles.quickActionCard}>
-                        <Text style={styles.quickActionTitle}>Action for Guest</Text>
-                        {selectedReply && (
-                            <Text style={styles.quickActionsubtitle}>
-                                {selectedReply.form_replies?.find((q: any) => q.question.toLowerCase().includes('name'))?.answer || "Guest"}
-                            </Text>
-                        )}
-                        <TouchableOpacity style={styles.quickActionButton} onPress={() => handleQuickAction('accepted')}>
-                            <Text style={styles.quickActionText}>Accept</Text>
-                        </TouchableOpacity>
-                        <TouchableOpacity style={styles.quickActionButton} onPress={() => handleQuickAction('rejected')}>
-                            <Text style={styles.quickActionText}>Reject</Text>
-                        </TouchableOpacity>
-                        <TouchableOpacity style={[styles.quickActionButton, { borderBottomWidth: 0 }]} onPress={() => handleQuickAction('blocked')}>
-                            <Text style={[styles.quickActionText, { color: '#D32F2F' }]}>Reject & Block</Text>
-                        </TouchableOpacity>
-                        <TouchableOpacity style={styles.cancelActionButton} onPress={() => setShowQuickActionModal(false)}>
-                            <Text style={styles.cancelActionText}>Cancel</Text>
-                        </TouchableOpacity>
-                    </View>
-                </View>
-            </Modal>
+                            <Text style={styles.helperText}>Select date range for export or leave empty for all replies</Text>
 
-            {/* Date Range Modal */}
-            <Modal
-                visible={showDateModal}
-                transparent={true}
-                animationType="fade"
-                onRequestClose={() => setShowDateModal(false)}
-            >
-                <View style={styles.modalOverlay}>
-                    <View style={styles.dateModalContainer}>
-                        <View style={styles.dateModalHeader}>
-                            <Text style={styles.dateModalTitle}>Select Date Range</Text>
-                            <TouchableOpacity onPress={() => setShowDateModal(false)}>
-                                <Text style={styles.closeButtonText}>✕</Text>
-                            </TouchableOpacity>
-                        </View>
-
-                        <View style={styles.dateInputContainer}>
-                            <Text style={styles.dateLabel}>Start Date</Text>
-                            <TouchableOpacity
-                                style={styles.inputWrapper}
-                                onPress={() => setStartPickerOpen(true)}
-                            >
-                                <Text style={[styles.dateInput, !startDate && { color: '#999' }]}>
-                                    {getDisplayDate(startDate)}
-                                </Text>
-                                <Image source={require('../../assets/img/eventdashboard/calendar.png')} style={styles.inputIcon} resizeMode="contain" />
-                            </TouchableOpacity>
-                        </View>
-
-                        <View style={styles.dateInputContainer}>
-                            <Text style={styles.dateLabel}>End Date</Text>
-                            <TouchableOpacity
-                                style={styles.inputWrapper}
-                                onPress={() => setEndPickerOpen(true)}
-                            >
-                                <Text style={[styles.dateInput, !endDate && { color: '#999' }]}>
-                                    {getDisplayDate(endDate)}
-                                </Text>
-                                <Image source={require('../../assets/img/eventdashboard/calendar.png')} style={styles.inputIcon} resizeMode="contain" />
-                            </TouchableOpacity>
-                        </View>
-
-                        <Text style={styles.helperText}>Select date range for export or leave empty for all replies</Text>
-
-                        <View style={styles.dateModalFooter}>
-                            <TouchableOpacity onPress={() => setShowDateModal(false)} style={styles.cancelButton}>
-                                <Text style={styles.cancelButtonText}>Cancel</Text>
-                            </TouchableOpacity>
-                            <TouchableOpacity onPress={handleDateExportSubmit} style={styles.startExportButton}>
-                                <Text style={styles.startExportButtonText}>Start Export</Text>
-                            </TouchableOpacity>
+                            <View style={styles.dateModalFooter}>
+                                <TouchableOpacity onPress={() => setShowDateModal(false)} style={styles.cancelButton}>
+                                    <Text style={styles.cancelButtonText}>Cancel</Text>
+                                </TouchableOpacity>
+                                <TouchableOpacity onPress={handleDateExportSubmit} style={styles.startExportButton}>
+                                    <Text style={styles.startExportButtonText}>Start Export</Text>
+                                </TouchableOpacity>
+                            </View>
                         </View>
                     </View>
-                </View>
-            </Modal>
+                </Modal>
 
-            <DatePicker
-                modal
-                open={isStartPickerOpen}
-                date={startDate || new Date()}
-                mode="date"
-                onConfirm={(date) => {
-                    setStartPickerOpen(false)
-                    setStartDate(date)
-                }}
-                onCancel={() => {
-                    setStartPickerOpen(false)
-                }}
-            />
+                <DatePicker
+                    modal
+                    open={isStartPickerOpen}
+                    date={startDate || new Date()}
+                    mode="date"
+                    onConfirm={(date) => {
+                        setStartPickerOpen(false)
+                        setStartDate(date)
+                    }}
+                    onCancel={() => {
+                        setStartPickerOpen(false)
+                    }}
+                />
 
-            <DatePicker
-                modal
-                open={isEndPickerOpen}
-                date={endDate || new Date()}
-                mode="date"
-                onConfirm={(date) => {
-                    setEndPickerOpen(false)
-                    setEndDate(date)
-                }}
-                onCancel={() => {
-                    setEndPickerOpen(false)
-                }}
-            />
-            {/* Header Menu */}
-            {showHeaderMenu && (
-                <HeaderMenu onSelect={handleHeaderMenuSelect} onClose={() => setShowHeaderMenu(false)} styles={styles} />
-            )}
+                <DatePicker
+                    modal
+                    open={isEndPickerOpen}
+                    date={endDate || new Date()}
+                    mode="date"
+                    onConfirm={(date) => {
+                        setEndPickerOpen(false)
+                        setEndDate(date)
+                    }}
+                    onCancel={() => {
+                        setEndPickerOpen(false)
+                    }}
+                />
+                {/* Header Menu */}
+                {showHeaderMenu && (
+                    <HeaderMenu onSelect={handleHeaderMenuSelect} onClose={() => setShowHeaderMenu(false)} styles={styles} />
+                )}
+            </ResponsiveContainer>
         </SafeAreaView>
     )
 }

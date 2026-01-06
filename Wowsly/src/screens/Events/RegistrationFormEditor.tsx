@@ -8,6 +8,8 @@ import { insertOrUpdateRegistrationForm, deleteRegistrationFormFields, getRegist
 import Toast from 'react-native-toast-message';
 import { useScale } from '../../utils/useScale';
 import { FontSize } from '../../constants/fontSizes';
+import { useTabletScale, useTabletModerateScale } from '../../utils/tabletScaling';
+import { ResponsiveContainer } from '../../components/ResponsiveContainer';
 
 // Types
 interface FormField {
@@ -29,6 +31,7 @@ const RegistrationFormEditor = ({ isEmbedded = false, eventId: propEventId }: { 
     const eventId = propEventId || routeEventId;
 
     const { width } = useWindowDimensions();
+    const isTablet = width >= 720;
     const { scale, verticalScale, moderateScale } = useScale();
     const styles = useMemo(() => makeStyles(scale, verticalScale, moderateScale), [scale, verticalScale, moderateScale]);
 
@@ -899,9 +902,11 @@ const RegistrationFormEditor = ({ isEmbedded = false, eventId: propEventId }: { 
 
     return (
         <Wrapper style={wrapperStyle}>
-            <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
-                {isEditing ? renderEditMode() : renderPreviewMode()}
-            </KeyboardAvoidingView>
+            <ResponsiveContainer maxWidth={isTablet ? 900 : 420}>
+                <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
+                    {isEditing ? renderEditMode() : renderPreviewMode()}
+                </KeyboardAvoidingView>
+            </ResponsiveContainer>
         </Wrapper>
     )
 }

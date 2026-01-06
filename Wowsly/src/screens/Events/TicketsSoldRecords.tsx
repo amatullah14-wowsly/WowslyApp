@@ -21,6 +21,8 @@ import BackButton from '../../components/BackButton';
 import { getTicketSoldUsers } from '../../api/event';
 import { useScale } from '../../utils/useScale';
 import { FontSize } from '../../constants/fontSizes';
+import { useTabletScale, useTabletModerateScale } from '../../utils/tabletScaling';
+import { ResponsiveContainer } from '../../components/ResponsiveContainer';
 
 if (
     Platform.OS === 'android' &&
@@ -54,6 +56,7 @@ const TicketsSoldRecords = () => {
     const { eventId, tickets } = route.params || {};
 
     const { width } = useWindowDimensions();
+    const isTablet = width >= 720;
     const { scale, verticalScale, moderateScale } = useScale();
     const styles = useMemo(() => makeStyles(scale, verticalScale, moderateScale), [scale, verticalScale, moderateScale]);
 
@@ -216,84 +219,86 @@ const TicketsSoldRecords = () => {
     }, [expandedTicketId, soldDataCache, loadingUsers, toggleExpand, UserCard, styles, scale]);
 
     return (
-        <SafeAreaView style={styles.container}>
-            <View style={styles.header}>
-                <BackButton onPress={() => navigation.goBack()} />
-                <Text style={styles.title}>Tickets Sold Records</Text>
-                <View style={{ width: scale(32) }} />
-            </View>
+        <ResponsiveContainer maxWidth={isTablet ? 900 : 420}>
+            <SafeAreaView style={styles.container}>
+                <View style={styles.header}>
+                    <BackButton onPress={() => navigation.goBack()} />
+                    <Text style={styles.title}>Tickets Sold Records</Text>
+                    <View style={{ width: scale(32) }} />
+                </View>
 
-            <FlatList
-                data={tickets}
-                keyExtractor={(item) => item.id.toString()}
-                renderItem={memoizedRenderTicketItem}
-                contentContainerStyle={styles.listContent}
-                initialNumToRender={10}
-                maxToRenderPerBatch={10}
-                windowSize={5}
-                removeClippedSubviews={true}
-            />
+                <FlatList
+                    data={tickets}
+                    keyExtractor={(item) => item.id.toString()}
+                    renderItem={memoizedRenderTicketItem}
+                    contentContainerStyle={styles.listContent}
+                    initialNumToRender={10}
+                    maxToRenderPerBatch={10}
+                    windowSize={5}
+                    removeClippedSubviews={true}
+                />
 
-            {/* Details Modal */}
-            <Modal
-                animationType="slide"
-                transparent={true}
-                visible={modalVisible}
-                onRequestClose={closeModal}
-            >
-                <View style={styles.modalOverlay}>
-                    <View style={styles.modalContainer}>
-                        <View style={styles.modalHeader}>
-                            <Text style={styles.modalTitle}>Sold Ticket Details</Text>
-                            <TouchableOpacity onPress={closeModal} style={styles.closeButton}>
-                                <Text style={styles.closeButtonText}>✕</Text>
-                            </TouchableOpacity>
-                        </View>
+                {/* Details Modal */}
+                <Modal
+                    animationType="slide"
+                    transparent={true}
+                    visible={modalVisible}
+                    onRequestClose={closeModal}
+                >
+                    <View style={styles.modalOverlay}>
+                        <View style={styles.modalContainer}>
+                            <View style={styles.modalHeader}>
+                                <Text style={styles.modalTitle}>Sold Ticket Details</Text>
+                                <TouchableOpacity onPress={closeModal} style={styles.closeButton}>
+                                    <Text style={styles.closeButtonText}>✕</Text>
+                                </TouchableOpacity>
+                            </View>
 
-                        {selectedUser && (
-                            <ScrollView contentContainerStyle={styles.modalBody}>
-                                <View style={styles.modalRow}>
-                                    <Text style={styles.modalLabel}>Name:</Text>
-                                    <Text style={styles.modalValueMain}>{selectedUser.name}</Text>
-                                </View>
-                                <View style={styles.separator} />
-
-                                <View style={styles.modalRow}>
-                                    <Text style={styles.modalLabel}>Mobile:</Text>
-                                    <Text style={styles.modalValue}>+{selectedUser.dialing_code || 91} {selectedUser.mobile}</Text>
-                                </View>
-                                <View style={styles.modalRow}>
-                                    <Text style={styles.modalLabel}>Registered By:</Text>
-                                    <Text style={styles.modalValue}>{selectedUser.registered_by || 'Self'}</Text>
-                                </View>
-                                {selectedUser.invited_by && (
+                            {selectedUser && (
+                                <ScrollView contentContainerStyle={styles.modalBody}>
                                     <View style={styles.modalRow}>
-                                        <Text style={styles.modalLabel}>Invited By:</Text>
-                                        <Text style={styles.modalValue}>{selectedUser.invited_by}</Text>
+                                        <Text style={styles.modalLabel}>Name:</Text>
+                                        <Text style={styles.modalValueMain}>{selectedUser.name}</Text>
                                     </View>
-                                )}
-                                <View style={styles.modalRow}>
-                                    <Text style={styles.modalLabel}>Purchased:</Text>
-                                    <Text style={styles.modalValue}>{selectedUser.tickets_bought} × Ticket(s)</Text>
-                                </View>
-                                <View style={styles.modalRow}>
-                                    <Text style={styles.modalLabel}>Time:</Text>
-                                    <Text style={styles.modalValue}>
-                                        {formatTime(selectedUser.created_at)}
-                                    </Text>
-                                </View>
-                            </ScrollView>
-                        )}
+                                    <View style={styles.separator} />
 
-                        <View style={styles.modalFooter}>
-                            <TouchableOpacity style={styles.modalCloseBtn} onPress={closeModal}>
-                                <Text style={styles.modalCloseBtnText}>Close</Text>
-                            </TouchableOpacity>
+                                    <View style={styles.modalRow}>
+                                        <Text style={styles.modalLabel}>Mobile:</Text>
+                                        <Text style={styles.modalValue}>+{selectedUser.dialing_code || 91} {selectedUser.mobile}</Text>
+                                    </View>
+                                    <View style={styles.modalRow}>
+                                        <Text style={styles.modalLabel}>Registered By:</Text>
+                                        <Text style={styles.modalValue}>{selectedUser.registered_by || 'Self'}</Text>
+                                    </View>
+                                    {selectedUser.invited_by && (
+                                        <View style={styles.modalRow}>
+                                            <Text style={styles.modalLabel}>Invited By:</Text>
+                                            <Text style={styles.modalValue}>{selectedUser.invited_by}</Text>
+                                        </View>
+                                    )}
+                                    <View style={styles.modalRow}>
+                                        <Text style={styles.modalLabel}>Purchased:</Text>
+                                        <Text style={styles.modalValue}>{selectedUser.tickets_bought} × Ticket(s)</Text>
+                                    </View>
+                                    <View style={styles.modalRow}>
+                                        <Text style={styles.modalLabel}>Time:</Text>
+                                        <Text style={styles.modalValue}>
+                                            {formatTime(selectedUser.created_at)}
+                                        </Text>
+                                    </View>
+                                </ScrollView>
+                            )}
+
+                            <View style={styles.modalFooter}>
+                                <TouchableOpacity style={styles.modalCloseBtn} onPress={closeModal}>
+                                    <Text style={styles.modalCloseBtnText}>Close</Text>
+                                </TouchableOpacity>
+                            </View>
                         </View>
                     </View>
-                </View>
-            </Modal>
-        </SafeAreaView>
+                </Modal>
+            </SafeAreaView>
+        </ResponsiveContainer>
     );
 };
 

@@ -25,6 +25,8 @@ import { useRef } from 'react'; // Added useRef
 import { useScale } from '../../utils/useScale';
 import { FontSize } from '../../constants/fontSizes';
 import Pagination from '../../components/Pagination';
+import { useTabletScale, useTabletModerateScale } from '../../utils/tabletScaling';
+import { ResponsiveContainer } from '../../components/ResponsiveContainer';
 
 type GuestListRoute = RouteProp<
     {
@@ -59,6 +61,7 @@ const OnlineGuestList = () => {
     const route = useRoute<GuestListRoute>();
 
     const { width } = useWindowDimensions();
+    const isTablet = width >= 720;
     const { scale, verticalScale, moderateScale } = useScale();
     const styles = useMemo(() => makeStyles(scale, verticalScale, moderateScale), [scale, verticalScale, moderateScale]);
 
@@ -252,115 +255,117 @@ const OnlineGuestList = () => {
     /* ---------------------- UI ---------------------- */
     return (
         <SafeAreaView style={styles.safeArea}>
-            <View style={styles.container}>
-                <View style={styles.header}>
-                    <BackButton onPress={() => navigation.goBack()} />
-                    <Text style={styles.title}>{eventTitle}</Text>
-                    <View style={{ width: 40 }} />
-                </View>
+            <ResponsiveContainer maxWidth={isTablet ? 900 : 420}>
+                <View style={styles.container}>
+                    <View style={styles.header}>
+                        <BackButton onPress={() => navigation.goBack()} />
+                        <Text style={styles.title}>{eventTitle}</Text>
+                        <View style={{ width: 40 }} />
+                    </View>
 
-                <Text style={styles.pageTitle}>Guest Lists</Text>
+                    <Text style={styles.pageTitle}>Guest Lists</Text>
 
-                {/* Tabs */}
-                <View style={styles.tabContainer}>
-                    <TouchableOpacity
-                        style={[styles.tab, activeTab === 'registered' && styles.activeTab]}
-                        onPress={() => setActiveTab('registered')}
-                    >
-                        <Text style={[styles.tabText, activeTab === 'registered' && styles.activeTabText]}>
-                            Registered
-                        </Text>
-                    </TouchableOpacity>
+                    {/* Tabs */}
+                    <View style={styles.tabContainer}>
+                        <TouchableOpacity
+                            style={[styles.tab, activeTab === 'registered' && styles.activeTab]}
+                            onPress={() => setActiveTab('registered')}
+                        >
+                            <Text style={[styles.tabText, activeTab === 'registered' && styles.activeTabText]}>
+                                Registered
+                            </Text>
+                        </TouchableOpacity>
 
-                    <TouchableOpacity
-                        style={[styles.tab, activeTab === 'invited' && styles.activeTab]}
-                        onPress={() => setActiveTab('invited')}
-                    >
-                        <Text style={[styles.tabText, activeTab === 'invited' && styles.activeTabText]}>
-                            Invited
-                        </Text>
-                    </TouchableOpacity>
+                        <TouchableOpacity
+                            style={[styles.tab, activeTab === 'invited' && styles.activeTab]}
+                            onPress={() => setActiveTab('invited')}
+                        >
+                            <Text style={[styles.tabText, activeTab === 'invited' && styles.activeTabText]}>
+                                Invited
+                            </Text>
+                        </TouchableOpacity>
 
 
-                </View>
+                    </View>
 
-                {/* Search */}
-                <View style={styles.searchContainer}>
-                    <Image source={SEARCH_ICON} style={styles.searchIcon} />
-                    <TextInput
-                        style={styles.searchInput}
-                        placeholder="Search by name"
-                        placeholderTextColor="#9E9E9E"
-                        value={searchQuery}
-                        onChangeText={setSearchQuery}
+                    {/* Search */}
+                    <View style={styles.searchContainer}>
+                        <Image source={SEARCH_ICON} style={styles.searchIcon} />
+                        <TextInput
+                            style={styles.searchInput}
+                            placeholder="Search by name"
+                            placeholderTextColor="#9E9E9E"
+                            value={searchQuery}
+                            onChangeText={setSearchQuery}
+                        />
+                    </View>
+
+                    {/* Guest List */}
+                    <GestureHandlerRootView style={styles.listWrapper}>
+                        {loading ? (
+                            <View style={styles.loadingContainer}>
+                                <ActivityIndicator size="large" color="#FF8A3C" />
+                            </View>
+                        ) : (
+                            <FlatList
+                                data={displayedGuests}
+                                keyExtractor={(item, index) =>
+                                    `${item.id || item.event_user_id}-${index}`
+                                }
+                                contentContainerStyle={styles.listContent}
+                                ItemSeparatorComponent={() => <View style={styles.separator} />}
+                                renderItem={renderGuestItem}
+                                getItemLayout={(data, index) => ({
+                                    length: verticalScale(80), // Approx height + separator
+                                    offset: verticalScale(80) * index,
+                                    index,
+                                })}
+                                initialNumToRender={10}
+                                maxToRenderPerBatch={10}
+                                windowSize={5}
+                                removeClippedSubviews={true}
+                                ListEmptyComponent={
+                                    <View style={styles.emptyState}>
+                                        <Image source={NOGUESTS_ICON} style={styles.emptyIcon} />
+                                        <Text style={styles.emptyTitle}>No guests found</Text>
+                                        <Text style={styles.emptySubtitle}>Try a different name</Text>
+                                    </View>
+                                }
+                                ListFooterComponent={
+                                    displayedGuests.length > 0 ? (
+                                        <Pagination
+                                            currentPage={currentPage}
+                                            totalPages={lastPage}
+                                            onPageChange={fetchGuests}
+                                        />
+                                    ) : null
+                                }
+                            />
+                        )}
+                    </GestureHandlerRootView>
+
+                    {/* Modal */}
+                    <GuestDetailsModal
+                        visible={modalVisible}
+                        onClose={() => {
+                            setModalVisible(false);
+                            setSelectedGuestId(null);
+                        }}
+                        eventId={eventId}
+                        guestId={selectedGuestId || undefined}
+                        guest={guests.find(g => String(g.id) === String(selectedGuestId))}
+
+                        onMakeManager={async (guestId) => {
+                            await makeGuestManager(eventId, guestId);
+                            fetchGuests();
+                        }}
+                        onMakeGuest={async (guestId) => {
+                            await makeGuestUser(eventId, guestId, activeTab);
+                            fetchGuests();
+                        }}
                     />
                 </View>
-
-                {/* Guest List */}
-                <GestureHandlerRootView style={styles.listWrapper}>
-                    {loading ? (
-                        <View style={styles.loadingContainer}>
-                            <ActivityIndicator size="large" color="#FF8A3C" />
-                        </View>
-                    ) : (
-                        <FlatList
-                            data={displayedGuests}
-                            keyExtractor={(item, index) =>
-                                `${item.id || item.event_user_id}-${index}`
-                            }
-                            contentContainerStyle={styles.listContent}
-                            ItemSeparatorComponent={() => <View style={styles.separator} />}
-                            renderItem={renderGuestItem}
-                            getItemLayout={(data, index) => ({
-                                length: verticalScale(80), // Approx height + separator
-                                offset: verticalScale(80) * index,
-                                index,
-                            })}
-                            initialNumToRender={10}
-                            maxToRenderPerBatch={10}
-                            windowSize={5}
-                            removeClippedSubviews={true}
-                            ListEmptyComponent={
-                                <View style={styles.emptyState}>
-                                    <Image source={NOGUESTS_ICON} style={styles.emptyIcon} />
-                                    <Text style={styles.emptyTitle}>No guests found</Text>
-                                    <Text style={styles.emptySubtitle}>Try a different name</Text>
-                                </View>
-                            }
-                            ListFooterComponent={
-                                displayedGuests.length > 0 ? (
-                                    <Pagination
-                                        currentPage={currentPage}
-                                        totalPages={lastPage}
-                                        onPageChange={fetchGuests}
-                                    />
-                                ) : null
-                            }
-                        />
-                    )}
-                </GestureHandlerRootView>
-
-                {/* Modal */}
-                <GuestDetailsModal
-                    visible={modalVisible}
-                    onClose={() => {
-                        setModalVisible(false);
-                        setSelectedGuestId(null);
-                    }}
-                    eventId={eventId}
-                    guestId={selectedGuestId || undefined}
-                    guest={guests.find(g => String(g.id) === String(selectedGuestId))}
-
-                    onMakeManager={async (guestId) => {
-                        await makeGuestManager(eventId, guestId);
-                        fetchGuests();
-                    }}
-                    onMakeGuest={async (guestId) => {
-                        await makeGuestUser(eventId, guestId, activeTab);
-                        fetchGuests();
-                    }}
-                />
-            </View>
+            </ResponsiveContainer>
         </SafeAreaView>
     );
 };

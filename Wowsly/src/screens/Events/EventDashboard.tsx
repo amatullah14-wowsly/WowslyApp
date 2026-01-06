@@ -10,6 +10,7 @@ import BackButton from '../../components/BackButton';
 import Svg, { G, Path, Circle, Text as SvgText } from 'react-native-svg';
 import * as d3 from 'd3-shape';
 import { ResponsiveContainer } from '../../components/ResponsiveContainer';
+import { useTabletScale, useTabletModerateScale } from '../../utils/tabletScaling';
 // import GuestRegistrationModal from './GuestRegistrationModal'; // Removed
 
 
@@ -47,14 +48,19 @@ export const EventDashboardContent = ({ eventData, userRole, eventId, isSplitVie
 
     // Responsive Logic
     const isFoldable = width >= 600;
+    const isTablet = width >= 720;
 
     // Grid Columns Logic:
     // Phone: 2
     // Split View (Foldable Right Panel): 2 (User requested 1 or 2 per row to fix messiness)
     // Full Foldable (Tablet Mode): 3
-    const numColumns = isSplitView ? 2 : (isFoldable ? 3 : 2);
+    const numColumns = isSplitView ? 2 : (isTablet ? 3 : (isFoldable ? 3 : 2));
 
     const gridGap = scale(12);
+
+    // Tablet Font Overrides
+    const tabletHeaderSize = isTablet ? FontSize.xxl : useTabletModerateScale(FontSize.xxl);
+    const tabletSubHeaderSize = isTablet ? FontSize.md : useTabletModerateScale(FontSize.md);
 
     // Animation value for settings button
     const scaleAnim = React.useRef(new Animated.Value(1)).current;
@@ -534,7 +540,7 @@ export const EventDashboardContent = ({ eventData, userRole, eventId, isSplitVie
     );
 
     return (
-        <ResponsiveContainer maxWidth={isFoldable ? "100%" : 420}>
+        <ResponsiveContainer maxWidth={isTablet ? 900 : (isFoldable ? 800 : 420)}>
             <View style={styles.container}>
                 {/* Modal must be outside FlatList for z-index/position correctness if absolute, or just inside View */}
                 <Modal

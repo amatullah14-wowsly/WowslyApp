@@ -28,6 +28,8 @@ import RNFS from 'react-native-fs';
 import { getLocalCheckedInGuests } from '../../db';
 import { useScale } from '../../utils/useScale';
 import { FontSize } from '../../constants/fontSizes';
+import { useTabletScale, useTabletModerateScale } from '../../utils/tabletScaling';
+import { ResponsiveContainer } from '../../components/ResponsiveContainer';
 
 type OfflineGuestListRoute = RouteProp<
     {
@@ -61,6 +63,7 @@ const OfflineGuestList = () => {
     const { eventId, offlineData: initialData } = route.params;
 
     const { width } = useWindowDimensions();
+    const isTablet = width >= 720;
     const { scale, verticalScale, moderateScale } = useScale();
     const styles = useMemo(() => makeStyles(scale, verticalScale, moderateScale), [scale, verticalScale, moderateScale]);
 
@@ -308,137 +311,139 @@ const OfflineGuestList = () => {
 
     return (
         <SafeAreaView style={styles.safeArea}>
-            <View style={styles.container}>
-                <View style={styles.header}>
-                    <BackButton onPress={() => navigation.goBack()} />
+            <ResponsiveContainer maxWidth={isTablet ? 900 : 420}>
+                <View style={styles.container}>
+                    <View style={styles.header}>
+                        <BackButton onPress={() => navigation.goBack()} />
 
-                    <Text style={styles.title} numberOfLines={1}>
-                        Offline Guest List
-                    </Text>
+                        <Text style={styles.title} numberOfLines={1}>
+                            Offline Guest List
+                        </Text>
 
-                    {/* Right Side Menu */}
-                    <View style={styles.headerRight}>
-                        <TouchableOpacity onPress={toggleDropdown} style={styles.menuButton}>
-                            <Image source={DOTS_ICON} style={styles.menuIconImage} />
-                        </TouchableOpacity>
-                    </View>
-                </View>
-
-                {/* Dropdown Menu */}
-                {dropdownVisible && (
-                    <>
-                        <TouchableWithoutFeedback onPress={toggleDropdown}>
-                            <View style={styles.menuOverlay} />
-                        </TouchableWithoutFeedback>
-                        <Animated.View
-                            style={[
-                                styles.dropdownMenu,
-                                {
-                                    opacity: dropdownAnim,
-                                    transform: [
-                                        { scale: dropdownAnim },
-                                        { translateY: dropdownAnim.interpolate({ inputRange: [0, 1], outputRange: [-20, 0] }) }
-                                    ]
-                                }
-                            ]}
-                        >
-                            <TouchableOpacity style={styles.menuItem} onPress={handleExport}>
-                                <Text style={styles.menuItemText}>Export List</Text>
+                        {/* Right Side Menu */}
+                        <View style={styles.headerRight}>
+                            <TouchableOpacity onPress={toggleDropdown} style={styles.menuButton}>
+                                <Image source={DOTS_ICON} style={styles.menuIconImage} />
                             </TouchableOpacity>
-                        </Animated.View>
-                    </>
-                )}
-
-                {/* Search & Filter Row */}
-                <View style={{ marginTop: 10 }}>
-                    {/* Search Bar */}
-                    <View style={styles.searchContainer}>
-                        <Image source={SEARCH_ICON} style={styles.searchIcon} />
-                        <TextInput
-                            style={styles.searchInput}
-                            placeholder="Search guests..."
-                            placeholderTextColor="#999"
-                            value={searchQuery}
-                            onChangeText={setSearchQuery}
-                        />
+                        </View>
                     </View>
 
-                </View>
+                    {/* Dropdown Menu */}
+                    {dropdownVisible && (
+                        <>
+                            <TouchableWithoutFeedback onPress={toggleDropdown}>
+                                <View style={styles.menuOverlay} />
+                            </TouchableWithoutFeedback>
+                            <Animated.View
+                                style={[
+                                    styles.dropdownMenu,
+                                    {
+                                        opacity: dropdownAnim,
+                                        transform: [
+                                            { scale: dropdownAnim },
+                                            { translateY: dropdownAnim.interpolate({ inputRange: [0, 1], outputRange: [-20, 0] }) }
+                                        ]
+                                    }
+                                ]}
+                            >
+                                <TouchableOpacity style={styles.menuItem} onPress={handleExport}>
+                                    <Text style={styles.menuItemText}>Export List</Text>
+                                </TouchableOpacity>
+                            </Animated.View>
+                        </>
+                    )}
 
-
-
-                {/* List */}
-                <FlatList
-                    data={guests}
-                    keyExtractor={(item, index) => (item.qr_code || index).toString()}
-                    renderItem={renderGuestItem}
-                    contentContainerStyle={styles.listContent}
-                    getItemLayout={(data, index) => ({
-                        length: verticalScale(80), // Approx height + marginBottom(12)
-                        offset: verticalScale(80) * index,
-                        index,
-                    })}
-                    refreshControl={
-                        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#FF8A3C" />
-                    }
-                    ListEmptyComponent={
-                        <View style={styles.emptyContainer}>
-                            <Image source={NOGUESTS_ICON} style={styles.emptyIcon} />
-                            <Text style={styles.emptyText}>No guests found</Text>
+                    {/* Search & Filter Row */}
+                    <View style={{ marginTop: 10 }}>
+                        {/* Search Bar */}
+                        <View style={styles.searchContainer}>
+                            <Image source={SEARCH_ICON} style={styles.searchIcon} />
+                            <TextInput
+                                style={styles.searchInput}
+                                placeholder="Search guests..."
+                                placeholderTextColor="#999"
+                                value={searchQuery}
+                                onChangeText={setSearchQuery}
+                            />
                         </View>
-                    }
-                    initialNumToRender={10}
-                    maxToRenderPerBatch={10}
-                    windowSize={5}
-                    removeClippedSubviews={true}
-                    ListFooterComponent={
-                        guests.length > 0 && lastPage > 1 ? (
-                            <View style={styles.paginationContainer}>
-                                <TouchableOpacity
-                                    disabled={currentPage === 1 || refreshing}
-                                    onPress={() => loadGuests(currentPage - 1)} // loadGuests takes page num
-                                >
-                                    <Image
-                                        source={PREV_ICON}
-                                        style={[styles.pageIcon, currentPage === 1 && styles.disabledIcon]}
-                                        resizeMode="contain"
-                                    />
-                                </TouchableOpacity>
 
-                                <Text style={styles.pageInfo}>{currentPage} / {lastPage || 1}</Text>
+                    </View>
 
-                                <TouchableOpacity
-                                    disabled={currentPage >= lastPage || refreshing}
-                                    onPress={() => loadGuests(currentPage + 1)}
-                                >
-                                    <Image
-                                        source={NEXT_ICON}
-                                        style={[styles.pageIcon, currentPage >= lastPage && styles.disabledIcon]}
-                                        resizeMode="contain"
-                                    />
-                                </TouchableOpacity>
-                            </View>
-                        ) : null
-                    }
-                />
 
-                <GuestDetailsModal
-                    visible={modalVisible}
-                    onClose={() => setModalVisible(false)}
-                    eventId={eventId?.toString()}
-                    guestId={selectedGuest?.guest_id?.toString()}
-                    guest={{
-                        ...selectedGuest,
-                        name: selectedGuest?.guest_name,
-                        ticket_data: {
-                            ticket_title: selectedGuest?.ticket_title,
-                            tickets_bought: selectedGuest?.total_entries
+
+                    {/* List */}
+                    <FlatList
+                        data={guests}
+                        keyExtractor={(item, index) => (item.qr_code || index).toString()}
+                        renderItem={renderGuestItem}
+                        contentContainerStyle={styles.listContent}
+                        getItemLayout={(data, index) => ({
+                            length: verticalScale(80), // Approx height + marginBottom(12)
+                            offset: verticalScale(80) * index,
+                            index,
+                        })}
+                        refreshControl={
+                            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#FF8A3C" />
                         }
-                    }}
+                        ListEmptyComponent={
+                            <View style={styles.emptyContainer}>
+                                <Image source={NOGUESTS_ICON} style={styles.emptyIcon} />
+                                <Text style={styles.emptyText}>No guests found</Text>
+                            </View>
+                        }
+                        initialNumToRender={10}
+                        maxToRenderPerBatch={10}
+                        windowSize={5}
+                        removeClippedSubviews={true}
+                        ListFooterComponent={
+                            guests.length > 0 && lastPage > 1 ? (
+                                <View style={styles.paginationContainer}>
+                                    <TouchableOpacity
+                                        disabled={currentPage === 1 || refreshing}
+                                        onPress={() => loadGuests(currentPage - 1)} // loadGuests takes page num
+                                    >
+                                        <Image
+                                            source={PREV_ICON}
+                                            style={[styles.pageIcon, currentPage === 1 && styles.disabledIcon]}
+                                            resizeMode="contain"
+                                        />
+                                    </TouchableOpacity>
 
-                    offline={true}
-                />
-            </View>
+                                    <Text style={styles.pageInfo}>{currentPage} / {lastPage || 1}</Text>
+
+                                    <TouchableOpacity
+                                        disabled={currentPage >= lastPage || refreshing}
+                                        onPress={() => loadGuests(currentPage + 1)}
+                                    >
+                                        <Image
+                                            source={NEXT_ICON}
+                                            style={[styles.pageIcon, currentPage >= lastPage && styles.disabledIcon]}
+                                            resizeMode="contain"
+                                        />
+                                    </TouchableOpacity>
+                                </View>
+                            ) : null
+                        }
+                    />
+
+                    <GuestDetailsModal
+                        visible={modalVisible}
+                        onClose={() => setModalVisible(false)}
+                        eventId={eventId?.toString()}
+                        guestId={selectedGuest?.guest_id?.toString()}
+                        guest={{
+                            ...selectedGuest,
+                            name: selectedGuest?.guest_name,
+                            ticket_data: {
+                                ticket_title: selectedGuest?.ticket_title,
+                                tickets_bought: selectedGuest?.total_entries
+                            }
+                        }}
+
+                        offline={true}
+                    />
+                </View>
+            </ResponsiveContainer>
         </SafeAreaView>
     );
 };

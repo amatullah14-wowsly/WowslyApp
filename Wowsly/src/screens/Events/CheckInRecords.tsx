@@ -19,6 +19,8 @@ import Toast from 'react-native-toast-message';
 import { PermissionsAndroid } from 'react-native';
 import { useScale } from '../../utils/useScale';
 import { FontSize } from '../../constants/fontSizes';
+import { useTabletScale, useTabletModerateScale } from '../../utils/tabletScaling';
+import { ResponsiveContainer } from '../../components/ResponsiveContainer';
 
 type FacilityStat = {
     facility_name: string;
@@ -60,6 +62,7 @@ const CheckInRecords = () => {
     const [checkInStats, setCheckInStats] = useState<TicketStat[]>([]);
 
     const { width } = useWindowDimensions();
+    const isTablet = width >= 720;
     const { scale, verticalScale, moderateScale } = useScale();
     const styles = useMemo(() => makeStyles(scale, verticalScale, moderateScale, width), [scale, verticalScale, moderateScale, width]);
 
@@ -216,36 +219,38 @@ const CheckInRecords = () => {
     }, [styles, eventId, navigation]);
 
     return (
-        <View style={styles.container}>
-            <View style={styles.header}>
-                <BackButton onPress={() => navigation.goBack()} />
-                <Text style={styles.title}>Event Check-In Records</Text>
-                <View style={{ width: scale(32) }} />
-            </View>
-
-            {loading ? (
-                <View style={styles.loadingContainer}>
-                    <ActivityIndicator size="large" color="#FF8A3C" />
+        <ResponsiveContainer maxWidth={isTablet ? 900 : 420}>
+            <View style={styles.container}>
+                <View style={styles.header}>
+                    <BackButton onPress={() => navigation.goBack()} />
+                    <Text style={styles.title}>Event Check-In Records</Text>
+                    <View style={{ width: scale(32) }} />
                 </View>
-            ) : (
-                <FlatList
-                    key={'check-in-list-simple'}
-                    data={checkInStats}
-                    keyExtractor={(item, index) => `${item.ticket_id}-${index}`}
-                    renderItem={memoizedRenderItem}
-                    contentContainerStyle={styles.listContent}
-                    initialNumToRender={10}
-                    maxToRenderPerBatch={10}
-                    windowSize={5}
-                    removeClippedSubviews={true}
-                    ListEmptyComponent={
-                        <View style={styles.emptyContainer}>
-                            <Text style={styles.emptyText}>No check-in records found.</Text>
-                        </View>
-                    }
-                />
-            )}
-        </View>
+
+                {loading ? (
+                    <View style={styles.loadingContainer}>
+                        <ActivityIndicator size="large" color="#FF8A3C" />
+                    </View>
+                ) : (
+                    <FlatList
+                        key={'check-in-list-simple'}
+                        data={checkInStats}
+                        keyExtractor={(item, index) => `${item.ticket_id}-${index}`}
+                        renderItem={memoizedRenderItem}
+                        contentContainerStyle={styles.listContent}
+                        initialNumToRender={10}
+                        maxToRenderPerBatch={10}
+                        windowSize={5}
+                        removeClippedSubviews={true}
+                        ListEmptyComponent={
+                            <View style={styles.emptyContainer}>
+                                <Text style={styles.emptyText}>No check-in records found.</Text>
+                            </View>
+                        }
+                    />
+                )}
+            </View>
+        </ResponsiveContainer>
     );
 };
 

@@ -135,6 +135,11 @@ export async function insertOrReplaceGuests(eventId: number, guestsArray: any[])
 
   const db = await openDB();
 
+  // 1. Prepare facilities map to insert AFTER the main transaction
+  // We cannot await inside the transaction for 'insertFacilities' as it uses executeSql (non-transacted)
+  // and awaiting it would close the main transaction.
+  const facilitiesToInsert: { eventId: number, qrGuestUuid: string, facilities: any[] }[] = [];
+
   await db.transaction(async (tx: any) => {
     const promises = [];
 
@@ -168,14 +173,9 @@ export async function insertOrReplaceGuests(eventId: number, guestsArray: any[])
       const qrGuestUuid = g.guest_uuid || g.uuid || null;
       const qrTicketId = ticketId;
 
-      // INSERT FACILITIES 
+      // STAGE FACILITIES FOR LATER INSERTION
       if (g.facilities && Array.isArray(g.facilities)) {
-        // Facilities also need to be transaction safe but insertFacilities uses db.executeSql direct.
-        // Ideally we refactor insertFacilities to take a transaction, but that's complex.
-        // For now, we keep facilities as separate awaits or try to inline.
-        // Given complexity, let's keep facilities async but parallelize guest insertion.
-        // We will just await facilities here, it's safer.
-        await insertFacilities(eventId, qrGuestUuid, g.facilities);
+        facilitiesToInsert.push({ eventId, qrGuestUuid, facilities: g.facilities });
       }
 
       promises.push(
@@ -208,6 +208,14 @@ export async function insertOrReplaceGuests(eventId: number, guestsArray: any[])
     }
     await Promise.all(promises);
   });
+
+  // 2. Insert keys/facilities safely outside the transaction block
+  // This prevents "Transaction already finalized" errors
+  if (facilitiesToInsert.length > 0) {
+    for (const item of facilitiesToInsert) {
+      await insertFacilities(item.eventId, item.qrGuestUuid, item.facilities);
+    }
+  }
 }
 
 // ======================================================
