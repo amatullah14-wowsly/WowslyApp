@@ -103,6 +103,15 @@ export async function initDB() {
     } catch (e) { }
   };
 
+  const safeAddIndex = async (tableName: string, indexName: string, columns: string) => {
+    try {
+      await database.executeSql(`CREATE INDEX IF NOT EXISTS ${indexName} ON ${tableName} (${columns});`);
+      console.log(`Migration added index: ${indexName} on ${tableName}`);
+    } catch (e) {
+      console.log(`Index creation failed (might already exist): ${indexName}`, e);
+    }
+  };
+
   await safeAddColumn("qrGuestUuid", "TEXT");
   await safeAddColumn("qrTicketId", "INTEGER");
   await safeAddColumn("check_in_count", "INTEGER DEFAULT 0");
@@ -114,6 +123,16 @@ export async function initDB() {
 
   // Ensure ticket_id column on facility exists
   await safeAddFacilityColumn("ticket_id", "INTEGER");
+
+  // PERFOMANCE INDICES
+  await safeAddIndex("tickets", "idx_tickets_event_id", "event_id");
+  await safeAddIndex("tickets", "idx_tickets_qr_code", "qr_code");
+  await safeAddIndex("tickets", "idx_tickets_guest_name", "guest_name");
+  await safeAddIndex("tickets", "idx_tickets_status", "status");
+
+  await safeAddIndex("facility", "idx_facility_guest_uuid", "guest_uuid");
+  await safeAddIndex("facility", "idx_facility_facilityId", "facilityId");
+  await safeAddIndex("facility", "idx_facility_eventId", "eventId");
 
   // MIGRATE OLD DATA (if previous schema used total_scans / used_scans or availableScans/checkIn naming might differ)
   try {

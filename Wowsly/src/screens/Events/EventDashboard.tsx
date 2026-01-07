@@ -304,8 +304,9 @@ export const EventDashboardContent = ({ eventData, userRole, eventId, isSplitVie
                             ? { uri: displayData.image }
                             : require('../../assets/img/common/noimage.png')
                     }
-                    style={styles.imageBackground}
-                    resizeMode="cover"
+                    style={[styles.imageBackground, !displayData.image && { backgroundColor: '#F0F0F0' }]}
+                    imageStyle={!displayData.image ? { tintColor: '#FF8A3C', resizeMode: 'contain', transform: [{ scale: 0.5 }] } : undefined}
+                    resizeMode={!displayData.image ? "contain" : "cover"}
                 >
                     <View style={styles.overlay}>
                         <View style={styles.eventCardContent}>

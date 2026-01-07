@@ -192,6 +192,7 @@ const Past = () => {
         date={item.start_date_display || "No Date"}
         location={item.address || item.city || "—"}
         image={imageSource}
+        isPlaceholder={!item.event_main_photo || item.event_main_photo === ""}
         selected={isFoldable ? isSelected : false} // Only show selection border on foldable
         onPress={() => handleEventPress(item)}
       />

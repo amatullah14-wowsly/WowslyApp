@@ -28,6 +28,7 @@ const EventCard = ({ title, date, location, image, selected, onPress, isPlacehol
           source={image}
           style={[StyleSheet.absoluteFill, isPlaceholder && { backgroundColor: '#F0F0F0', padding: scale(50) }]}
           resizeMode={isPlaceholder ? FastImage.resizeMode.contain : FastImage.resizeMode.cover}
+          tintColor={isPlaceholder ? '#FF8A3C' : undefined}
         />
 
         {/* Overlay Content */}

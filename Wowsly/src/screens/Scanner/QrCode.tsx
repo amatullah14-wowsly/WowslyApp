@@ -14,6 +14,7 @@ import {
   DeviceEventEmitter,
   ScrollView,
   useWindowDimensions,
+  InteractionManager
 } from 'react-native'
 import { useScale } from '../../utils/useScale';
 import { FontSize } from '../../constants/fontSizes';
@@ -130,7 +131,7 @@ const QrCode = () => {
       },
       onPanResponderMove: Animated.event(
         [null, { dy: panY }],
-        { useNativeDriver: false }
+        { useNativeDriver: true } // ⚡⚡⚡ NATIVE DRIVER OPTIMIZATION ⚡⚡⚡
       ),
       onPanResponderRelease: (_, gestureState) => {
         panY.flattenOffset();
@@ -141,14 +142,14 @@ const QrCode = () => {
           // Slide UP (Open)
           Animated.spring(panY, {
             toValue: MAX_UPWARD_TRANSLATE,
-            useNativeDriver: false,
+            useNativeDriver: true, // ⚡⚡⚡ NATIVE DRIVER ⚡⚡⚡
             bounciness: 4
           }).start();
         } else {
           // Slide DOWN (Close)
           Animated.spring(panY, {
             toValue: 0,
-            useNativeDriver: false,
+            useNativeDriver: true, // ⚡⚡⚡ NATIVE DRIVER ⚡⚡⚡
             bounciness: 4
           }).start(() => {
             // ⚡⚡⚡ RESET SCANNED VALUE ON CLOSE ⚡⚡⚡
@@ -169,7 +170,7 @@ const QrCode = () => {
   const openSheet = () => {
     Animated.spring(panY, {
       toValue: MAX_UPWARD_TRANSLATE,
-      useNativeDriver: false,
+      useNativeDriver: true, // ⚡⚡⚡ NATIVE DRIVER ⚡⚡⚡
       bounciness: 4
     }).start();
   };
@@ -177,7 +178,7 @@ const QrCode = () => {
   const closeSheet = () => {
     Animated.spring(panY, {
       toValue: 0,
-      useNativeDriver: false,
+      useNativeDriver: true, // ⚡⚡⚡ NATIVE DRIVER ⚡⚡⚡
       bounciness: 4
     }).start(() => {
       // ⚡⚡⚡ RESET SCANNED VALUE ON CLOSE ⚡⚡⚡
@@ -248,7 +249,7 @@ const QrCode = () => {
   }, [])
 
   // ----------------- QR SCAN HANDLER -----------------
-  const onReadCode = (event: any) => {
+  const onReadCode = useCallback((event: any) => {
     const rawCode = event.nativeEvent.codeStringValue;
     if (!rawCode) return;
 
@@ -262,10 +263,13 @@ const QrCode = () => {
 
     // 🔐 LOCK THIS SCAN IMMEDIATELY
     scanLockRef.current = code;
-    setScannedValue(code); // Update state to trigger UI changes if any
 
-    handleVerifyQR(code);
-  }
+    // ⚡⚡⚡ DEFER HEAVY PROCESSING ⚡⚡⚡
+    InteractionManager.runAfterInteractions(() => {
+      setScannedValue(code); // Update state to trigger UI changes if any
+      handleVerifyQR(code);
+    });
+  }, [scannedValue]);
 
   // ----------------- OFFLINE DATA STATE -----------------
   const isOfflineMode = route.params?.offline ?? false
@@ -699,36 +703,107 @@ const QrCode = () => {
 
     if (!guestId || !qrCode) return;
 
-    setIsVerifying(true);
-    try {
-      // ⚡⚡⚡ OFFLINE MODE DIRECT CHECK-IN ⚡⚡⚡
-      if (isOfflineMode) {
-        // Just update local DB with increment
-        await updateTicketStatusLocal(qrCode, 'checked_in', checkInCount);
-        console.log(`Offline Direct Check-in: +${checkInCount} for ${qrCode}`);
+    // ⚡⚡⚡ DEFER CHECK-IN LOGIC ⚡⚡⚡
+    InteractionManager.runAfterInteractions(async () => {
+      setIsVerifying(true);
+      try {
+        // ⚡⚡⚡ OFFLINE MODE DIRECT CHECK-IN ⚡⚡⚡
+        if (isOfflineMode) {
+          // Just update local DB with increment
+          await updateTicketStatusLocal(qrCode, 'checked_in', checkInCount);
+          console.log(`Offline Direct Check-in: +${checkInCount} for ${qrCode}`);
+
+          // Update local history
+          const newUsed = (data.usedEntries || 0) + checkInCount;
+          // @ts-ignore
+          localScanHistory.set(qrCode, newUsed);
+
+          // Broadcast
+          const broadcastData = {
+            guest_name: data.name,
+            qr_code: qrCode,
+            total_entries: data.totalEntries,
+            used_entries: newUsed,
+            facilities: data.facilities,
+            guest_id: data.guestId
+          };
+          DeviceEventEmitter.emit('BROADCAST_SCAN_TO_CLIENTS', broadcastData);
+
+          showStatus(`Checked in ${data.name}`, 'success');
+
+          // ⚡⚡⚡ FACILITY-AWARE CLOSING LOGIC ⚡⚡⚡
+          // If guest has facilities, DO NOT close sheet. Open it instead.
+          if (data.facilities && data.facilities.length > 0) {
+            setGuestData({ ...data, usedEntries: newUsed }); // Update local state
+            openSheet();
+          } else {
+            setTimeout(() => {
+              setScannedValue(null);
+              setGuestData(null);
+              setGuestData(null);
+              scanLockRef.current = null;
+            }, 1500);
+          }
+
+          return; // Exit after offline handling
+        }
+
+        // ⚡⚡⚡ ONLINE MODE DIRECT CHECK-IN ⚡⚡⚡
+        const payload = {
+          event_id: parseInt(String(eventId)),
+          guest_id: guestId,
+          ticket_id: data.actualTicketId || 0,
+          check_in_count: parseInt(String(checkInCount)),
+          category_check_in_count: "",
+          other_category_check_in_count: 0,
+          // Direct check-in is typically MAIN ticket only
+          // guest_facility_id: "" 
+        };
+
+        const res = await checkInGuest(eventId, payload);
+        console.log("DIRECT CHECK-IN RESPONSE:", JSON.stringify(res));
+
+        if (!res?.id && !res?.check_in_time && !res?.success && !res?.status) {
+          throw new Error(res?.message || "Check-in failed");
+        }
+
+        const newUsed = (data.usedEntries || 0) + checkInCount;
 
         // Update local history
-        const newUsed = (data.usedEntries || 0) + checkInCount;
         // @ts-ignore
         localScanHistory.set(qrCode, newUsed);
 
-        // Broadcast
-        const broadcastData = {
-          guest_name: data.name,
-          qr_code: qrCode,
-          total_entries: data.totalEntries,
-          used_entries: newUsed,
-          facilities: data.facilities,
-          guest_id: data.guestId
-        };
-        DeviceEventEmitter.emit('BROADCAST_SCAN_TO_CLIENTS', broadcastData);
+        // Sync to local DB
+        try {
+          const guestToSync = {
+            qr_code: qrCode,
+            name: data.name,
+            guest_id: data.guestId,
+            ticket_id: data.ticketId,
+            total_entries: data.totalEntries,
+            used_entries: newUsed,
+            facilities: data.facilities,
+            status: 'checked_in'
+          };
+          await insertOrReplaceGuests(eventId, [guestToSync]);
+
+          // Broadcast
+          DeviceEventEmitter.emit('BROADCAST_SCAN_TO_CLIENTS', {
+            ...guestToSync,
+            guestId: guestToSync.guest_id,
+            usedEntries: newUsed,
+            totalEntries: data.totalEntries
+          });
+        } catch (syncErr) {
+          console.warn("Failed to sync direct check-in:", syncErr);
+        }
 
         showStatus(`Checked in ${data.name}`, 'success');
 
-        // ⚡⚡⚡ FACILITY-AWARE CLOSING LOGIC ⚡⚡⚡
-        // If guest has facilities, DO NOT close sheet. Open it instead.
+        // ⚡⚡⚡ FACILITY-AWARE CLOSING LOGIC (ONLINE) ⚡⚡⚡
         if (data.facilities && data.facilities.length > 0) {
-          setGuestData({ ...data, usedEntries: newUsed }); // Update local state
+          // Keep open, update state
+          setGuestData({ ...data, usedEntries: newUsed, status: 'Checked In' });
           openSheet();
         } else {
           setTimeout(() => {
@@ -739,82 +814,14 @@ const QrCode = () => {
           }, 1500);
         }
 
-        return; // Exit after offline handling
+      } catch (error) {
+        console.error("Direct check-in error:", error);
+        showStatus('Check-in failed', 'error');
+        setTimeout(() => setScannedValue(null), 2000);
+      } finally {
+        setIsVerifying(false);
       }
-
-      // ⚡⚡⚡ ONLINE MODE DIRECT CHECK-IN ⚡⚡⚡
-      const payload = {
-        event_id: parseInt(String(eventId)),
-        guest_id: guestId,
-        ticket_id: data.actualTicketId || 0,
-        check_in_count: parseInt(String(checkInCount)),
-        category_check_in_count: "",
-        other_category_check_in_count: 0,
-        // Direct check-in is typically MAIN ticket only
-        // guest_facility_id: "" 
-      };
-
-      const res = await checkInGuest(eventId, payload);
-      console.log("DIRECT CHECK-IN RESPONSE:", JSON.stringify(res));
-
-      if (!res?.id && !res?.check_in_time && !res?.success && !res?.status) {
-        throw new Error(res?.message || "Check-in failed");
-      }
-
-      const newUsed = (data.usedEntries || 0) + checkInCount;
-
-      // Update local history
-      // @ts-ignore
-      localScanHistory.set(qrCode, newUsed);
-
-      // Sync to local DB
-      try {
-        const guestToSync = {
-          qr_code: qrCode,
-          name: data.name,
-          guest_id: data.guestId,
-          ticket_id: data.ticketId,
-          total_entries: data.totalEntries,
-          used_entries: newUsed,
-          facilities: data.facilities,
-          status: 'checked_in'
-        };
-        await insertOrReplaceGuests(eventId, [guestToSync]);
-
-        // Broadcast
-        DeviceEventEmitter.emit('BROADCAST_SCAN_TO_CLIENTS', {
-          ...guestToSync,
-          guestId: guestToSync.guest_id,
-          usedEntries: newUsed,
-          totalEntries: data.totalEntries
-        });
-      } catch (syncErr) {
-        console.warn("Failed to sync direct check-in:", syncErr);
-      }
-
-      showStatus(`Checked in ${data.name}`, 'success');
-
-      // ⚡⚡⚡ FACILITY-AWARE CLOSING LOGIC (ONLINE) ⚡⚡⚡
-      if (data.facilities && data.facilities.length > 0) {
-        // Keep open, update state
-        setGuestData({ ...data, usedEntries: newUsed, status: 'Checked In' });
-        openSheet();
-      } else {
-        setTimeout(() => {
-          setScannedValue(null);
-          setGuestData(null);
-          setGuestData(null);
-          scanLockRef.current = null;
-        }, 1500);
-      }
-
-    } catch (error) {
-      console.error("Direct check-in error:", error);
-      showStatus('Check-in failed', 'error');
-      setTimeout(() => setScannedValue(null), 2000);
-    } finally {
-      setIsVerifying(false);
-    }
+    });
   };
 
   const handleBulkCheckIn = async () => {
