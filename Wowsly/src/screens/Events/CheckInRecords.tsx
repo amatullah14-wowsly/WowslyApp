@@ -11,6 +11,7 @@ import {
     Alert,
     useWindowDimensions
 } from 'react-native';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import BackButton from '../../components/BackButton';
 import { getEventTicketCheckins, downloadTicketCsv } from '../../api/event';
@@ -65,6 +66,7 @@ const CheckInRecords = () => {
     const isTablet = width >= 720;
     const { scale, verticalScale, moderateScale } = useScale();
     const styles = useMemo(() => makeStyles(scale, verticalScale, moderateScale, width), [scale, verticalScale, moderateScale, width]);
+    const insets = useSafeAreaInsets();
 
     useEffect(() => {
         if (eventId) {
@@ -220,8 +222,8 @@ const CheckInRecords = () => {
 
     return (
         <ResponsiveContainer maxWidth={isTablet ? 900 : 420}>
-            <View style={styles.container}>
-                <View style={styles.header}>
+            <SafeAreaView style={styles.container} edges={['left', 'right', 'bottom']}>
+                <View style={[styles.header, { paddingTop: insets.top }]}>
                     <BackButton onPress={() => navigation.goBack()} />
                     <Text style={styles.title}>Event Check-In Records</Text>
                     <View style={{ width: scale(32) }} />
@@ -249,7 +251,7 @@ const CheckInRecords = () => {
                         }
                     />
                 )}
-            </View>
+            </SafeAreaView>
         </ResponsiveContainer>
     );
 };
@@ -263,8 +265,7 @@ const makeStyles = (scale: (size: number) => number, verticalScale: (size: numbe
     },
     header: {
         width: '100%',
-        height: 90,
-        paddingTop: verticalScale(20),
+        paddingVertical: verticalScale(15),
         backgroundColor: 'white',
         alignItems: 'center',
         flexDirection: 'row',

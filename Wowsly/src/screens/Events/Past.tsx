@@ -11,6 +11,7 @@ import {
   RefreshControl,
   useWindowDimensions,
 } from 'react-native';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import EventCard from '../../components/EventCard';
@@ -30,6 +31,7 @@ const Past = () => {
   const navigation = useNavigation<any>();
   const { width } = useWindowDimensions();
   const { scale, verticalScale, moderateScale } = useScale();
+  const insets = useSafeAreaInsets();
   const styles = useMemo(() => makeStyles(scale, verticalScale, moderateScale, width), [scale, verticalScale, moderateScale, width]);
 
   // Foldable Logic
@@ -211,9 +213,9 @@ const Past = () => {
   );
 
   const renderListPanel = () => (
-    <View style={[styles.container, isFoldable && styles.leftPanelFoldable]}>
+    <SafeAreaView style={[styles.container, isFoldable && styles.leftPanelFoldable]} edges={['left', 'right', 'bottom']}>
       <StatusBar hidden />
-      <View style={styles.heading}>
+      <View style={[styles.heading, { paddingTop: insets.top }]}>
         <View style={styles.headingRow}>
           <Text style={styles.headingtxt}>Wowsly</Text>
           <TouchableOpacity
@@ -303,7 +305,7 @@ const Past = () => {
           />
         </>
       )}
-    </View>
+    </SafeAreaView>
   );
 
   return (
@@ -345,7 +347,6 @@ const makeStyles = (scale: (size: number) => number, verticalScale: (size: numbe
     backgroundColor: '#FF8A3C',
     width: '100%',
     paddingVertical: width >= 600 ? 15 : moderateScale(20),
-    paddingTop: width >= 600 ? 15 : verticalScale(25), // Add status bar padding
     borderBottomLeftRadius: width >= 600 ? 0 : moderateScale(15), // Removed radius for foldables, moderateScale for phone
     borderBottomRightRadius: width >= 600 ? 0 : moderateScale(15),
     shadowColor: '#FF8A3C',

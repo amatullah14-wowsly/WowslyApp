@@ -13,6 +13,7 @@ import {
   useWindowDimensions,
   ActivityIndicator,
 } from "react-native";
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import FastImage from 'react-native-fast-image';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { FontSize } from '../../constants/fontSizes';
@@ -35,6 +36,7 @@ const EventListing = () => {
   // Use Dynamic Scaling
   const { width } = useWindowDimensions();
   const { scale, verticalScale, moderateScale } = useScale();
+  const insets = useSafeAreaInsets();
   const styles = useMemo(() => makeStyles(scale, verticalScale, moderateScale, width), [scale, verticalScale, moderateScale, width]);
 
   // Foldable Logic
@@ -358,11 +360,11 @@ const EventListing = () => {
 
   return (
     <ResponsiveContainer maxWidth={isTablet ? 900 : (isFoldable ? "100%" : 420)}>
-      <View style={styles.container}>
+      <SafeAreaView style={styles.container} edges={['left', 'right', 'bottom']}>
         <StatusBar hidden />
 
         {/* Header with Logout - Always visible at top */}
-        <View style={styles.heading}>
+        <View style={[styles.heading, { paddingTop: insets.top }]}>
           <View style={styles.headingRow}>
             <Text style={styles.headingtxt}>Wowsly</Text>
             <TouchableOpacity
@@ -444,7 +446,7 @@ const EventListing = () => {
 
         </View>
 
-      </View>
+      </SafeAreaView>
     </ResponsiveContainer>
   );
 };
@@ -473,9 +475,11 @@ const makeStyles = (scale: (size: number) => number, verticalScale: (size: numbe
     backgroundColor: '#FF8A3C',
     width: '100%',
     paddingVertical: width >= 600 ? 15 : moderateScale(20),
-    paddingTop: width >= 600 ? 15 : verticalScale(25), // Keep status bar padding
-    borderBottomLeftRadius: 0, // Removed radius for seamless split view usually, or keep if designed
-    borderBottomRightRadius: 0,
+
+    // paddingTop: width >= 600 ? 15 : verticalScale(25), // Handled by insets now
+
+    borderBottomLeftRadius: moderateScale(20), // Removed radius for seamless split view usually, or keep if designed
+    borderBottomRightRadius: moderateScale(20),
     shadowColor: '#FF8A3C',
     shadowOpacity: 0.2,
     shadowOffset: { width: 0, height: verticalScale(6) },

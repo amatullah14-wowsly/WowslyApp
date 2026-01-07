@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useMemo } from 'react'
-import { StyleSheet, Text, View, SafeAreaView, TouchableOpacity, ScrollView, TextInput, Platform, KeyboardAvoidingView, Switch, Modal, Image, Alert, useWindowDimensions } from 'react-native'
+import { StyleSheet, Text, View, TouchableOpacity, ScrollView, TextInput, Platform, KeyboardAvoidingView, Switch, Modal, Image, Alert, useWindowDimensions } from 'react-native'
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import BackButton from '../../components/BackButton';
 import PencilIcon from '../../components/Icons/PencilIcon';
@@ -34,6 +34,7 @@ const RegistrationFormEditor = ({ isEmbedded = false, eventId: propEventId }: { 
     const isTablet = width >= 720;
     const { scale, verticalScale, moderateScale } = useScale();
     const styles = useMemo(() => makeStyles(scale, verticalScale, moderateScale), [scale, verticalScale, moderateScale]);
+    const insets = useSafeAreaInsets();
 
     // Mode State
     const [isEditing, setIsEditing] = useState(route.params?.autoEdit || false);
@@ -557,9 +558,9 @@ const RegistrationFormEditor = ({ isEmbedded = false, eventId: propEventId }: { 
     };
 
     const renderPreviewMode = () => (
-        <View style={{ flex: 1, backgroundColor: 'white' }}>
+        <SafeAreaView style={{ flex: 1, backgroundColor: 'white' }} edges={['left', 'right', 'bottom']}>
             {!isEmbedded && (
-                <View style={[styles.header, { backgroundColor: 'white', borderBottomWidth: 0 }]}>
+                <View style={[styles.header, { backgroundColor: 'white', borderBottomWidth: 0, paddingTop: insets.top }]}>
                     <BackButton onPress={() => navigation.goBack()} />
                     <Text style={[styles.headerTitle, { flex: 1, textAlign: 'center' }]}>Preview Form</Text>
                     {/* Edit Icon Right aligned */}
@@ -683,13 +684,13 @@ const RegistrationFormEditor = ({ isEmbedded = false, eventId: propEventId }: { 
                     <Image source={require('../../assets/img/form/edit.png')} style={{ width: moderateScale(24), height: moderateScale(24), tintColor: 'white' }} resizeMode="contain" />
                 </TouchableOpacity>
             )}
-        </View>
+        </SafeAreaView>
     );
 
     const renderEditMode = () => (
-        <View style={{ flex: 1, backgroundColor: 'white' }}>
+        <SafeAreaView style={{ flex: 1, backgroundColor: 'white' }} edges={['left', 'right', 'bottom']}>
             {!isEmbedded && (
-                <View style={[styles.header, { backgroundColor: 'white', borderBottomWidth: 0, elevation: 2 }]}>
+                <View style={[styles.header, { backgroundColor: 'white', borderBottomWidth: 0, elevation: 2, paddingTop: insets.top }]}>
                     <BackButton onPress={() => setIsEditing(false)} />
                     <Text style={styles.headerTitle}>Edit Form</Text>
                     <View style={{ width: scale(40) }} />
@@ -893,11 +894,11 @@ const RegistrationFormEditor = ({ isEmbedded = false, eventId: propEventId }: { 
                     <Text style={styles.saveFooterButtonText}>Save</Text>
                 </TouchableOpacity>
             </View>
-        </View >
+        </SafeAreaView >
     );
 
-    // Wrapper Logic for Embedded Mode
-    const Wrapper = isEmbedded ? View : SafeAreaView;
+    // Wrapper Logic: Always View because inner components handle Safe Area
+    const Wrapper = View;
     const wrapperStyle = isEmbedded ? { flex: 1, backgroundColor: '#fff' } : styles.container;
 
     return (

@@ -10,7 +10,9 @@ import Toast from 'react-native-toast-message';
 import { toastConfig } from './src/components/ToastConfig';
 import { initDB } from './src/db';
 import { initScanStore } from './src/context/ScanStore';
+
 import AsyncStorage from "@react-native-async-storage/async-storage";   // <-- ADD THIS
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 const App = () => {
   useEffect(() => {
@@ -33,10 +35,12 @@ const App = () => {
   }, []);
 
   return (
-    <NavigationContainer>
-      <StackNavigation />
-      <Toast config={toastConfig} />
-    </NavigationContainer>
+    <SafeAreaProvider>
+      <NavigationContainer>
+        <StackNavigation />
+        <Toast config={toastConfig} />
+      </NavigationContainer>
+    </SafeAreaProvider>
   )
 }
 export default App;

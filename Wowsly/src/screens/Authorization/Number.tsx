@@ -1,4 +1,5 @@
 import { StyleSheet, Text, View, TouchableOpacity, Image, KeyboardAvoidingView, Platform, ScrollView, Linking, ImageBackground, useWindowDimensions } from 'react-native'
+import { SafeAreaView } from 'react-native-safe-area-context';
 import Toast from 'react-native-toast-message';
 import React, { useRef, useState, useMemo } from 'react'
 import { useNavigation } from '@react-navigation/native';
@@ -111,122 +112,124 @@ const Number = () => {
         style={styles.bgImage}
         resizeMode="cover"
       >
-        <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-          style={styles.container}
-        >
-          <ScrollView
-            contentContainerStyle={[
-              styles.scrollContent,
-              isTablet
-                ? { alignItems: 'center', paddingTop: 40, justifyContent: 'flex-start' }
-                : { justifyContent: 'center', alignItems: 'center', paddingTop: moderateScale(50) }
-            ]}
-            showsVerticalScrollIndicator={false}
+        <SafeAreaView style={{ flex: 1 }} edges={['top', 'left', 'right', 'bottom']}>
+          <KeyboardAvoidingView
+            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+            style={styles.container}
           >
-            <View style={styles.mainbox}>
-              <View>
-                <Image
-                  source={require('../../assets/img/common/WowslyLogo.png')}
-                  style={styles.logo}
-                />
-              </View>
+            <ScrollView
+              contentContainerStyle={[
+                styles.scrollContent,
+                isTablet
+                  ? { alignItems: 'center', paddingTop: 40, justifyContent: 'flex-start' }
+                  : { justifyContent: 'center', alignItems: 'center', paddingTop: moderateScale(50) }
+              ]}
+              showsVerticalScrollIndicator={false}
+            >
+              <View style={styles.mainbox}>
+                <View>
+                  <Image
+                    source={require('../../assets/img/common/WowslyLogo.png')}
+                    style={styles.logo}
+                  />
+                </View>
 
-              <View style={styles.heading}>
-                <Text style={[styles.headingText, { fontSize: tabletTitleSize }]}>Welcome to Wowsly</Text>
-                <Text style={styles.organizer}>Organizer App</Text>
-              </View>
+                <View style={styles.heading}>
+                  <Text style={[styles.headingText, { fontSize: tabletTitleSize }]}>Welcome to Wowsly</Text>
+                  <Text style={styles.organizer}>Organizer App</Text>
+                </View>
 
-              <View>
-                <Text style={styles.manage}>Manage events & check-ins on the go</Text>
-              </View>
+                <View>
+                  <Text style={styles.manage}>Manage events & check-ins on the go</Text>
+                </View>
 
-              <View style={styles.number}>
-                {/* <Text style={styles.mobile}>Mobile Number</Text> */}
-                <PhoneNumberInput
-                  ref={phoneInput}
-                  defaultValue={value}
-                  defaultCode="IN"
-                  layout="first"
-                  onChangeText={setValue}
-                  onChangeCountry={(country) => setCountryCode(country.callingCode[0])}
-                  containerStyle={[styles.phoneContainer, isTablet && { height: 50 }]}
-                  textContainerStyle={styles.phoneTextContainer}
-                  textInputStyle={styles.phoneInput}
-                  codeTextStyle={styles.phoneCodeText}
-                  flagButtonStyle={styles.phoneFlagButton}
-                  countryPickerButtonStyle={styles.phoneCountryButton}
-                  disableArrowIcon={false}
-                  textInputProps={{
-                    returnKeyType: 'done',
-                    onSubmitEditing: handleSendOTP,
-                    placeholder: 'Mobile Number',
-                    placeholderTextColor: '#9E9E9E',
-                    style: [styles.phoneInput, isTablet && { fontSize: 14, height: 50 }]
-                  }}
-                />
-                {countryCode === '91' && (
-                  <View style={styles.smsPrompt}>
-                    <Text style={styles.smsPromptLabel}>Not using WhatsApp?</Text>
-                    <TouchableOpacity onPress={handleSendSMS} disabled={isSending}>
-                      <Text style={[styles.smsPromptAction, isSmsLoading && styles.smsPromptDisabled]}>
-                        {isSmsLoading ? "Sending..." : "Send SMS"}
-                      </Text>
-                    </TouchableOpacity>
-                  </View>
-                )}
-              </View>
+                <View style={styles.number}>
+                  {/* <Text style={styles.mobile}>Mobile Number</Text> */}
+                  <PhoneNumberInput
+                    ref={phoneInput}
+                    defaultValue={value}
+                    defaultCode="IN"
+                    layout="first"
+                    onChangeText={setValue}
+                    onChangeCountry={(country) => setCountryCode(country.callingCode[0])}
+                    containerStyle={[styles.phoneContainer, isTablet && { height: 50 }]}
+                    textContainerStyle={styles.phoneTextContainer}
+                    textInputStyle={styles.phoneInput}
+                    codeTextStyle={styles.phoneCodeText}
+                    flagButtonStyle={styles.phoneFlagButton}
+                    countryPickerButtonStyle={styles.phoneCountryButton}
+                    disableArrowIcon={false}
+                    textInputProps={{
+                      returnKeyType: 'done',
+                      onSubmitEditing: handleSendOTP,
+                      placeholder: 'Mobile Number',
+                      placeholderTextColor: '#9E9E9E',
+                      style: [styles.phoneInput, isTablet && { fontSize: 14, height: 50 }]
+                    }}
+                  />
+                  {countryCode === '91' && (
+                    <View style={styles.smsPrompt}>
+                      <Text style={styles.smsPromptLabel}>Not using WhatsApp?</Text>
+                      <TouchableOpacity onPress={handleSendSMS} disabled={isSending}>
+                        <Text style={[styles.smsPromptAction, isSmsLoading && styles.smsPromptDisabled]}>
+                          {isSmsLoading ? "Sending..." : "Send SMS"}
+                        </Text>
+                      </TouchableOpacity>
+                    </View>
+                  )}
+                </View>
 
-              {/* TERMS CHECKBOX */}
+                {/* TERMS CHECKBOX */}
 
-              <View style={[styles.checkboxRow, isTablet && { marginTop: 20 }]}>
-                <TouchableOpacity
-                  onPress={() => setAcceptedTerms((prev) => !prev)}
-                  activeOpacity={0.8}
-                >
-                  <View style={[styles.checkbox, acceptedTerms && styles.checkboxChecked]}>
-                    {acceptedTerms && <View style={styles.checkboxIndicator} />}
-                  </View>
-                </TouchableOpacity>
-                <Text style={styles.checkboxLabel}>
-                  <Text onPress={() => setAcceptedTerms((prev) => !prev)}>I agree to the </Text>
-                  <Text
-                    style={{ color: '#FF8A3C' }}
-                    onPress={() => Linking.openURL('https://wowsly.com/terms-and-conditions/')}
+                <View style={[styles.checkboxRow, isTablet && { marginTop: 20 }]}>
+                  <TouchableOpacity
+                    onPress={() => setAcceptedTerms((prev) => !prev)}
+                    activeOpacity={0.8}
                   >
-                    Terms & Conditions
+                    <View style={[styles.checkbox, acceptedTerms && styles.checkboxChecked]}>
+                      {acceptedTerms && <View style={styles.checkboxIndicator} />}
+                    </View>
+                  </TouchableOpacity>
+                  <Text style={styles.checkboxLabel}>
+                    <Text onPress={() => setAcceptedTerms((prev) => !prev)}>I agree to the </Text>
+                    <Text
+                      style={{ color: '#FF8A3C' }}
+                      onPress={() => Linking.openURL('https://wowsly.com/terms-and-conditions/')}
+                    >
+                      Terms & Conditions
+                    </Text>
                   </Text>
-                </Text>
+                </View>
+
+                {/* SEND OTP BUTTON */}
+                <TouchableOpacity
+                  style={[styles.button, isSendOtpDisabled && styles.buttonDisabled, { height: tabletButtonHeight }]}
+                  onPress={handleSendOTP}
+                  disabled={isSendOtpDisabled}
+                >
+                  <Text style={[styles.buttonText, { fontSize: tabletButtonFontSize }]}>
+                    {isWhatsAppLoading ? "Sending..." : "Send OTP"}
+                  </Text>
+                </TouchableOpacity>
               </View>
 
-              {/* SEND OTP BUTTON */}
-              <TouchableOpacity
-                style={[styles.button, isSendOtpDisabled && styles.buttonDisabled, { height: tabletButtonHeight }]}
-                onPress={handleSendOTP}
-                disabled={isSendOtpDisabled}
-              >
-                <Text style={[styles.buttonText, { fontSize: tabletButtonFontSize }]}>
-                  {isWhatsAppLoading ? "Sending..." : "Send OTP"}
-                </Text>
-              </TouchableOpacity>
-            </View>
-
-            {/* FOOTER */}
-            <View style={styles.footer}>
-              <TouchableOpacity onPress={() => Linking.openURL('https://wowsly.com/contact-us/')}>
-                <Text style={styles.footerText}>Need help?</Text>
-              </TouchableOpacity>
-              <Text style={styles.dot}>•</Text>
-              <TouchableOpacity onPress={() => Linking.openURL('https://wowsly.com/privacy-policy/')}>
-                <Text style={styles.footerText}>Privacy</Text>
-              </TouchableOpacity>
-              <Text style={styles.dot}>•</Text>
-              <TouchableOpacity onPress={() => Linking.openURL('https://wowsly.com/terms-and-conditions/')}>
-                <Text style={styles.footerText}>Terms</Text>
-              </TouchableOpacity>
-            </View>
-          </ScrollView>
-        </KeyboardAvoidingView>
+              {/* FOOTER */}
+              <View style={styles.footer}>
+                <TouchableOpacity onPress={() => Linking.openURL('https://wowsly.com/contact-us/')}>
+                  <Text style={styles.footerText}>Need help?</Text>
+                </TouchableOpacity>
+                <Text style={styles.dot}>•</Text>
+                <TouchableOpacity onPress={() => Linking.openURL('https://wowsly.com/privacy-policy/')}>
+                  <Text style={styles.footerText}>Privacy</Text>
+                </TouchableOpacity>
+                <Text style={styles.dot}>•</Text>
+                <TouchableOpacity onPress={() => Linking.openURL('https://wowsly.com/terms-and-conditions/')}>
+                  <Text style={styles.footerText}>Terms</Text>
+                </TouchableOpacity>
+              </View>
+            </ScrollView>
+          </KeyboardAvoidingView>
+        </SafeAreaView>
       </ImageBackground>
     </ResponsiveContainer>
   )
@@ -388,7 +391,7 @@ const makeStyles = (scale: any, verticalScale: any, moderateScale: any, width: a
     bottom: verticalScale(1),
   },
   button: {
-    width: '90%',
+    width: '80%',
     height: moderateScale(50),
     borderRadius: width >= 600 ? 16 : moderateScale(15),
     backgroundColor: '#FF8A3C',

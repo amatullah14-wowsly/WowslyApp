@@ -11,6 +11,7 @@ import Svg, { G, Path, Circle, Text as SvgText } from 'react-native-svg';
 import * as d3 from 'd3-shape';
 import { ResponsiveContainer } from '../../components/ResponsiveContainer';
 import { useTabletScale, useTabletModerateScale } from '../../utils/tabletScaling';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 // import GuestRegistrationModal from './GuestRegistrationModal'; // Removed
 
 
@@ -44,6 +45,7 @@ export const EventDashboardContent = ({ eventData, userRole, eventId, isSplitVie
 
     const { width, height: screenHeight } = useWindowDimensions();
     const { scale, verticalScale, moderateScale } = useScale();
+    const insets = useSafeAreaInsets();
     const styles = useMemo(() => makeStyles(scale, verticalScale, moderateScale, width), [scale, verticalScale, moderateScale, width]);
 
     // Responsive Logic
@@ -262,7 +264,7 @@ export const EventDashboardContent = ({ eventData, userRole, eventId, isSplitVie
 
     const renderHeader = () => (
         <>
-            <View style={styles.header}>
+            <View style={[styles.header, { paddingTop: insets.top }]}>
                 <View style={styles.headerLeft}>
                     {/* Hide Back Button in Split View */}
                     {!isSplitView && <BackButton onPress={() => setExitModalVisible(true)} />}
@@ -542,7 +544,7 @@ export const EventDashboardContent = ({ eventData, userRole, eventId, isSplitVie
 
     return (
         <ResponsiveContainer maxWidth={isTablet ? 900 : (isFoldable ? 800 : 420)}>
-            <View style={styles.container}>
+            <SafeAreaView style={styles.container} edges={['left', 'right', 'bottom']}>
                 {/* Modal must be outside FlatList for z-index/position correctness if absolute, or just inside View */}
                 <Modal
                     transparent
@@ -589,7 +591,7 @@ export const EventDashboardContent = ({ eventData, userRole, eventId, isSplitVie
                     ListFooterComponent={renderFooter}
                     showsVerticalScrollIndicator={false}
                 />
-            </View>
+            </SafeAreaView>
         </ResponsiveContainer>
     )
 
@@ -600,13 +602,16 @@ type EventDashboardProps = {
         params?: {
             eventData?: EventData
             userRole?: string
+            eventId?: string | number
         }
     }
 }
 
 const EventDashboard = ({ route }: EventDashboardProps) => {
-    const { eventData, userRole } = route.params || {};
-    return <EventDashboardContent eventData={eventData} eventId={eventData?.id} userRole={userRole} />
+    const { eventData, userRole, eventId } = route.params || {};
+    // Fallback to eventId from params if eventData is missing
+    const targetEventId = eventData?.id || eventId;
+    return <EventDashboardContent eventData={eventData} eventId={targetEventId ? String(targetEventId) : undefined} userRole={userRole} />
 }
 
 export default EventDashboard

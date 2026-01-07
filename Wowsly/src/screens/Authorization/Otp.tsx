@@ -284,7 +284,7 @@ const makeStyles = (scale: any, verticalScale: any, moderateScale: any, width: a
         marginTop: verticalScale(4),
     },
     verifyButton: {
-        width: '100%',
+        width: '80%',
         height: moderateScale(45),
         backgroundColor: '#FF8A3C',
         borderRadius: width >= 600 ? 16 : moderateScale(15),

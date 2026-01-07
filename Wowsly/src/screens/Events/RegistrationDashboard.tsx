@@ -1,4 +1,5 @@
-import { StyleSheet, Text, View, TouchableOpacity, SafeAreaView, FlatList, ActivityIndicator, Image, Modal, ScrollView, TextInput } from 'react-native'
+import { StyleSheet, Text, View, TouchableOpacity, FlatList, ActivityIndicator, Image, Modal, ScrollView, TextInput } from 'react-native'
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import DatePicker from 'react-native-date-picker'
 import React, { useState, useEffect, useCallback, useMemo } from 'react'
 import { useNavigation, useRoute } from '@react-navigation/native';
@@ -92,6 +93,7 @@ const RegistrationDashboard = () => {
     const isTablet = width >= 720;
     const { scale, verticalScale, moderateScale } = useScale();
     const styles = useMemo(() => makeStyles(scale, verticalScale, moderateScale), [scale, verticalScale, moderateScale]);
+    const insets = useSafeAreaInsets();
 
     const [hasForm, setHasForm] = useState<number | null>(null); // 0 = Created, 1 = Not Created (or vice versa per user req)
     const [isApprovalBasis, setIsApprovalBasis] = useState(false);
@@ -385,10 +387,10 @@ const RegistrationDashboard = () => {
     }, [handleReplyPress, handleActionPress, styles]);
 
     return (
-        <SafeAreaView style={styles.container}>
+        <SafeAreaView style={styles.container} edges={['left', 'right', 'bottom']}>
             <ResponsiveContainer maxWidth={900}>
                 {/* Header */}
-                <View style={styles.header}>
+                <View style={[styles.header, { paddingTop: insets.top }]}>
                     <BackButton onPress={() => navigation.goBack()} />
                     <Text style={styles.title}>Replies</Text>
                     <TouchableOpacity onPress={() => setShowHeaderMenu(true)} style={styles.menuButton}>
@@ -609,8 +611,7 @@ const makeStyles = (scale: (size: number) => number, verticalScale: (size: numbe
         alignItems: 'center',
         justifyContent: 'space-between',
         paddingHorizontal: moderateScale(20),
-        paddingTop: 30, // Fixed top padding
-        paddingBottom: 10, // Fixed bottom padding
+        paddingVertical: 10,
         backgroundColor: 'white',
         borderBottomWidth: 1,
         borderBottomColor: '#f0f0f0',

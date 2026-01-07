@@ -10,12 +10,12 @@ import {
     LayoutAnimation,
     Platform,
     UIManager,
-    SafeAreaView,
     Modal,
     ScrollView,
     Dimensions,
     useWindowDimensions
 } from 'react-native';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import BackButton from '../../components/BackButton';
 import { getTicketSoldUsers } from '../../api/event';
@@ -59,6 +59,7 @@ const TicketsSoldRecords = () => {
     const isTablet = width >= 720;
     const { scale, verticalScale, moderateScale } = useScale();
     const styles = useMemo(() => makeStyles(scale, verticalScale, moderateScale), [scale, verticalScale, moderateScale]);
+    const insets = useSafeAreaInsets();
 
     const [expandedTicketId, setExpandedTicketId] = useState<string | number | null>(null);
     const [loadingUsers, setLoadingUsers] = useState(false);
@@ -220,8 +221,8 @@ const TicketsSoldRecords = () => {
 
     return (
         <ResponsiveContainer maxWidth={isTablet ? 900 : 420}>
-            <SafeAreaView style={styles.container}>
-                <View style={styles.header}>
+            <SafeAreaView style={styles.container} edges={['left', 'right', 'bottom']}>
+                <View style={[styles.header, { paddingTop: insets.top }]}>
                     <BackButton onPress={() => navigation.goBack()} />
                     <Text style={styles.title}>Tickets Sold Records</Text>
                     <View style={{ width: scale(32) }} />
@@ -309,7 +310,7 @@ const makeStyles = (scale: (size: number) => number, verticalScale: (size: numbe
     },
     header: {
         width: '100%',
-        height: verticalScale(90),
+        paddingVertical: verticalScale(15),
         alignItems: 'center',
         flexDirection: 'row',
         justifyContent: 'space-between',

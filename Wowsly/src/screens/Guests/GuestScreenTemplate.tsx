@@ -2,7 +2,6 @@ import React, { useMemo, useState, useEffect, useCallback, useRef } from 'react'
 import {
   FlatList,
   Image,
-  SafeAreaView,
   StatusBar,
   StyleSheet,
   Text,
@@ -17,6 +16,7 @@ import {
   ActivityIndicator,
   useWindowDimensions,
 } from 'react-native';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import Toast from 'react-native-toast-message';
 import { GestureHandlerRootView, Swipeable } from 'react-native-gesture-handler';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
@@ -198,6 +198,7 @@ const GuestScreenTemplate: React.FC<GuestScreenTemplateProps> = ({
   const { width } = useWindowDimensions();
   const isTablet = width >= 720;
   const { scale, verticalScale, moderateScale } = useScale();
+  const insets = useSafeAreaInsets();
   const styles = useMemo(() => makeStyles(scale, verticalScale, moderateScale), [scale, verticalScale, moderateScale]);
 
   const [activeFilter, setActiveFilter] = useState<GuestFilter>(initialFilter);
@@ -497,10 +498,10 @@ const GuestScreenTemplate: React.FC<GuestScreenTemplateProps> = ({
   }), [verticalScale]);
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={styles.safeArea} edges={['left', 'right', 'bottom']}>
       <ResponsiveContainer maxWidth={isTablet ? 900 : 420}>
         <StatusBar barStyle="dark-content" backgroundColor="#ffffff" />
-        <View style={styles.header}>
+        <View style={[styles.header, { paddingTop: insets.top }]}>
           <BackButton onPress={() => navigation.canGoBack() && navigation.goBack()} />
           <Text style={styles.headerTitle}>Guest List</Text>
           <View style={headerSpacerStyle} />
@@ -672,7 +673,7 @@ const makeStyles = (scale: (size: number) => number, verticalScale: (size: numbe
   },
   tabRow: {
     flexDirection: 'row',
-    justifyContent: 'space-around',
+    justifyContent: 'space-between',
     borderBottomWidth: 1,
     borderBottomColor: '#f0f0f0',
     backgroundColor: '#fff',
