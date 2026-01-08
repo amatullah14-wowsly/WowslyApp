@@ -113,20 +113,20 @@ const makeStyles = (width: number) => StyleSheet.create({
         justifyContent: 'center',
         alignItems: 'center',
         borderWidth: 1,
-        borderColor: '#E0E0E0',
+        borderColor: '#FF8A3C',
         borderRadius: width >= 600 ? 20 : Math.min(scale(18), 22),
         marginHorizontal: width >= 600 ? 8 : Math.min(scale(5), 8),
     },
     disabledArrow: {
-        borderColor: '#F0F0F0',
+        borderColor: '#fbc8a6ff',
     },
     arrowIcon: {
         width: width >= 600 ? 14 : Math.min(scale(14), 18),
         height: width >= 600 ? 14 : Math.min(scale(14), 18),
-        tintColor: '#333',
+        tintColor: '#FF8A3C',
     },
     disabledArrowIcon: {
-        tintColor: '#CCC',
+        tintColor: '#fbc8a6ff',
     },
     pageNumber: {
         width: width >= 600 ? 40 : Math.min(scale(36), 44),
