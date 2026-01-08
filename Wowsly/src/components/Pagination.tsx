@@ -135,7 +135,7 @@ const makeStyles = (width: number) => StyleSheet.create({
         alignItems: 'center',
         borderRadius: width >= 600 ? 20 : Math.min(scale(18), 22),
         borderWidth: 1,
-        borderColor: '#E0E0E0',
+        borderColor: '#FF8A3C',
         backgroundColor: 'white',
     },
     activePageNumber: {
