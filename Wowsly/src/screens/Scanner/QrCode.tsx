@@ -731,19 +731,11 @@ const QrCode = () => {
 
           showStatus(`Checked in ${data.name}`, 'success');
 
-          // ⚡⚡⚡ FACILITY-AWARE CLOSING LOGIC ⚡⚡⚡
-          // If guest has facilities, DO NOT close sheet. Open it instead.
-          if (data.facilities && data.facilities.length > 0) {
-            setGuestData({ ...data, usedEntries: newUsed }); // Update local state
-            openSheet();
-          } else {
-            setTimeout(() => {
-              setScannedValue(null);
-              setGuestData(null);
-              setGuestData(null);
-              scanLockRef.current = null;
-            }, 1500);
-          }
+          // ⚡⚡⚡ STRICT CLOSING LOGIC ⚡⚡⚡
+          // Always close after check-in to enforce fresh scan for next action
+          setTimeout(() => {
+            closeSheet();
+          }, 1500);
 
           return; // Exit after offline handling
         }
@@ -800,19 +792,11 @@ const QrCode = () => {
 
         showStatus(`Checked in ${data.name}`, 'success');
 
-        // ⚡⚡⚡ FACILITY-AWARE CLOSING LOGIC (ONLINE) ⚡⚡⚡
-        if (data.facilities && data.facilities.length > 0) {
-          // Keep open, update state
-          setGuestData({ ...data, usedEntries: newUsed, status: 'Checked In' });
-          openSheet();
-        } else {
-          setTimeout(() => {
-            setScannedValue(null);
-            setGuestData(null);
-            setGuestData(null);
-            scanLockRef.current = null;
-          }, 1500);
-        }
+        // ⚡⚡⚡ STRICT CLOSING LOGIC ⚡⚡⚡
+        // Always close after check-in to enforce fresh scan for next action
+        setTimeout(() => {
+          closeSheet();
+        }, 1500);
 
       } catch (error) {
         console.error("Direct check-in error:", error);
@@ -887,16 +871,10 @@ const QrCode = () => {
           // ✅ ONLY NOW show success
           showStatus(`Facility Checked In (Offline)`, 'success');
 
-          // ⚡⚡⚡ UI UPDATE: Update facility state locally ⚡⚡⚡
-          if (guestData && guestData.facilities) {
-            const updatedFacilities = guestData.facilities.map((f: any) => {
-              if (Number(f.id) === facilityId) {
-                return { ...f, scanned_count: (f.scanned_count || 0) + checkInCount };
-              }
-              return f;
-            });
-            setGuestData({ ...guestData, facilities: updatedFacilities });
-          }
+          // ⚡⚡⚡ STRICT CLOSING LOGIC ⚡⚡⚡
+          setTimeout(() => {
+            closeSheet();
+          }, 1500);
 
           return;
         } catch (err) {
@@ -928,22 +906,10 @@ const QrCode = () => {
 
           showStatus(`Facility Checked In`, 'success');
 
-          if (guestData && guestData.facilities) {
-            const updatedFacilities = guestData.facilities.map((f: any) => {
-              if (Number(f.id) === facilityId) {
-                const current = f.scanned_count ?? f.checkIn ?? f.used_scans ?? 0;
-                const newVal = current + checkInCount;
-                return {
-                  ...f,
-                  scanned_count: newVal,
-                  checkIn: newVal,
-                  used_scans: newVal
-                };
-              }
-              return f;
-            });
-            setGuestData({ ...guestData, facilities: updatedFacilities });
-          }
+          // ⚡⚡⚡ STRICT CLOSING LOGIC ⚡⚡⚡
+          setTimeout(() => {
+            closeSheet();
+          }, 1500);
 
           return;
 

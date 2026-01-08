@@ -403,17 +403,30 @@ const RegistrationDashboard = () => {
                     <View style={styles.repliesContainer}>
 
                         {/* Status / Download Button (Only visible if active/completed) */}
+                        {/* Status / Download Button (Only visible if active/completed) */}
                         {(exportStatus === 'processing' || exportStatus === 'completed') && (
                             <View style={styles.statusButtonContainer}>
                                 {exportStatus === 'processing' ? (
-                                    <TouchableOpacity style={[styles.exportButton, styles.checkStatusButton]} onPress={handleCheckStatus}>
-                                        <Image source={require('../../assets/img/eventdashboard/clock.png')} style={[styles.exportIcon, { tintColor: 'white' }]} resizeMode="contain" />
-                                        <Text style={[styles.exportButtonText, { color: 'white' }]}>Check Status</Text>
+                                    <TouchableOpacity style={[styles.exportCard, styles.exportCardProcessing]} onPress={handleCheckStatus} activeOpacity={0.8}>
+                                        <View style={styles.exportCardIconContainer}>
+                                            <ActivityIndicator size="small" color="#E65100" />
+                                        </View>
+                                        <View style={styles.exportCardTextContainer}>
+                                            <Text style={[styles.exportCardTitle, { color: '#E65100' }]}>Export in Progress...</Text>
+                                            <Text style={[styles.exportCardSubtitle, { color: '#EF6C00' }]}>Tap to check status</Text>
+                                        </View>
+                                        <Image source={require('../../assets/img/common/next.png')} style={[styles.cardArrow, { tintColor: '#E65100' }]} resizeMode="contain" />
                                     </TouchableOpacity>
                                 ) : (
-                                    <TouchableOpacity style={[styles.exportButton, styles.downloadButton]} onPress={handleDownload}>
-                                        <Image source={require('../../assets/img/eventdashboard/export.png')} style={[styles.exportIcon, { tintColor: 'white', transform: [{ rotate: '180deg' }] }]} resizeMode="contain" />
-                                        <Text style={[styles.exportButtonText, { color: 'white' }]}>Download File</Text>
+                                    <TouchableOpacity style={[styles.exportCard, styles.exportCardCompleted]} onPress={handleDownload} activeOpacity={0.8}>
+                                        <View style={[styles.exportCardIconContainer, { backgroundColor: '#C8E6C9' }]}>
+                                            <Image source={require('../../assets/img/eventdashboard/export.png')} style={[styles.exportIcon, { tintColor: '#2E7D32', transform: [{ rotate: '180deg' }] }]} resizeMode="contain" />
+                                        </View>
+                                        <View style={styles.exportCardTextContainer}>
+                                            <Text style={[styles.exportCardTitle, { color: '#1B5E20' }]}>Export Ready</Text>
+                                            <Text style={[styles.exportCardSubtitle, { color: '#2E7D32' }]}>Tap to download file</Text>
+                                        </View>
+                                        <Image source={require('../../assets/img/common/next.png')} style={[styles.cardArrow, { tintColor: '#2E7D32' }]} resizeMode="contain" />
                                     </TouchableOpacity>
                                 )}
                             </View>
@@ -765,6 +778,53 @@ const makeStyles = (scale: (size: number) => number, verticalScale: (size: numbe
         paddingHorizontal: moderateScale(2),
         gap: moderateScale(4),
         backgroundColor: 'white',
+    },
+    // Modern Export Card Styles
+    exportCard: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        borderRadius: moderateScale(16),
+        padding: moderateScale(16),
+        borderWidth: 1,
+        elevation: 2,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
+    },
+    exportCardProcessing: {
+        backgroundColor: '#FFF3E0', // Light Orange
+        borderColor: '#FFE0B2',
+    },
+    exportCardCompleted: {
+        backgroundColor: '#E8F5E9', // Light Green
+        borderColor: '#C8E6C9',
+    },
+    exportCardIconContainer: {
+        width: moderateScale(40),
+        height: moderateScale(40),
+        borderRadius: moderateScale(20),
+        backgroundColor: 'rgba(255,255,255,0.6)',
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginRight: moderateScale(12),
+    },
+    exportCardTextContainer: {
+        flex: 1,
+    },
+    exportCardTitle: {
+        fontSize: moderateScale(FontSize.md),
+        fontWeight: '700',
+        marginBottom: verticalScale(2),
+    },
+    exportCardSubtitle: {
+        fontSize: moderateScale(FontSize.xs),
+        fontWeight: '500',
+    },
+    cardArrow: {
+        width: moderateScale(16),
+        height: moderateScale(16),
+        opacity: 0.6,
     },
     checkStatusButton: {
         backgroundColor: '#EF6C00', // Orange fill
