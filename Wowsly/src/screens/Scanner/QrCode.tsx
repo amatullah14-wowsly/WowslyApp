@@ -14,14 +14,17 @@ import {
   DeviceEventEmitter,
   ScrollView,
   useWindowDimensions,
-  InteractionManager
+  InteractionManager,
+  BackHandler, // 👈 Added
+  Alert        // 👈 Added
 } from 'react-native'
 import { useScale } from '../../utils/useScale';
 import { FontSize } from '../../constants/fontSizes';
 import { useTabletScale, useTabletModerateScale } from '../../utils/tabletScaling';
 import { ResponsiveContainer } from '../../components/ResponsiveContainer';
 
-import { initDB, findTicketByQr, updateTicketStatusLocal, getTicketsForEvent, insertOrReplaceGuests, getFacilitiesForGuest, updateFacilityCheckInLocal, insertFacilityForGuest } from '../../db'
+import { initDB, findTicketByQr, updateTicketStatusLocal, getTicketsForEvent, insertOrReplaceGuests, getFacilitiesForGuest, updateFacilityCheckInLocal, insertFacilityForGuest, getUnsyncedCheckins, getUnsyncedFacilities } from '../../db'
+import { performSyncIfOnline } from '../../sync/syncService' // 👈 Added
 import { RouteProp, useRoute, useNavigation, useFocusEffect } from '@react-navigation/native'
 import { Camera } from 'react-native-camera-kit'
 import { verifyQRCode, checkInGuest } from '../../api/api'
@@ -65,6 +68,78 @@ const QrCode = () => {
   const [scanStatus, setScanStatus] = useState<{ text: string, type: 'success' | 'error' | 'warning' } | null>(null);
 
   const scanLockRef = useRef<string | null>(null);
+
+  // ⚡⚡⚡ OFFLINE SAFE EXIT LOGIC ⚡⚡⚡
+  const handleBackPress = useCallback(async () => {
+    // Only intercept if we are in OFFLINE mode
+    if (!route.params?.offline) {
+      navigation.goBack();
+      return true;
+    }
+
+    try {
+      const unsyncedTickets = await getUnsyncedCheckins(eventId);
+      const unsyncedFacilities = await getUnsyncedFacilities(eventId);
+
+      const hasUnsynced = (unsyncedTickets && unsyncedTickets.length > 0) || (unsyncedFacilities && unsyncedFacilities.length > 0);
+
+      if (hasUnsynced) {
+        Alert.alert(
+          "Unsynced Data Detected",
+          "You are exiting without uploading scanned data. Please upload to avoid data loss.",
+          [
+            {
+              text: "Cancel",
+              onPress: () => console.log("Cancel Pressed"),
+              style: "cancel"
+            },
+            {
+              text: "Exit Anyway",
+              onPress: () => navigation.goBack(),
+              style: "destructive"
+            },
+            {
+              text: "Upload & Exit",
+              onPress: async () => {
+                showStatus("Uploading data...", "warning");
+                await performSyncIfOnline([eventId]);
+
+                // Re-check
+                const remainingTickets = await getUnsyncedCheckins(eventId);
+                const remainingFacilities = await getUnsyncedFacilities(eventId);
+
+                if ((remainingTickets && remainingTickets.length > 0) || (remainingFacilities && remainingFacilities.length > 0)) {
+                  Alert.alert("Upload Failed/Partial", "Some data could not be uploaded. Check internet.", [
+                    { text: "Exit Anyway", onPress: () => navigation.goBack() },
+                    { text: "Stay", style: 'cancel' }
+                  ]);
+                } else {
+                  showStatus("Upload Successful", "success");
+                  setTimeout(() => {
+                    navigation.goBack();
+                  }, 500);
+                }
+              }
+            }
+          ]
+        );
+        return true; // We handled the back press
+      }
+    } catch (e) {
+      console.log("Error checking unsynced data", e);
+    }
+
+    // Default behavior if no unsynced data
+    navigation.goBack();
+    return true;
+  }, [eventId, route.params?.offline, navigation]);
+
+  useFocusEffect(
+    useCallback(() => {
+      const subscription = BackHandler.addEventListener('hardwareBackPress', handleBackPress);
+      return () => subscription.remove();
+    }, [handleBackPress])
+  );
 
   // ⚡⚡⚡ FACILITY LOGIC EXTENSION ⚡⚡⚡
   const [selectedScanningOption, setSelectedScanningOption] = useState<string | number>('check_in');

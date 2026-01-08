@@ -1,3 +1,4 @@
+import React, { useState, useEffect, useMemo } from 'react';
 import { StyleSheet, Text, View, TouchableOpacity, ScrollView, TextInput, Platform, KeyboardAvoidingView, Switch, Modal, Image, Alert, useWindowDimensions } from 'react-native'
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, useRoute } from '@react-navigation/native';
