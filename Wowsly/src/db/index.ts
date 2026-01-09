@@ -30,6 +30,77 @@ export async function initDB() {
   const database = await openDB();
 
   // ------------------------
+  // MIGRATION: Ensure tickets table has correct constraints
+  // Constraint: UNIQUE(event_id, qrGuestUuid, qrTicketId)
+  // Constraint: qr_code IS NOT UNIQUE
+  // ------------------------
+  try {
+    // Check if tickets table exists
+    const [check] = await database.executeSql(`SELECT name FROM sqlite_master WHERE type='table' AND name='tickets';`);
+    if (check.rows.length > 0) {
+
+      const [schemaRes] = await database.executeSql(`SELECT sql FROM sqlite_master WHERE type='table' AND name='tickets';`);
+      const schemaSql = schemaRes.rows.item(0).sql;
+
+      // If we detect strict UNIQUE on qr_code, we must migrate
+      if (schemaSql.includes('qr_code TEXT UNIQUE')) {
+        console.log("STARTING TICKETS TABLE RECREATION MIGRATION...");
+        await database.transaction(async (tx: any) => {
+          // 1. Rename old
+          await tx.executeSql(`ALTER TABLE tickets RENAME TO tickets_old_v1;`);
+
+          // 2. Create new (Correct Schema)
+          await tx.executeSql(`
+                 CREATE TABLE tickets (
+                   id INTEGER PRIMARY KEY AUTOINCREMENT,
+                   event_id INTEGER NOT NULL,
+                   ticket_id INTEGER,
+                   guest_id INTEGER,
+                   qr_code TEXT,
+                   guest_name TEXT,
+                   email TEXT,
+                   phone TEXT,
+                   status TEXT DEFAULT 'pending',
+                   scanned_at TEXT,
+                   synced INTEGER DEFAULT 1,
+                   total_entries INTEGER DEFAULT 1,
+                   used_entries INTEGER DEFAULT 0,
+                   facilities TEXT,
+                   ticket_title TEXT,
+                   qrGuestUuid TEXT,
+                   qrTicketId INTEGER,
+                   check_in_count INTEGER DEFAULT 0,
+                   given_check_in_time TEXT,
+                   registration_time TEXT,
+                   registered_by TEXT
+                 );
+             `);
+
+          // 3. Copy Data
+          await tx.executeSql(`
+                 INSERT INTO tickets (
+                     id, event_id, ticket_id, guest_id, qr_code, guest_name, email, phone, status, 
+                     scanned_at, synced, total_entries, used_entries, facilities, ticket_title,
+                     qrGuestUuid, qrTicketId, check_in_count, given_check_in_time, registration_time, registered_by
+                 )
+                 SELECT 
+                     id, event_id, ticket_id, guest_id, qr_code, guest_name, email, phone, status, 
+                     scanned_at, synced, total_entries, used_entries, facilities, ticket_title,
+                     qrGuestUuid, qrTicketId, check_in_count, given_check_in_time, registration_time, registered_by
+                 FROM tickets_old_v1;
+             `);
+
+          // 4. Drop old
+          await tx.executeSql(`DROP TABLE tickets_old_v1;`);
+        });
+        console.log("TICKETS TABLE MIGRATION COMPLETE.");
+      }
+    }
+  } catch (err) {
+    console.log("Migration Error (Non-fatal, continuing):", err);
+  }
+
+  // ------------------------
   // TICKETS = FULL SOURCE OF TRUTH
   // ------------------------
   await database.executeSql(`
@@ -38,7 +109,7 @@ export async function initDB() {
       event_id INTEGER NOT NULL,
       ticket_id INTEGER,
       guest_id INTEGER,
-      qr_code TEXT UNIQUE,
+      qr_code TEXT,
       guest_name TEXT,
       email TEXT,
       phone TEXT,
@@ -103,9 +174,9 @@ export async function initDB() {
     } catch (e) { }
   };
 
-  const safeAddIndex = async (tableName: string, indexName: string, columns: string) => {
+  const safeAddIndex = async (tableName: string, indexName: string, columns: string, unique = false) => {
     try {
-      await database.executeSql(`CREATE INDEX IF NOT EXISTS ${indexName} ON ${tableName} (${columns});`);
+      await database.executeSql(`CREATE ${unique ? 'UNIQUE' : ''} INDEX IF NOT EXISTS ${indexName} ON ${tableName} (${columns});`);
       console.log(`Migration added index: ${indexName} on ${tableName}`);
     } catch (e) {
       console.log(`Index creation failed (might already exist): ${indexName}`, e);
@@ -130,6 +201,10 @@ export async function initDB() {
   await safeAddIndex("tickets", "idx_tickets_guest_name", "guest_name");
   await safeAddIndex("tickets", "idx_tickets_status", "status");
 
+  // ⚡⚡⚡ ENFORCE IDENTITY RULE ⚡⚡⚡
+  // UNIQUE(event_id, qrGuestUuid, qrTicketId)
+  await safeAddIndex("tickets", "idx_tickets_identity", "event_id, qrGuestUuid, qrTicketId", true);
+
   await safeAddIndex("facility", "idx_facility_guest_uuid", "guest_uuid");
   await safeAddIndex("facility", "idx_facility_facilityId", "facilityId");
   await safeAddIndex("facility", "idx_facility_eventId", "eventId");
@@ -147,26 +222,76 @@ export async function initDB() {
 }
 
 // ======================================================
-// INSERT DOWNLOADED GUESTS
+// INSERT DOWNLOADED GUESTS (OPTIMIZED WITH BATCHING)
 // ======================================================
-export async function insertOrReplaceGuests(eventId: number, guestsArray: any[]) {
-  if (!Array.isArray(guestsArray) || guestsArray.length === 0) return;
+// ======================================================
+// ATOMIC FULL SYNC: DELETE ALL CLEAN + INSERT NEW
+// ======================================================
+export async function replaceAllGuestsForEvent(eventId: number, guestsArray: any[], isFullSync: boolean = true) {
+  if (!Array.isArray(guestsArray)) return;
+  console.log(`[DB] replaceAllGuestsForEvent called. EventId: ${eventId}, Guests: ${guestsArray.length}, isFullSync: ${isFullSync}`);
 
   const db = await openDB();
 
-  // 1. Prepare facilities map to insert AFTER the main transaction
-  // We cannot await inside the transaction for 'insertFacilities' as it uses executeSql (non-transacted)
-  // and awaiting it would close the main transaction.
-  const facilitiesToInsert: { eventId: number, qrGuestUuid: string, facilities: any[] }[] = [];
+  // 1. Identify Unsynced Guests (Protected Set)
+  // We must NOT overwrite these guests as they have pending offline check-ins
+  const [unsyncedRes] = await db.executeSql(
+    `SELECT qrGuestUuid, qrTicketId FROM tickets WHERE event_id = ? AND synced = 0;`,
+    [eventId]
+  );
 
-  await db.transaction(async (tx: any) => {
-    const promises = [];
+  const protectedSet = new Set<string>();
+  for (let i = 0; i < unsyncedRes.rows.length; i++) {
+    const item = unsyncedRes.rows.item(i);
+    // Key: guestUuid + ticketId
+    protectedSet.add(`${item.qrGuestUuid}_${item.qrTicketId}`);
+  }
+
+  // 2. Identify Unsynced Facilities (Protected Set)
+  const [unsyncedFacRes] = await db.executeSql(
+    `SELECT guest_uuid, facilityId FROM facility WHERE eventId = ? AND synced = 0;`,
+    [eventId]
+  );
+  const protectedFacilities = new Set<string>();
+  for (let i = 0; i < unsyncedFacRes.rows.length; i++) {
+    const item = unsyncedFacRes.rows.item(i);
+    protectedFacilities.add(`${item.guest_uuid}_${item.facilityId}`);
+  }
+
+  // ⚡⚡⚡ MANUAL TRANSACTION START ⚡⚡⚡
+  // Using explicit BEGIN/COMMIT allows us to await Promises reliably in the loop
+  try {
+    await db.executeSql('BEGIN EXCLUSIVE TRANSACTION;');
+
+    // 3. DELETE CLEAN DATA (Mocking "Delete All")
+    // Only delete rows that are synced=1. Unsynced rows stay untouched.
+    if (isFullSync) {
+      console.log(`[DB] DELETING synced tickets and facilities for event ${eventId}`);
+      await db.executeSql(`DELETE FROM tickets WHERE event_id = ? AND synced = 1;`, [eventId]);
+      await db.executeSql(`DELETE FROM facility WHERE eventId = ? AND synced = 1;`, [eventId]);
+    }
+
+    // 4. INSERT FRESH DATA (Skipping Protected) in BATCHES
+    // We cannot simply push 16,000 promises. We must batch them.
+    const BATCH_SIZE = 100;
+    const allFacilitiesToInsert: { eventId: number, qrGuestUuid: string, ticketId: any, facility: any }[] = [];
+
+    let currentBatch: Promise<any>[] = [];
+    let processedCount = 0;
 
     for (const g of guestsArray) {
+      const ticketId = g.ticket_id || g.id || null;
+      const qrGuestUuid = g.guest_uuid || g.uuid || null;
+
+      // IDENTITY CHECK: If this guest is locally modified, SKIP overwrite
+      const identityKey = `${qrGuestUuid}_${ticketId}`;
+      if (protectedSet.has(identityKey)) {
+        continue;
+      }
+
+      // PREPARE DATA
       const qr = (g.qr_code || g.code || g.uuid || g.guest_uuid || '').toString().trim();
       const guestName = g.name || `${g.first_name || ''} ${g.last_name || ''}`.trim();
-
-      const ticketId = g.ticket_id || g.id || null;
       const guestId = g.guest_id || g.user_id || null;
       const status = g.status || 'pending';
       const ticketTitle = g.ticket_title || g.ticket_name || g.ticket_type || 'General';
@@ -180,25 +305,28 @@ export async function insertOrReplaceGuests(eventId: number, guestsArray: any[])
         1;
 
       let usedEntries = g.used_entries || g.checked_in_count || 0;
-
-      // ⚡⚡⚡ SYNC FIX: If status is checked_in, ensure we mark as used ⚡⚡⚡
-      if (status === 'checked_in' && usedEntries === 0) {
-        usedEntries = 1;
-      }
+      if (status === 'checked_in' && usedEntries === 0) usedEntries = 1;
 
       const facilities = g.facilities ? JSON.stringify(g.facilities) : null;
 
-      // ⚠️ CRITICAL: Store backend sync required fields
-      const qrGuestUuid = g.guest_uuid || g.uuid || null;
-      const qrTicketId = ticketId;
-
-      // STAGE FACILITIES FOR LATER INSERTION
+      // STAGE FACILITIES
       if (g.facilities && Array.isArray(g.facilities)) {
-        facilitiesToInsert.push({ eventId, qrGuestUuid, facilities: g.facilities });
+        g.facilities.forEach((fac: any) => {
+          const facKey = `${qrGuestUuid}_${fac.id}`;
+          if (!protectedFacilities.has(facKey)) {
+            allFacilitiesToInsert.push({
+              eventId,
+              qrGuestUuid,
+              ticketId,
+              facility: fac
+            });
+          }
+        });
       }
 
-      promises.push(
-        tx.executeSql(
+      // INSERT USING db.executeSql DIRECTLY (Promise enabled)
+      currentBatch.push(
+        db.executeSql(
           `INSERT OR REPLACE INTO tickets 
             (event_id, ticket_id, guest_id, qr_code, guest_name, email, phone, 
              status, synced, total_entries, used_entries, facilities, ticket_title,
@@ -218,24 +346,88 @@ export async function insertOrReplaceGuests(eventId: number, guestsArray: any[])
             facilities,
             ticketTitle,
             qrGuestUuid,
-            qrTicketId,
+            ticketId,
             g.registration_time || g.created_at || null,
             g.registered_by || 'Self'
           ]
         )
       );
-    }
-    await Promise.all(promises);
-  });
 
-  // 2. Insert keys/facilities safely outside the transaction block
-  // This prevents "Transaction already finalized" errors
-  if (facilitiesToInsert.length > 0) {
-    for (const item of facilitiesToInsert) {
-      await insertFacilities(item.eventId, item.qrGuestUuid, item.facilities);
+      // Execute Batch if full
+      if (currentBatch.length >= BATCH_SIZE) {
+        await Promise.all(currentBatch);
+        processedCount += currentBatch.length;
+        currentBatch = [];
+        // Optional: logging every 1000 items
+        if (processedCount % 1000 === 0) console.log(`[DB] Inserted ${processedCount} guests...`);
+      }
     }
+
+    // Execute Remaining
+    if (currentBatch.length > 0) {
+      await Promise.all(currentBatch);
+      processedCount += currentBatch.length;
+    }
+
+    console.log(`[DB] Inserted/Verified ${processedCount} guests.`);
+
+    // 5. BATCH INSERT FACILITIES (OPTIMIZED MULTI-ROW INSERT)
+    // Reduce 32,000 calls to ~600 calls
+    console.log(`[DB] Starting optimized facility insertion. Count: ${allFacilitiesToInsert.length}`);
+
+    // SQLite limit is 999 params. 8 params per facility.
+    // 999 / 8 = 124. Safe chunk size = 100.
+    const FACILITY_CHUNK_SIZE = 100;
+
+    for (let i = 0; i < allFacilitiesToInsert.length; i += FACILITY_CHUNK_SIZE) {
+      const chunk = allFacilitiesToInsert.slice(i, i + FACILITY_CHUNK_SIZE);
+      const rowPlaceholders = chunk.map(() => `(?, ?, ?, ?, ?, ?, ?, 1)`).join(', ');
+
+      const params: any[] = [];
+      chunk.forEach(item => {
+        const f = item.facility;
+        const totalScans = parseInt(f.scan_quantity ?? f.quantity ?? f.total_scans ?? 1, 10) || 1;
+        const usedScans = parseInt(f.scanned_count ?? f.check_in_count ?? 0, 10);
+
+        params.push(
+          item.qrGuestUuid,
+          f.id,
+          f.name,
+          totalScans,
+          usedScans,
+          item.eventId,
+          item.ticketId
+        );
+      });
+
+      await db.executeSql(
+        `INSERT INTO facility (guest_uuid, facilityId, name, availableScans, checkIn, eventId, ticket_id, synced)
+         VALUES ${rowPlaceholders};`,
+        params
+      );
+
+      // Log progress periodically
+      if ((i + chunk.length) % 2000 === 0) {
+        console.log(`[DB] Inserted ${i + chunk.length} facilities...`);
+      }
+    }
+
+    await db.executeSql('COMMIT;');
+    console.log(`[DB] Transaction COMMITTED successfully.`);
+
+  } catch (error) {
+    console.error('[DB] Transaction FAILED. Rolling back.', error);
+    try {
+      await db.executeSql('ROLLBACK;');
+    } catch (rbError) {
+      console.error('[DB] Rollback failed:', rbError);
+    }
+    throw error; // Re-throw to alert caller
   }
-}
+} // End Function
+
+// ALIAS for backward compatibility if needed, but we should switch consumers to replaceAllGuestsForEvent
+export const insertOrReplaceGuests = replaceAllGuestsForEvent;
 
 // ======================================================
 // FIND TICKET BY QR
@@ -260,15 +452,20 @@ export async function updateTicketStatusLocal(qrValue: string, newStatus = 'chec
   const iso = new Date().toISOString();
   const sqlTime = formatToSQLDatetime(iso);
 
+  // 1. FIND IDENTITY FROM QR
   const [current] = await db.executeSql(
-    `SELECT used_entries FROM tickets WHERE qr_code = ?;`,
+    `SELECT qrGuestUuid, qrTicketId, used_entries FROM tickets WHERE qr_code = ? LIMIT 1;`,
     [qrValue.trim()]
   );
 
-  const previouslyUsed = current.rows.length > 0 ? current.rows.item(0).used_entries : 0;
-  const newUsedEntries = previouslyUsed + count;
+  if (current.rows.length === 0) return 0; // Not found
 
-  await db.executeSql(
+  const row = current.rows.item(0);
+  const { qrGuestUuid, qrTicketId, used_entries } = row;
+  const newUsedEntries = (used_entries || 0) + count;
+
+  // 2. UPDATE BY IDENTITY (qrGuestUuid + qrTicketId)
+  const [result] = await db.executeSql(
     `UPDATE tickets 
         SET status = ?, 
             scanned_at = ?, 
@@ -276,17 +473,20 @@ export async function updateTicketStatusLocal(qrValue: string, newStatus = 'chec
             used_entries = ?, 
             check_in_count = ?, 
             given_check_in_time = ?
-      WHERE qr_code = ?;`,
+      WHERE qrGuestUuid = ? AND qrTicketId = ?;`,
     [
       newStatus,
       iso,
-      synced ? 1 : 0, // Use passed value
+      synced ? 1 : 0,
       newUsedEntries,
-      newUsedEntries, // keep total check-in count aligned with used_entries
+      newUsedEntries,
       sqlTime,
-      qrValue.trim()
+      qrGuestUuid,
+      qrTicketId
     ]
   );
+
+  return result.rowsAffected;
 }
 
 // ======================================================
@@ -301,6 +501,7 @@ export async function getTicketsForEvent(eventId: number) {
 
   const arr = [];
   for (let i = 0; i < res.rows.length; i++) arr.push(res.rows.item(i));
+  console.log(`[DB] getTicketsForEvent returned ${arr.length} tickets for event ${eventId}`);
   return arr;
 }
 
@@ -335,7 +536,8 @@ export async function getTicketsForEventPage(eventId: number, page: number = 1, 
     params.push(s, s, s, s);
   }
 
-  query += ` ORDER BY guest_name COLLATE NOCASE LIMIT ? OFFSET ?;`;
+  // ⚡⚡⚡ FIX: Unstable sort caused duplicate items across pages ⚡⚡⚡
+  query += ` ORDER BY guest_name COLLATE NOCASE, id ASC LIMIT ? OFFSET ?;`;
 
   const queryParams = [...params, limit, offset];
 
@@ -464,6 +666,7 @@ export async function getEventSummary(eventId: number) {
      GROUP BY ticket_title;`,
     [eventId]
   );
+  console.log(`[DB] getEventSummary executed for event ${eventId}. Rows: ${res.rows.length}`);
 
   const arr = [];
   for (let i = 0; i < res.rows.length; i++) {
@@ -492,29 +695,92 @@ export async function insertFacilities(eventId: number, guestUuid: string, facil
   if (!facilities || facilities.length === 0) return;
   const db = await openDB();
 
-  for (const f of facilities) {
-    const totalScans = parseInt(
-      f.scan_quantity ?? f.quantity ?? f.total_scans ?? 1,
-      10
-    ) || 1; // default to 1 to allow facility usage
+  await db.transaction(async (tx) => {
+    for (const f of facilities) {
+      const totalScans = parseInt(
+        f.scan_quantity ?? f.quantity ?? f.total_scans ?? 1,
+        10
+      ) || 1;
 
-    const usedScans = parseInt(
-      f.scanned_count ?? f.check_in_count ?? 0,
-      10
-    );
+      const usedScans = parseInt(
+        f.scanned_count ?? f.check_in_count ?? 0,
+        10
+      );
 
-    // Clean old duplicates for this guest+facility
+      // Clean old duplicates for this guest+facility
+      tx.executeSql(
+        `DELETE FROM facility WHERE guest_uuid = ? AND facilityId = ?;`,
+        [guestUuid, f.id]
+      );
+
+      tx.executeSql(
+        `INSERT INTO facility (guest_uuid, facilityId, name, availableScans, checkIn, eventId, synced)
+         VALUES (?, ?, ?, ?, ?, ?, 1);`,
+        [guestUuid, f.id, f.name, totalScans, usedScans, eventId]
+      );
+    }
+  });
+}
+
+/**
+ * ⚡⚡⚡ BATCH OPTIMIZED FACILITY INSERT ⚡⚡⚡
+ * Inserts a huge list of facilities using CHUNKED SQL statements.
+ * DELETE by guest_uuid (in batches) then INSERT (in multivalue batches).
+ */
+export async function insertFacilitiesBatch(allFacilities: { eventId: number, qrGuestUuid: string, ticketId: any, facility: any }[]) {
+  if (!allFacilities || allFacilities.length === 0) return;
+  const db = await openDB();
+
+  // 1. DEDUPLICATE: We perform DELETE by guest_uuid
+  // If we have multiple facilities for one guest, we only need to delete once.
+  const uniqueGuests = Array.from(new Set(allFacilities.map(f => f.qrGuestUuid)));
+
+  // 2. DELETE OLD (Chunked)
+  // We do this outside transaction or in it, but straightforward executeSql is fine for deletes.
+  // Using IN clause for efficiency.
+  const DELETE_CHUNK_SIZE = 50;
+  for (let i = 0; i < uniqueGuests.length; i += DELETE_CHUNK_SIZE) {
+    const chunk = uniqueGuests.slice(i, i + DELETE_CHUNK_SIZE);
+    const placeholders = chunk.map(() => '?').join(',');
+
     await db.executeSql(
-      `DELETE FROM facility WHERE guest_uuid = ? AND facilityId = ?;`,
-      [guestUuid, f.id]
-    );
-
-    await db.executeSql(
-      `INSERT INTO facility (guest_uuid, facilityId, name, availableScans, checkIn, eventId, synced)
-       VALUES (?, ?, ?, ?, ?, ?, 1);`,
-      [guestUuid, f.id, f.name, totalScans, usedScans, eventId]
+      `DELETE FROM facility WHERE guest_uuid IN (${placeholders});`,
+      chunk
     );
   }
+
+  // 3. INSERT NEW (Chunked Transaction)
+  const INSERT_CHUNK_SIZE = 40;
+  await db.transaction(async (tx) => {
+    for (let i = 0; i < allFacilities.length; i += INSERT_CHUNK_SIZE) {
+      const chunk = allFacilities.slice(i, i + INSERT_CHUNK_SIZE);
+
+      const rowPlaceholders = chunk.map(() => `(?, ?, ?, ?, ?, ?, ?, 1)`).join(', ');
+
+      const params: any[] = [];
+      chunk.forEach(item => {
+        const f = item.facility;
+        const totalScans = parseInt(f.scan_quantity ?? f.quantity ?? f.total_scans ?? 1, 10) || 1;
+        const usedScans = parseInt(f.scanned_count ?? f.check_in_count ?? 0, 10);
+
+        params.push(
+          item.qrGuestUuid,
+          f.id,
+          f.name,
+          totalScans,
+          usedScans,
+          item.eventId,
+          item.ticketId
+        );
+      });
+
+      tx.executeSql(
+        `INSERT INTO facility (guest_uuid, facilityId, name, availableScans, checkIn, eventId, ticket_id, synced)
+          VALUES ${rowPlaceholders};`,
+        params
+      );
+    }
+  });
 }
 
 
@@ -600,4 +866,34 @@ export async function markFacilitiesAsSynced(ids: number[]) {
     `UPDATE facility SET synced = 1 WHERE id IN (${placeholders});`,
     ids
   );
+}
+
+// ======================================================
+// EVENT METADATA (Last Downloaded At)
+// ======================================================
+export async function getEventLastDownload(eventId: number) {
+  const db = await openDB();
+  // Ensure event exists
+  await db.executeSql(`INSERT OR IGNORE INTO events (event_id, name) VALUES (?, 'Unknown');`, [eventId]);
+
+  const [res] = await db.executeSql(
+    `SELECT last_downloaded_at FROM events WHERE event_id = ?;`,
+    [eventId]
+  );
+
+  return res.rows.length > 0 ? res.rows.item(0).last_downloaded_at : null;
+}
+
+export async function updateEventLastDownload(eventId: number) {
+  const db = await openDB();
+  const iso = new Date().toISOString(); // store as ISO
+
+  // Ensure event exists
+  await db.executeSql(`INSERT OR IGNORE INTO events (event_id, name) VALUES (?, 'Unknown');`, [eventId]);
+
+  await db.executeSql(
+    `UPDATE events SET last_downloaded_at = ? WHERE event_id = ?;`,
+    [iso, eventId]
+  );
+  return iso;
 }

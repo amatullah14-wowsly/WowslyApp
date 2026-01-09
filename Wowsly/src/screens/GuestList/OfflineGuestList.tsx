@@ -31,6 +31,8 @@ import { FontSize } from '../../constants/fontSizes';
 import { useTabletScale, useTabletModerateScale } from '../../utils/tabletScaling';
 import { ResponsiveContainer } from '../../components/ResponsiveContainer';
 
+import Pagination from '../../components/Pagination';
+
 type OfflineGuestListRoute = RouteProp<
     {
         OfflineGuestList: {
@@ -47,8 +49,6 @@ const SEARCH_ICON = {
 };
 const NOGUESTS_ICON = require('../../assets/img/common/noguests.png');
 const DOTS_ICON = require('../../assets/img/common/dots.png');
-const PREV_ICON = require('../../assets/img/common/previous.png');
-const NEXT_ICON = require('../../assets/img/common/next.png');
 
 const statusChipStyles: Record<string, { backgroundColor: string; color: string }> = {
     'Checked In': { backgroundColor: '#E3F2FD', color: '#1565C0' },
@@ -374,7 +374,12 @@ const OfflineGuestList = () => {
                     {/* List */}
                     <FlatList
                         data={guests}
-                        keyExtractor={(item, index) => (item.qr_code || index).toString()}
+                        /* ⚡⚡⚡ FIX: Use guest_uuid + ticket_id + index for UNIQUE key ⚡⚡⚡ */
+                        keyExtractor={(item, index) => {
+                            const uuid = item.qrGuestUuid || item.guest_uuid || item.uuid || item.qr_code || 'nouuid';
+                            const tId = item.ticket_id || item.qrTicketId || '0';
+                            return `${uuid}_${tId}_${index}`;
+                        }}
                         renderItem={renderGuestItem}
                         contentContainerStyle={styles.listContent}
                         getItemLayout={(data, index) => ({
@@ -397,31 +402,11 @@ const OfflineGuestList = () => {
                         removeClippedSubviews={true}
                         ListFooterComponent={
                             guests.length > 0 && lastPage > 1 ? (
-                                <View style={styles.paginationContainer}>
-                                    <TouchableOpacity
-                                        disabled={currentPage === 1 || refreshing}
-                                        onPress={() => loadGuests(currentPage - 1)} // loadGuests takes page num
-                                    >
-                                        <Image
-                                            source={PREV_ICON}
-                                            style={[styles.pageIcon, currentPage === 1 && styles.disabledIcon]}
-                                            resizeMode="contain"
-                                        />
-                                    </TouchableOpacity>
-
-                                    <Text style={styles.pageInfo}>{currentPage} / {lastPage || 1}</Text>
-
-                                    <TouchableOpacity
-                                        disabled={currentPage >= lastPage || refreshing}
-                                        onPress={() => loadGuests(currentPage + 1)}
-                                    >
-                                        <Image
-                                            source={NEXT_ICON}
-                                            style={[styles.pageIcon, currentPage >= lastPage && styles.disabledIcon]}
-                                            resizeMode="contain"
-                                        />
-                                    </TouchableOpacity>
-                                </View>
+                                <Pagination
+                                    currentPage={currentPage}
+                                    totalPages={lastPage || 1}
+                                    onPageChange={loadGuests}
+                                />
                             ) : null
                         }
                     />
@@ -474,7 +459,7 @@ const MemoizedGuestRow = React.memo(({ item, onPress, styles }: { item: any, onP
             )}
             <View style={styles.guestInfo}>
                 <Text style={styles.guestName}>{name}</Text>
-                <Text style={styles.guestDetails}>Ticket ID: {item.ticket_id || item.qr_code || item.guest_uuid || 'N/A'}</Text>
+                {/* REMOVED: Ticket ID display per user request */}
             </View>
             {/* Status UI Hidden */}
         </TouchableOpacity>
@@ -615,36 +600,6 @@ const makeStyles = (scale: (size: number) => number, verticalScale: (size: numbe
         flex: 1,
         justifyContent: 'center',
         alignItems: 'center',
-    },
-    // Pagination Styles
-    paginationContainer: {
-        flexDirection: 'row',
-        justifyContent: 'center',
-        alignItems: 'center',
-        gap: scale(16),
-        paddingTop: verticalScale(16),
-        backgroundColor: '#FFFFFF',
-    },
-    pageButton: {
-        backgroundColor: '#FF8A3C',
-        paddingHorizontal: scale(15),
-        paddingVertical: verticalScale(8),
-        borderRadius: scale(12),
-    },
-    disabledPageButton: {
-        backgroundColor: '#FFD2B3',
-    },
-    pageIcon: {
-        width: scale(28),
-        height: scale(28),
-        tintColor: '#FF8A3C',
-    },
-    disabledIcon: {
-        tintColor: '#E0E0E0',
-    },
-    pageInfo: {
-        fontWeight: '600',
-        color: '#333',
     },
     headerRight: {
         width: scale(40),

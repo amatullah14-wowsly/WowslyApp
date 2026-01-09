@@ -1,4 +1,5 @@
 import client from "./client";
+import { replaceAllGuestsForEvent } from '../db';
 
 // Cache for events list
 let eventsCache = {
@@ -144,159 +145,66 @@ export const getEventDetails = async (id) => {
     }
 };
 
-export const downloadOfflineData = async (eventId) => {
+export const downloadOfflineData = async (eventId, lastSynced = null) => {
     try {
-        console.log("Starting offline data download for event:", eventId);
+        console.log("Starting offline data download for event:", eventId, "Last Synced:", lastSynced);
 
-        // 1. Fetch Ticket List
-        const ticketListRes = await getTicketList(eventId);
-        const tickets = ticketListRes?.data || [];
-        console.log(`Found ${tickets.length} ticket types.`);
-
-        // 2. Fetch Users per Ticket (to get accurate tickets_bought count)
         let allGuests = [];
-
-        for (const ticket of tickets) {
-            try {
-                const eventType = (ticket.type || 'paid').toLowerCase();
-                console.log(`Fetching users for ticket: ${ticket.title} (${ticket.id}) type: ${eventType}`);
-
-                const soldRes = await getTicketSoldUsers(eventId, ticket.id, eventType);
-
-                let soldUsers = [];
-                if (Array.isArray(soldRes)) {
-                    soldUsers = soldRes;
-                } else if (soldRes && Array.isArray(soldRes.data)) {
-                    soldUsers = soldRes.data;
-                } else if (soldRes && soldRes.data && Array.isArray(soldRes.data.data)) {
-                    soldUsers = soldRes.data.data;
-                }
-
-                if (Array.isArray(soldUsers) && soldUsers.length > 0) {
-                    const enrichedUsers = soldUsers.map(u => ({
-                        ...u,
-                        ticket_id: ticket.id,
-                        ticket_title: ticket.title,
-                    }));
-                    allGuests = [...allGuests, ...enrichedUsers];
-                }
-            } catch (err) {
-                console.log(`Failed to fetch users for ticket ${ticket.id}:`, err.message);
-            }
-        }
-
-        // ⚡⚡⚡ AGGREGATE DUPLICATES (Sum tickets_bought) ⚡⚡⚡
-        const guestMap = new Map();
-
-        for (const g of allGuests) {
-            const uniqueId = g.qr_code || g.uuid || g.id || g.user_id || g.mobile;
-            if (!uniqueId) continue;
-
-            if (guestMap.has(uniqueId)) {
-                const existing = guestMap.get(uniqueId);
-                const currentCount = existing.tickets_bought || 1;
-                const incomingCount = g.tickets_bought || g.quantity || g.total_pax || g.pax || g.total_entries || 1;
-                existing.tickets_bought = currentCount + incomingCount;
-            } else {
-                g.tickets_bought = g.tickets_bought || g.quantity || g.total_pax || g.pax || g.total_entries || 1;
-                guestMap.set(uniqueId, g);
-            }
-        }
-
-        const uniqueGuests = Array.from(guestMap.values());
-        console.log(`Total unique guests fetched via tickets: ${uniqueGuests.length}`);
-
-        // ⚡⚡⚡ MERGE STRATEGY ⚡⚡⚡
-        // 1. Ticket-based fetch: Good for 'tickets_bought' count, but often misses 'uuid' (QR).
-        // 2. General list fetch: Good for 'uuid' (QR), but often misses 'tickets_bought'.
-        // SOLUTION: Fetch BOTH and merge by MOBILE number.
-
-        // A. Create Map from Ticket-Based Data (Mobile -> TicketInfo)
-        const ticketInfoMap = new Map();
-
-        for (const g of uniqueGuests) {
-            if (g.mobile) {
-                const mobile = String(g.mobile).trim();
-                ticketInfoMap.set(mobile, {
-                    count: g.tickets_bought || g.quantity || 1,
-                    ticket_id: g.ticket_id,
-                    ticket_title: g.ticket_title
-                });
-            }
-        }
-        console.log(`DEBUG: Populated ticket info map with ${ticketInfoMap.size} entries.`);
-
-        // B. Fetch General List (Primary source for QR/UUID)
-        console.log("Fetching general list via /eventuser/fetch...");
-        let generalGuests = [];
         let page = 1;
         let hasMore = true;
 
+        // ⚡⚡⚡ FULL SYNC CHECK: If no lastSynced, it is a full sync ⚡⚡⚡
+        const isFullSync = !lastSynced;
+        const sinceParam = lastSynced ? `&from_date=${encodeURIComponent(lastSynced)}` : '';
+
         while (hasMore) {
             try {
-                console.log(`Fetching guest list page ${page}...`);
-                const res = await client.get(`/events/${eventId}/eventuser/fetch?page=${page}`);
+                // ⚡⚡⚡ KOTLIN MATCHING API: /events/{eventId}/eventuser/fetch ⚡⚡⚡
+                console.log(`Fetching offline guests page ${page}${sinceParam ? ` (since ${lastSynced})` : ''}...`);
+
+                // Explicitly ask for 100 per page to match our math + optional from_date
+                const res = await client.get(`/events/${eventId}/eventuser/fetch?page=${page}&per_page=100${sinceParam}`);
                 const data = res.data;
 
+                // Validate structure: { guests_list: [...], meta: { current_page, last_page, ... } }
                 if (data && data.guests_list && Array.isArray(data.guests_list)) {
                     console.log(`Page ${page} received ${data.guests_list.length} guests.`);
-                    generalGuests = [...generalGuests, ...data.guests_list];
+                    allGuests = [...allGuests, ...data.guests_list];
 
-                    // Check for next page
-                    // Stop if empty list OR current_page >= last_page
+                    // Check Pagination
                     if (data.guests_list.length === 0 || (data.meta && data.meta.current_page >= data.meta.last_page)) {
                         hasMore = false;
+                        console.log("Pagination complete.");
                     } else {
                         page++;
                     }
 
-                    // Safety break
-                    if (page > 50) hasMore = false;
+                    // Safety Limit (increased for extremely large events ~500k guests)
+                    if (page > 5000) {
+                        console.warn("Hit safety page limit (5000). Stopping.");
+                        hasMore = false;
+                    }
+
                 } else {
-                    console.warn("Invalid guest list structure:", data);
+                    console.warn("Invalid guest list structure received:", data);
                     hasMore = false;
                 }
             } catch (err) {
-                console.error(`Error fetching guest list page ${page}:`, err.message);
+                console.error(`Error fetching offline guests page ${page}:`, err.message);
                 hasMore = false;
+                // If the first page fails, we should probably throw or return error
+                if (page === 1) throw err;
             }
         }
 
-        console.log(`DEBUG: Fetched ${generalGuests.length} guests from general list.`);
+        console.log(`Total unique guests fetched: ${allGuests.length}`);
 
-        // C. Merge
-        const mergedGuests = generalGuests.map(g => {
-            const mobile = g.mobile ? String(g.mobile).trim() : null;
-            let count = 1;
-            let ticketId = g.ticket_id; // Preserve if already exists
-            let ticketTitle = g.ticket_title;
+        // ⚡⚡⚡ ATOMIC SYNC / UPSERT ⚡⚡⚡
+        await replaceAllGuestsForEvent(eventId, allGuests, isFullSync);
 
-            if (mobile && ticketInfoMap.has(mobile)) {
-                const info = ticketInfoMap.get(mobile);
-                count = info.count;
-                ticketId = info.ticket_id; // Get Ticket Type ID (e.g. 4292)
-                ticketTitle = info.ticket_title;
-                console.log(`DEBUG: Merged ${g.name} (Mobile: ${mobile}) -> Tickets: ${count}, ID: ${ticketId}`);
-            } else {
-                // Fallback: check if the guest object itself has it (rare but possible)
-                count = g.tickets_bought || g.quantity || g.total_pax || g.pax || g.total_entries || 1;
-            }
-
-            return {
-                ...g,
-                tickets_bought: count, // Ensure this field is set for DB
-                total_entries: count,   // Explicitly set for DB mapping
-                ticket_id: ticketId,    // ⚡⚡⚡ Ensure Ticket Type ID is set ⚡⚡⚡
-                ticket_title: ticketTitle
-            };
-        });
-
-        if (mergedGuests.length > 0) {
-            console.log("DEBUG: Sample Merged Guest:", JSON.stringify(mergedGuests[0]));
-        }
-
+        // Return matching structure
         return {
-            guests_list: mergedGuests
+            guests_list: allGuests
         };
 
     } catch (error) {

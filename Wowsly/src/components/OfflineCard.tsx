@@ -85,7 +85,7 @@ const styles = StyleSheet.create({
     padding: scale(16),
     shadowColor: '#000',
     elevation: 5,
-    marginBottom: verticalScale(18),
+    marginBottom: verticalScale(0),
     justifyContent: 'center',
     alignItems: 'center',
   },

@@ -50,6 +50,13 @@ type TicketType = {
 
 import SystemNavigationBar from 'react-native-system-navigation-bar';
 
+type FlatListItem =
+    | { type: 'HEADER'; data: TicketType }
+    | { type: 'USER_ROW'; data: SoldUser[] }
+    | { type: 'LOADING'; id: string | number }
+    | { type: 'EMPTY'; id: string | number }
+    | { type: 'FOOTER'; id: string | number };
+
 const TicketsSoldRecords = () => {
     const navigation = useNavigation();
     const route = useRoute<any>();
@@ -142,6 +149,41 @@ const TicketsSoldRecords = () => {
         SystemNavigationBar.stickyImmersive(); // Re-enforce on close
     };
 
+    // Flatten logic
+    const flatListData = useMemo(() => {
+        if (!tickets) return [];
+        const data: FlatListItem[] = [];
+
+        tickets.forEach((ticket: TicketType) => {
+            // 1. Add Header
+            data.push({ type: 'HEADER', data: ticket });
+
+            // 2. If Expanded, Add Content
+            if (expandedTicketId === ticket.id) {
+                const users = soldDataCache[ticket.id];
+
+                if (loadingUsers && !users) {
+                    data.push({ type: 'LOADING', id: ticket.id });
+                } else if (users && users.length > 0) {
+                    // Chunk users into pairs for grid
+                    for (let i = 0; i < users.length; i += 2) {
+                        data.push({
+                            type: 'USER_ROW',
+                            data: users.slice(i, i + 2)
+                        });
+                    }
+                } else if (!loadingUsers) {
+                    data.push({ type: 'EMPTY', id: ticket.id });
+                }
+
+                // 3. Add Footer to close the card visual
+                data.push({ type: 'FOOTER', id: ticket.id });
+            }
+        });
+
+        return data;
+    }, [tickets, expandedTicketId, soldDataCache, loadingUsers]);
+
     const UserCard = React.useCallback(({ item }: { item: SoldUser }) => (
         <View style={styles.gridCard}>
             <View style={styles.cardHeaderCenter}>
@@ -165,59 +207,78 @@ const TicketsSoldRecords = () => {
         </View>
     ), [handleViewDetails, styles]);
 
-    const memoizedRenderTicketItem = React.useCallback(({ item }: { item: TicketType }) => {
-        const expanded = expandedTicketId === item.id;
-        const soldCount = Number(item.sold_out || 0);
-        const users = soldDataCache[item.id] || [];
+    const renderItem = ({ item }: { item: FlatListItem }) => {
+        switch (item.type) {
+            case 'HEADER': {
+                const ticket = item.data;
+                const expanded = expandedTicketId === ticket.id;
+                const soldCount = Number(ticket.sold_out || 0);
 
-        return (
-            <View style={styles.ticketCard}>
-                <TouchableOpacity
-                    style={styles.cardHeader}
-                    onPress={() => toggleExpand(item)}
-                    activeOpacity={0.7}
-                >
-                    <View style={styles.iconContainer}>
-                        <Image source={require('../../assets/img/eventdashboard/ticket.png')} style={styles.ticketIcon} resizeMode="contain" />
-                    </View>
-                    <View style={styles.headerInfo}>
-                        <Text style={styles.ticketTitle}>{item.title}</Text>
-                        <Text style={styles.soldText}>{soldCount} Sold</Text>
-                    </View>
-                    <View style={styles.arrowContainer}>
-                        <Image
-                            source={require('../../assets/img/common/next.png')}
-                            style={[
-                                styles.arrowIcon,
-                                { transform: [{ rotate: expanded ? '90deg' : '0deg' }] }
-                            ]}
-                            resizeMode="contain"
-                        />
-                    </View>
-                </TouchableOpacity>
-
-                {expanded && (
-                    <View style={styles.expandedContent}>
-                        {loadingUsers && !soldDataCache[item.id] ? (
-                            <ActivityIndicator size="small" color="#FF8A3C" style={{ padding: scale(20) }} />
-                        ) : (
-                            <View style={styles.usersGridContainer}>
-                                {users.length > 0 ? (
-                                    users.map((user, index) => (
-                                        <UserCard key={index} item={user} />
-                                    ))
-                                ) : (
-                                    <View style={styles.emptyState}>
-                                        <Text style={styles.noDataText}>No sold tickets found.</Text>
-                                    </View>
-                                )}
+                return (
+                    <View style={[
+                        styles.ticketCardHeader,
+                        expanded ? styles.ticketCardHeaderExpanded : styles.ticketCardHeaderCollapsed
+                    ]}>
+                        <TouchableOpacity
+                            style={styles.cardHeaderContent}
+                            onPress={() => toggleExpand(ticket)}
+                            activeOpacity={0.7}
+                        >
+                            <View style={styles.iconContainer}>
+                                <Image source={require('../../assets/img/eventdashboard/ticket.png')} style={styles.ticketIcon} resizeMode="contain" />
                             </View>
-                        )}
+                            <View style={styles.headerInfo}>
+                                <Text style={styles.ticketTitle}>{ticket.title}</Text>
+                                <Text style={styles.soldText}>{soldCount} Sold</Text>
+                            </View>
+                            <View style={styles.arrowContainer}>
+                                <Image
+                                    source={require('../../assets/img/common/next.png')}
+                                    style={[
+                                        styles.arrowIcon,
+                                        { transform: [{ rotate: expanded ? '90deg' : '0deg' }] }
+                                    ]}
+                                    resizeMode="contain"
+                                />
+                            </View>
+                        </TouchableOpacity>
                     </View>
-                )}
-            </View>
-        );
-    }, [expandedTicketId, soldDataCache, loadingUsers, toggleExpand, UserCard, styles, scale]);
+                );
+            }
+            case 'USER_ROW': {
+                return (
+                    <View style={styles.rowWrapper}>
+                        <View style={styles.usersGridContainer}>
+                            {item.data.map((user, index) => (
+                                <UserCard key={index} item={user} />
+                            ))}
+                            {/* If only 1 item in row, empty view to maintain alignment if using flex-between */}
+                            {item.data.length === 1 && <View style={{ width: '48%' }} />}
+                        </View>
+                    </View>
+                );
+            }
+            case 'LOADING': {
+                return (
+                    <View style={styles.loadingWrapper}>
+                        <ActivityIndicator size="small" color="#FF8A3C" />
+                    </View>
+                );
+            }
+            case 'EMPTY': {
+                return (
+                    <View style={styles.emptyWrapper}>
+                        <Text style={styles.noDataText}>No sold tickets found.</Text>
+                    </View>
+                );
+            }
+            case 'FOOTER': {
+                return <View style={styles.cardFooter} />;
+            }
+            default:
+                return null;
+        }
+    };
 
     return (
         <ResponsiveContainer maxWidth={isTablet ? 900 : 420}>
@@ -229,9 +290,13 @@ const TicketsSoldRecords = () => {
                 </View>
 
                 <FlatList
-                    data={tickets}
-                    keyExtractor={(item) => item.id.toString()}
-                    renderItem={memoizedRenderTicketItem}
+                    data={flatListData}
+                    keyExtractor={(item, index) => {
+                        if (item.type === 'HEADER') return `header_${item.data.id}`;
+                        if (item.type === 'USER_ROW') return `row_${index}`;
+                        return `${item.type}_${index}`;
+                    }}
+                    renderItem={renderItem}
                     contentContainerStyle={styles.listContent}
                     initialNumToRender={10}
                     maxToRenderPerBatch={10}
@@ -325,24 +390,71 @@ const makeStyles = (scale: (size: number) => number, verticalScale: (size: numbe
     },
     listContent: {
         padding: moderateScale(16),
+        paddingBottom: verticalScale(50),
     },
-    ticketCard: {
-        borderRadius: moderateScale(12),
+
+    // Header Styles
+    ticketCardHeader: {
         backgroundColor: 'white',
+        borderTopLeftRadius: moderateScale(12),
+        borderTopRightRadius: moderateScale(12),
+        // Base elevation handled conditionally
+    },
+    ticketCardHeaderCollapsed: {
+        borderRadius: moderateScale(12),
         marginBottom: verticalScale(12),
         elevation: 2,
         shadowColor: '#000',
         shadowOpacity: 0.1,
         shadowRadius: moderateScale(4),
         shadowOffset: { width: 0, height: verticalScale(2) },
-        overflow: 'hidden',
     },
-    cardHeader: {
+    ticketCardHeaderExpanded: {
+        borderBottomLeftRadius: 0,
+        borderBottomRightRadius: 0,
+        borderBottomWidth: 1,
+        borderBottomColor: '#F0F0F0',
+        elevation: 0,
+    },
+    cardHeaderContent: {
         flexDirection: 'row',
         alignItems: 'center',
         padding: moderateScale(16),
-        backgroundColor: 'white',
     },
+
+    // Content Styles
+    rowWrapper: {
+        backgroundColor: '#FAFAFA',
+        paddingHorizontal: moderateScale(12),
+        paddingVertical: verticalScale(6),
+    },
+    loadingWrapper: {
+        backgroundColor: '#FAFAFA',
+        padding: moderateScale(20),
+        alignItems: 'center',
+    },
+    emptyWrapper: {
+        backgroundColor: '#FAFAFA',
+        padding: moderateScale(20),
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    cardFooter: {
+        backgroundColor: '#FAFAFA',
+        height: verticalScale(12),
+        borderBottomLeftRadius: moderateScale(12),
+        borderBottomRightRadius: moderateScale(12),
+        marginBottom: verticalScale(12),
+        elevation: 2,
+        shadowColor: '#000',
+        shadowOpacity: 0.1,
+        shadowRadius: moderateScale(4),
+        shadowOffset: { width: 0, height: verticalScale(2) },
+        marginTop: -1,
+        borderTopWidth: 0,
+    },
+
+    // Old Styles reused
     iconContainer: {
         width: moderateScale(44),
         height: moderateScale(44),
@@ -378,23 +490,10 @@ const makeStyles = (scale: (size: number) => number, verticalScale: (size: numbe
         height: moderateScale(16),
         tintColor: '#999',
     },
-    expandedContent: {
-        backgroundColor: '#FAFAFA',
-        padding: moderateScale(12),
-        borderTopWidth: 1,
-        borderTopColor: '#F0F0F0',
-    },
     usersGridContainer: {
         flexDirection: 'row',
-        flexWrap: 'wrap',
         justifyContent: 'space-between',
         gap: moderateScale(12),
-    },
-    emptyState: {
-        padding: moderateScale(20),
-        alignItems: 'center',
-        justifyContent: 'center',
-        width: '100%',
     },
     noDataText: {
         color: '#999',
@@ -402,7 +501,7 @@ const makeStyles = (scale: (size: number) => number, verticalScale: (size: numbe
         fontSize: moderateScale(14),
     },
 
-    // REDESIGNED Compact Card Styles
+    // Compact Card Styles
     gridCard: {
         backgroundColor: 'white',
         borderRadius: moderateScale(12),
@@ -412,10 +511,10 @@ const makeStyles = (scale: (size: number) => number, verticalScale: (size: numbe
         shadowOffset: { width: 0, height: verticalScale(1) },
         shadowOpacity: 0.1,
         shadowRadius: moderateScale(3),
-        width: '48%', // 2 columns with gap
+        width: '48%',
         alignItems: 'center',
         justifyContent: 'space-between',
-        minHeight: verticalScale(140), // Slightly taller to accommodate name
+        minHeight: verticalScale(140),
         borderWidth: 1,
         borderColor: '#EAEAEA',
         marginBottom: verticalScale(4)
@@ -432,7 +531,7 @@ const makeStyles = (scale: (size: number) => number, verticalScale: (size: numbe
         color: '#222',
         textAlign: 'center',
         marginBottom: verticalScale(8),
-        lineHeight: moderateScale(22), // Increased line height to prevent cutting
+        lineHeight: moderateScale(22),
     },
     ticketBadge: {
         backgroundColor: '#FFF0E0',
@@ -464,7 +563,7 @@ const makeStyles = (scale: (size: number) => number, verticalScale: (size: numbe
         borderColor: '#DDD',
     },
     viewDetailsText: {
-        fontSize: moderateScale(FontSize.xs), // 11 -> xs(12)
+        fontSize: moderateScale(FontSize.xs),
         fontWeight: '600',
         color: '#555',
     },
@@ -472,7 +571,7 @@ const makeStyles = (scale: (size: number) => number, verticalScale: (size: numbe
     // Modal Styles
     modalOverlay: {
         flex: 1,
-        backgroundColor: 'rgba(0,0,0,0.8)', // Darker background to hide underlying content
+        backgroundColor: 'rgba(0,0,0,0.8)',
         justifyContent: 'flex-end',
     },
     modalContainer: {
@@ -498,7 +597,7 @@ const makeStyles = (scale: (size: number) => number, verticalScale: (size: numbe
         borderBottomColor: '#F0F0F0',
     },
     modalTitle: {
-        fontSize: moderateScale(FontSize.md), // 16 -> md (16)
+        fontSize: moderateScale(FontSize.md),
         fontWeight: '700',
         color: '#222',
     },
@@ -506,7 +605,7 @@ const makeStyles = (scale: (size: number) => number, verticalScale: (size: numbe
         padding: moderateScale(5),
     },
     closeButtonText: {
-        fontSize: moderateScale(FontSize.lg), // 18 -> lg (18)
+        fontSize: moderateScale(FontSize.lg),
         color: '#999',
     },
     modalBody: {
@@ -514,31 +613,30 @@ const makeStyles = (scale: (size: number) => number, verticalScale: (size: numbe
         paddingBottom: verticalScale(30),
     },
     modalRow: {
-        marginBottom: verticalScale(8), // Reduced margin
+        marginBottom: verticalScale(8),
     },
     modalLabel: {
-        fontSize: moderateScale(FontSize.xs), // 11 -> xs(12)
+        fontSize: moderateScale(FontSize.xs),
         color: '#888',
         fontWeight: '600',
         textTransform: 'uppercase',
         marginBottom: verticalScale(2),
     },
     modalValueMain: {
-        fontSize: moderateScale(FontSize.md), // 16 -> md
+        fontSize: moderateScale(FontSize.md),
         fontWeight: '700',
         color: '#111',
     },
     modalValue: {
-        fontSize: moderateScale(FontSize.sm), // 14 -> sm (14)
+        fontSize: moderateScale(FontSize.sm),
         color: '#333',
         fontWeight: '500',
     },
     separator: {
         height: verticalScale(1),
         backgroundColor: '#F0F0F0',
-        marginVertical: verticalScale(8), // Reduced margin
+        marginVertical: verticalScale(8),
     },
-    // Footer restored
     modalFooter: {
         padding: moderateScale(16),
         borderTopWidth: 1,
@@ -547,12 +645,12 @@ const makeStyles = (scale: (size: number) => number, verticalScale: (size: numbe
     modalCloseBtn: {
         backgroundColor: '#FF8A3C',
         borderRadius: moderateScale(12),
-        paddingVertical: verticalScale(12), // Slightly reduced padding
+        paddingVertical: verticalScale(12),
         alignItems: 'center',
     },
     modalCloseBtnText: {
         color: 'white',
-        fontSize: moderateScale(FontSize.md), // 16 -> md
+        fontSize: moderateScale(FontSize.md),
         fontWeight: '700',
     }
 });

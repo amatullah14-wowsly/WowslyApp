@@ -27,7 +27,9 @@ import {
   deleteStaleGuests,
   getEventSummary,
   getUnsyncedFacilities,
-  insertFacilityForGuest   // <-- ensure this is exported in db.js
+  insertFacilityForGuest,
+  getEventLastDownload, // <-- IMPORTED
+  updateEventLastDownload // <-- IMPORTED
 } from '../../db';
 
 import BackButton from '../../components/BackButton';
@@ -43,8 +45,9 @@ const UPLOAD_ICON = require('../../assets/img/eventdashboard/upload.png');
 const GUEST_ICON = require('../../assets/img/eventdashboard/guests.png');
 
 // CACHE
+const CACHE_DURATION = 5 * 60 * 1000;
 let cachedSummary: any[] = [];
-let cachedOfflineData: any = null;
+
 
 const OfflineDashboard = () => {
   const navigation = useNavigation<any>();
@@ -52,6 +55,7 @@ const OfflineDashboard = () => {
   const { eventId } = route.params || {};
 
   // Responsive Layout
+
   // Responsive Layout
   const { width } = useWindowDimensions();
   const isTablet = width >= 720;
@@ -70,8 +74,10 @@ const OfflineDashboard = () => {
   const [downloading, setDownloading] = useState(false);
   const [uploading, setUploading] = useState(false);
 
-  const [offlineData, setOfflineData] = useState<any>(cachedOfflineData);
+  // const [offlineData, setOfflineData] = useState<any>(cachedOfflineData); // REMOVED
   const [summary, setSummary] = useState<any[]>(cachedSummary);
+
+  const [lastSyncedTime, setLastSyncedTime] = useState<string | null>(null);
 
   const [pendingCount, setPendingCount] = useState(0);
   const [showExitWarning, setShowExitWarning] = useState(false);
@@ -103,15 +109,20 @@ const OfflineDashboard = () => {
       try {
         await initDB();
 
+        // Load sync time
+        const lastSync = await getEventLastDownload(eventId);
+        setLastSyncedTime(lastSync);
+
         const stats = await getEventSummary(eventId);
         cachedSummary = stats;
         setSummary(stats);
 
-        const tickets = await getTicketsForEvent(eventId);
-        if (tickets) {
-          cachedOfflineData = tickets;
-          setOfflineData(tickets);
-        }
+        // REMOVED: Fetching all tickets is too heavy. GuestList fetches its own data.
+        // const tickets = await getTicketsForEvent(eventId);
+        // if (tickets) {
+        //   cachedOfflineData = tickets;
+        //   setOfflineData(tickets);
+        // }
 
         const pendingGuests = await getUnsyncedCheckins(eventId);
         const pendingFacilities = await getUnsyncedFacilities(eventId);
@@ -144,6 +155,7 @@ const OfflineDashboard = () => {
   // --------------------------------------------------------
 
   const handleDownloadData = async (isAuto = false) => {
+    if (downloading) return;
     if (!eventId) {
       if (!isAuto) Toast.show({ type: 'error', text1: 'Error', text2: 'No event ID' });
       return;
@@ -154,65 +166,54 @@ const OfflineDashboard = () => {
     try {
       await initDB();
 
-      const res = await downloadOfflineData(eventId);
+      // Retrieve last download time for incremental fetch
+      const lastSync = await getEventLastDownload(eventId);
+      console.log("Last Downloaded At:", lastSync);
+
+      // ⚡⚡⚡ FORCE FULL SYNC IF LOCAL DATA IS EMPTY ⚡⚡⚡
+      // If we have a timestamp but 0 guests, our previous sync might have failed or been partial.
+      // Force a full sync (pass null) to ensure we get everything.
+      const currentGuestCount = totals.unique || 0;
+      const effectiveLastSync = currentGuestCount > 0 ? lastSync : null;
+
+      console.log(`Starting Download. Local Count: ${currentGuestCount}. Effective Last Sync: ${effectiveLastSync}`);
+
+      const res = await downloadOfflineData(eventId, effectiveLastSync);
+
       if (res?.guests_list) {
 
-        // ---- CLEAN STALE GUESTS ----
-        const activeQrCodes = res.guests_list
-          .map((g: any) => (g.qr_code || g.uuid || g.guest_uuid || '').toString().trim())
-          .filter((q: string) => q.length > 0);
+        // ---- CLEAN STALE GUESTS (Only if Full Download) ----
+        // If incremental (lastSync exists), we should technically NOT delete stale guests strictly 
+        // based on the partial list unless the API returns deleted IDs.
+        // Assuming API only returns new/updated, we skip strict stale deletion for incremental.
+        // BUT, if lastSync is null (fresh download), we definitely clean.
 
-        const deletedCount = await deleteStaleGuests(eventId, activeQrCodes);
+        let deletedCount = 0;
+        // ⚡⚡⚡ OLD STALE GUEST LOGIC REMOVED ⚡⚡⚡
+        // downloadOfflineData now handles Atomic Sync internally.
 
-        // Usage of module-level cache ensures we don't use stale state value in closure
-        const initialCount = (cachedOfflineData || offlineData || []).length;
+        // Usage of summary for count instead of raw list
+        const initialCount = totals.unique || 0;
 
-        // ---- INSERT GUESTS ----
-        await insertOrReplaceGuests(eventId, res.guests_list);
+        // ⚡⚡⚡ SUCCESS: Update Last Download Time ⚡⚡⚡
+        await updateEventLastDownload(eventId);
 
-        /* ------------------------------------------------------------
-            ⭐ ADD FACILITY INSERT LOGIC HERE (IMPORTANT)
-           ------------------------------------------------------------ */
-        for (const guest of res.guests_list) {
-
-          const guestUuid = guest.qr_code || guest.uuid || guest.guest_uuid;
-          const ticketId = guest.ticket_id || guest.qrTicketId;
-
-          if (guest.facilities && guest.facilities.length > 0) {
-            for (const f of guest.facilities) {
-
-              await insertFacilityForGuest({
-                guest_uuid: guestUuid,
-                facilityId: f.id,
-                name: f.name,
-                availableScans: f.quantity || f.total_scans || 0,
-                checkIn: f.scanned_count || f.used_count || 0,
-                eventId,
-                ticket_id: ticketId
-              });
-            }
-          }
-        }
-        /* ------------------------------------------------------------
-            END FACILITY INSERT LOGIC
-           ------------------------------------------------------------ */
-
-        // ---- Reload Offline DB Data & Stats ----
+        // ---- Reload Stats Only ----
         await loadOfflineData();
 
-        // Use updated cache for calculations
-        const tickets = cachedOfflineData;
+        // Recalculate based on new summary
+        const newSummary = await getEventSummary(eventId);
+        const newTotal = newSummary.reduce((acc, item) => acc + (item.count || 0), 0);
 
-        const finalCount = tickets ? tickets.length : 0;
-        const addedCount = Math.max(0, finalCount - (initialCount - (deletedCount || 0)));
+        const addedCount = Math.max(0, newTotal - initialCount);
 
-        if (addedCount === 0 && deletedCount === 0) {
+        if (addedCount === 0) {
           if (!isAuto) Toast.show({ type: 'info', text1: 'Download Complete', text2: 'Already up to date' });
         } else {
           Toast.show({
             type: 'success',
             text1: 'Download Complete',
-            text2: `Added ${addedCount} | Removed ${deletedCount}`
+            text2: `Added ${addedCount} guests`
           });
         }
 
@@ -317,7 +318,9 @@ const OfflineDashboard = () => {
           </View>
 
           <Text style={styles.subHeader}>
-            Last synced: Just now | {totals.unique} guests downloaded
+            {lastSyncedTime
+              ? `Last synced: ${new Date(lastSyncedTime).toLocaleString([], { weekday: 'short', hour: '2-digit', minute: '2-digit' })}`
+              : 'Pull down to refresh'} | {totals.unique} guests downloaded
           </Text>
 
           <View style={styles.cardGrid}>
@@ -328,7 +331,7 @@ const OfflineDashboard = () => {
                 icon={DOWNLOAD_ICON}
                 title="Download Data"
                 subtitle="Get the latest guest list"
-                meta={offlineData ? `Total: ${totals.unique} guests` : 'Tap to download'}
+                meta={totals.total > 0 ? `Total: ${totals.total} guests` : 'Tap to download'}
                 onPress={() => handleDownloadData(false)}
               />
               {downloading && (
@@ -382,7 +385,7 @@ const OfflineDashboard = () => {
                 onPress={() => {
                   navigation.navigate('OfflineGuestList', {
                     eventId,
-                    offlineData,
+                    // offlineData, // REMOVED: Param bloat
                   });
                 }}
               />
@@ -652,4 +655,3 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
   },
 });
-
