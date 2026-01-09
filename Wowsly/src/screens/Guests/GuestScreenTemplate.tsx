@@ -531,15 +531,18 @@ const GuestScreenTemplate: React.FC<GuestScreenTemplateProps> = ({
           })}
         </View>
 
-        <View style={styles.searchContainer}>
-          <Image source={SEARCH_ICON} style={styles.searchIcon} />
-          <TextInput
-            style={styles.searchInput}
-            placeholder="Search by name"
-            placeholderTextColor="#A1A1A1"
-            value={searchQuery}
-            onChangeText={setSearchQuery}
-          />
+        {/* Search - Standardized */}
+        <View style={styles.searchWrapper}>
+          <View style={styles.searchField}>
+            <Image source={SEARCH_ICON} style={styles.searchIcon} />
+            <TextInput
+              style={styles.searchInput}
+              placeholder="Search by name"
+              placeholderTextColor="#A1A1A1"
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+            />
+          </View>
         </View>
 
         <GestureHandlerRootView style={styles.listWrapper}>
@@ -700,27 +703,39 @@ const makeStyles = (scale: (size: number) => number, verticalScale: (size: numbe
     backgroundColor: '#FF8A3C',
     borderRadius: scale(2),
   },
-  searchContainer: {
+  // Search Styles - Standardized from EventListing
+  searchWrapper: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F5F5F5',
+    backgroundColor: '#FFFFFF', // Changed from #F5F5F5 to White for float effect
     marginHorizontal: moderateScale(16),
     marginVertical: verticalScale(14),
-    borderRadius: moderateScale(8),
-    paddingHorizontal: moderateScale(12),
-    height: verticalScale(40),
+    borderRadius: moderateScale(20),
+    paddingHorizontal: moderateScale(20),
+    height: verticalScale(55),
+    shadowColor: '#999',
+    shadowOpacity: 0.1,
+    shadowOffset: { width: 0, height: verticalScale(4) },
+    shadowRadius: moderateScale(6),
+    elevation: 3,
+    gap: moderateScale(12),
+  },
+  searchField: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
   },
   searchIcon: {
-    width: moderateScale(16),
-    height: moderateScale(16),
+    width: moderateScale(18),
+    height: moderateScale(18),
     tintColor: '#9E9E9E',
-    marginRight: moderateScale(8),
   },
   searchInput: {
     flex: 1,
-    fontSize: moderateScale(14),
+    fontSize: moderateScale(FontSize.md),
     color: '#000',
     paddingVertical: 0,
+    paddingLeft: moderateScale(8),
   },
   listWrapper: {
     flex: 1,

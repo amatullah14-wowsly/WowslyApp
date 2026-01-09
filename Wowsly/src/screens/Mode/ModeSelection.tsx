@@ -1,6 +1,5 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import {
-  SafeAreaView,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -13,6 +12,7 @@ import {
   Animated,
   useWindowDimensions,
 } from 'react-native';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
 import BackButton from '../../components/BackButton';
 import { getGuestCount } from '../../db';
@@ -119,7 +119,8 @@ const ModeSelection = () => {
   const { width } = useWindowDimensions();
   const isTablet = width >= 720;
   const { scale, verticalScale, moderateScale } = useScale();
-  const styles = useMemo(() => makeStyles(scale, verticalScale, moderateScale, isTablet), [scale, verticalScale, moderateScale, isTablet]);
+  const insets = useSafeAreaInsets();
+  const styles = useMemo(() => makeStyles(scale, verticalScale, moderateScale, isTablet, insets), [scale, verticalScale, moderateScale, isTablet, insets]);
 
   // Header Spacer for alignment
   const headerSpacerStyle = useMemo(() => ({ width: scale(36) }), [scale]);
@@ -258,7 +259,7 @@ const ModeSelection = () => {
   };
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={styles.safeArea} edges={['left', 'right']}>
       {/* Standard Header */}
       <View style={styles.header}>
         <BackButton onPress={() => navigation.goBack()} />
@@ -315,7 +316,7 @@ const ModeSelection = () => {
   );
 };
 
-const makeStyles = (scale: (size: number) => number, verticalScale: (size: number) => number, moderateScale: (size: number, factor?: number) => number, isTablet: boolean = false) => StyleSheet.create({
+const makeStyles = (scale: (size: number) => number, verticalScale: (size: number) => number, moderateScale: (size: number, factor?: number) => number, isTablet: boolean = false, insets: any) => StyleSheet.create({
   safeArea: {
     flex: 1,
     backgroundColor: '#FFFFFF', // Changed to white to match others
@@ -325,8 +326,9 @@ const makeStyles = (scale: (size: number) => number, verticalScale: (size: numbe
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: scale(16),
-    paddingVertical: verticalScale(14),
+    paddingHorizontal: scale(18),
+    paddingTop: insets.top + verticalScale(12),
+    paddingBottom: verticalScale(14),
     backgroundColor: '#fff',
   },
   headerTitle: {

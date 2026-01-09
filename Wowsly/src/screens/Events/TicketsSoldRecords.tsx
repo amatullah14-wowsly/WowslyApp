@@ -13,7 +13,8 @@ import {
     Modal,
     ScrollView,
     Dimensions,
-    useWindowDimensions
+    useWindowDimensions,
+    TextInput
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, useRoute } from '@react-navigation/native';
@@ -57,6 +58,10 @@ type FlatListItem =
     | { type: 'EMPTY'; id: string | number }
     | { type: 'FOOTER'; id: string | number };
 
+const SEARCH_ICON = {
+    uri: 'https://img.icons8.com/ios-glyphs/30/969696/search--v1.png',
+};
+
 const TicketsSoldRecords = () => {
     const navigation = useNavigation();
     const route = useRoute<any>();
@@ -71,6 +76,7 @@ const TicketsSoldRecords = () => {
     const [expandedTicketId, setExpandedTicketId] = useState<string | number | null>(null);
     const [loadingUsers, setLoadingUsers] = useState(false);
     const [soldDataCache, setSoldDataCache] = useState<Record<string, SoldUser[]>>({});
+    const [searchQuery, setSearchQuery] = useState('');
 
     // Modal State
     const [modalVisible, setModalVisible] = useState(false);
@@ -160,9 +166,19 @@ const TicketsSoldRecords = () => {
 
             // 2. If Expanded, Add Content
             if (expandedTicketId === ticket.id) {
-                const users = soldDataCache[ticket.id];
+                let users = soldDataCache[ticket.id];
 
-                if (loadingUsers && !users) {
+                // Filter users based on search
+                if (users && searchQuery.trim().length > 0) {
+                    const lower = searchQuery.toLowerCase();
+                    users = users.filter(u =>
+                        (u.name && u.name.toLowerCase().includes(lower)) ||
+                        (u.mobile && String(u.mobile).includes(lower)) ||
+                        (u.tickets_bought && String(u.tickets_bought).includes(lower))
+                    );
+                }
+
+                if (loadingUsers && !soldDataCache[ticket.id]) { // Check original cache for loading
                     data.push({ type: 'LOADING', id: ticket.id });
                 } else if (users && users.length > 0) {
                     // Chunk users into pairs for grid
@@ -182,7 +198,7 @@ const TicketsSoldRecords = () => {
         });
 
         return data;
-    }, [tickets, expandedTicketId, soldDataCache, loadingUsers]);
+    }, [tickets, expandedTicketId, soldDataCache, loadingUsers, searchQuery]);
 
     const UserCard = React.useCallback(({ item }: { item: SoldUser }) => (
         <View style={styles.gridCard}>
@@ -289,6 +305,21 @@ const TicketsSoldRecords = () => {
                     <View style={{ width: scale(32) }} />
                 </View>
 
+                {/* Search Bar */}
+                {/* Search Bar - Standardized from EventListing */}
+                <View style={styles.searchWrapper}>
+                    <View style={styles.searchField}>
+                        <Image source={SEARCH_ICON} style={styles.searchIcon} />
+                        <TextInput
+                            style={styles.searchInput}
+                            placeholder="Search guests..."
+                            placeholderTextColor="#999"
+                            value={searchQuery}
+                            onChangeText={setSearchQuery}
+                        />
+                    </View>
+                </View>
+
                 <FlatList
                     data={flatListData}
                     keyExtractor={(item, index) => {
@@ -371,7 +402,7 @@ const TicketsSoldRecords = () => {
 const makeStyles = (scale: (size: number) => number, verticalScale: (size: number) => number, moderateScale: (size: number, factor?: number) => number) => StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: '#F8F9FA',
+        backgroundColor: 'white',
     },
     header: {
         width: '100%',
@@ -652,7 +683,42 @@ const makeStyles = (scale: (size: number) => number, verticalScale: (size: numbe
         color: 'white',
         fontSize: moderateScale(FontSize.md),
         fontWeight: '700',
-    }
+    },
+    // Search Styles
+    // Search Styles - Standardized from EventListing.tsx
+    searchWrapper: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: 'white',
+        marginHorizontal: moderateScale(16),
+        marginTop: verticalScale(20),
+        marginBottom: verticalScale(5),
+        borderRadius: moderateScale(20), // Matches EventListing default for phone
+        paddingHorizontal: moderateScale(20),
+        height: verticalScale(55),
+        shadowColor: '#999',
+        shadowOpacity: 0.1,
+        shadowOffset: { width: 0, height: verticalScale(4) },
+        shadowRadius: moderateScale(6),
+        elevation: 3,
+        gap: moderateScale(12),
+    },
+    searchField: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        flex: 1,
+    },
+    searchIcon: {
+        width: moderateScale(18),
+        height: moderateScale(18),
+        // marginRight removed as gap is used in wrapper, or kept if structure differs slightly
+    },
+    searchInput: {
+        flex: 1,
+        fontSize: moderateScale(FontSize.md),
+        color: '#333',
+        paddingLeft: moderateScale(8),
+    },
 });
 
 export default TicketsSoldRecords;

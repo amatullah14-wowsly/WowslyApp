@@ -50,12 +50,18 @@ const HeaderMenu = React.memo(({ onSelect, onClose, styles }: { onSelect: (optio
     </Modal>
 ));
 
+const SEARCH_ICON = {
+    uri: 'https://img.icons8.com/ios-glyphs/30/969696/search--v1.png',
+};
+
+// Start: Helper Function
+const getGuestNameFromReply = (item: any) => {
+    return item.form_replies?.find((q: any) => q.question.toLowerCase().includes('name'))?.answer || "Guest";
+};
+
 const ReplyRow = React.memo(({ item, onPress, onActionPress, styles }: { item: any, onPress: (item: any) => void, onActionPress: (item: any) => void, styles: any }) => {
-    let name = "Guest";
-    const nameQuestion = item.form_replies?.find((q: any) => q.question.toLowerCase().includes('name'));
-    if (nameQuestion) {
-        name = nameQuestion.answer;
-    }
+    const name = getGuestNameFromReply(item);
+
 
     const formatDate = (timestamp: string) => {
         if (!timestamp) return "";
@@ -129,6 +135,22 @@ const RegistrationDashboard = () => {
     const [loading, setLoading] = useState(false);
     const [currentPage, setCurrentPage] = useState(1);
     const [hasMore, setHasMore] = useState(true);
+    const [searchQuery, setSearchQuery] = useState('');
+
+    // Filtering Logic
+    const filteredReplies = useMemo(() => {
+        if (!replies) return [];
+        if (searchQuery.trim().length === 0) return replies;
+
+        const lower = searchQuery.toLowerCase();
+        return replies.filter(item => {
+            const name = getGuestNameFromReply(item).toLowerCase();
+            // Check for name match
+            if (name.includes(lower)) return true;
+            // Optionally check for other fields if needed, but name is primary
+            return false;
+        });
+    }, [replies, searchQuery]);
 
     const handleExportAll = async () => {
         if (exportStatus === 'processing') {
@@ -432,12 +454,26 @@ const RegistrationDashboard = () => {
                             </View>
                         )}
 
+                        {/* Search Bar - Standardized Structure */}
+                        <View style={styles.searchWrapper}>
+                            <View style={styles.searchField}>
+                                <Image source={SEARCH_ICON} style={styles.searchIcon} />
+                                <TextInput
+                                    style={styles.searchInput}
+                                    placeholder="Search replies..."
+                                    placeholderTextColor="#9E9E9E"
+                                    value={searchQuery}
+                                    onChangeText={setSearchQuery}
+                                />
+                            </View>
+                        </View>
+
                         {/* List */}
                         {loading && replies.length === 0 ? (
                             <ActivityIndicator size="large" color="#FF8A3C" style={{ marginTop: verticalScale(50) }} />
                         ) : (
                             <FlatList
-                                data={replies}
+                                data={filteredReplies}
                                 renderItem={renderReplyItem}
                                 keyExtractor={(item, index) => item.id?.toString() || index.toString()}
                                 onEndReached={() => {
@@ -804,28 +840,71 @@ const makeStyles = (scale: (size: number) => number, verticalScale: (size: numbe
         width: moderateScale(40),
         height: moderateScale(40),
         borderRadius: moderateScale(20),
-        backgroundColor: 'rgba(255,255,255,0.6)',
+        backgroundColor: '#FFF8E1',
         alignItems: 'center',
         justifyContent: 'center',
         marginRight: moderateScale(12),
+    },
+    exportIcon: {
+        width: moderateScale(20),
+        height: moderateScale(20),
     },
     exportCardTextContainer: {
         flex: 1,
     },
     exportCardTitle: {
-        fontSize: moderateScale(FontSize.md),
+        fontSize: moderateScale(14),
         fontWeight: '700',
         marginBottom: verticalScale(2),
     },
     exportCardSubtitle: {
-        fontSize: moderateScale(FontSize.xs),
-        fontWeight: '500',
+        fontSize: moderateScale(12),
     },
     cardArrow: {
         width: moderateScale(16),
         height: moderateScale(16),
-        opacity: 0.6,
+        marginLeft: moderateScale(8),
     },
+    statusButtonContainer: {
+        paddingHorizontal: moderateScale(20),
+        marginBottom: verticalScale(16),
+        marginTop: verticalScale(16),
+    },
+    // Search Styles
+    // Search Styles - Standardized from EventListing.tsx
+    searchWrapper: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: 'white',
+        marginHorizontal: moderateScale(20),
+        marginTop: verticalScale(18),
+        marginBottom: verticalScale(15),
+        borderRadius: moderateScale(20),
+        paddingHorizontal: moderateScale(20),
+        height: verticalScale(55),
+        shadowColor: '#999',
+        shadowOpacity: 0.1,
+        shadowOffset: { width: 0, height: verticalScale(4) },
+        shadowRadius: moderateScale(6),
+        elevation: 3,
+        gap: moderateScale(12),
+    },
+    searchField: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        flex: 1,
+    },
+    searchIcon: {
+        width: moderateScale(18),
+        height: moderateScale(18),
+    },
+    searchInput: {
+        flex: 1,
+        fontSize: moderateScale(FontSize.md),
+        color: '#333',
+        paddingLeft: moderateScale(8),
+    },
+
     checkStatusButton: {
         backgroundColor: '#EF6C00', // Orange fill
         borderColor: '#EF6C00',

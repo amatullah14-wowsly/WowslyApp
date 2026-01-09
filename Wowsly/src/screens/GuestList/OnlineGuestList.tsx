@@ -288,16 +288,18 @@ const OnlineGuestList = () => {
 
                     </View>
 
-                    {/* Search */}
-                    <View style={styles.searchContainer}>
-                        <Image source={SEARCH_ICON} style={styles.searchIcon} />
-                        <TextInput
-                            style={styles.searchInput}
-                            placeholder="Search by name"
-                            placeholderTextColor="#9E9E9E"
-                            value={searchQuery}
-                            onChangeText={setSearchQuery}
-                        />
+                    {/* Search - Standardized */}
+                    <View style={styles.searchWrapper}>
+                        <View style={styles.searchField}>
+                            <Image source={SEARCH_ICON} style={styles.searchIcon} />
+                            <TextInput
+                                style={styles.searchInput}
+                                placeholder="Search by name"
+                                placeholderTextColor="#9E9E9E"
+                                value={searchQuery}
+                                onChangeText={setSearchQuery}
+                            />
+                        </View>
                     </View>
 
                     {/* Guest List */}
@@ -502,30 +504,36 @@ const makeStyles = (scale: (size: number) => number, verticalScale: (size: numbe
     activeTabText: {
         color: '#FFFFFF',
     },
-    searchContainer: {
+    // Search Styles - Standardized from EventListing.tsx
+    searchWrapper: {
         flexDirection: 'row',
         alignItems: 'center',
         backgroundColor: '#FFFFFF',
-        borderRadius: scale(12),
-        paddingHorizontal: scale(14),
-        height: verticalScale(48),
+        borderRadius: moderateScale(20),
+        paddingHorizontal: moderateScale(20),
+        height: verticalScale(55),
         marginBottom: verticalScale(16),
-        shadowColor: '#000000',
-        shadowOpacity: 0.05,
-        shadowRadius: scale(8),
-        shadowOffset: { width: 0, height: verticalScale(2) },
-        elevation: 1,
+        shadowColor: '#999',
+        shadowOpacity: 0.1,
+        shadowOffset: { width: 0, height: verticalScale(4) },
+        shadowRadius: moderateScale(6),
+        elevation: 3,
+        gap: moderateScale(12),
+    },
+    searchField: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        flex: 1,
     },
     searchIcon: {
-        width: scale(16),
-        height: scale(16),
-        marginRight: scale(8),
-        tintColor: '#9B9B9B',
+        width: moderateScale(18),
+        height: moderateScale(18),
     },
     searchInput: {
         flex: 1,
-        fontSize: moderateScale(FontSize.sm), // 14 -> sm
+        fontSize: moderateScale(FontSize.md),
         color: '#111111',
+        paddingLeft: moderateScale(8),
     },
     listWrapper: {
         flex: 1,

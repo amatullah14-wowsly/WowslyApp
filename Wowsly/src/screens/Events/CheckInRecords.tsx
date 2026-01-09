@@ -261,7 +261,7 @@ export default CheckInRecords;
 const makeStyles = (scale: (size: number) => number, verticalScale: (size: number) => number, moderateScale: (size: number, factor?: number) => number, width: number) => StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: '#F8F9FA', // Slightly gray background for better card contrast
+        backgroundColor: 'white', // Slightly gray background for better card contrast
     },
     header: {
         width: '100%',

@@ -34,8 +34,8 @@ const RegistrationFormEditor = ({ isEmbedded = false, eventId: propEventId }: { 
     const { width } = useWindowDimensions();
     const isTablet = width >= 720;
     const { scale, verticalScale, moderateScale } = useScale();
-    const styles = useMemo(() => makeStyles(scale, verticalScale, moderateScale), [scale, verticalScale, moderateScale]);
     const insets = useSafeAreaInsets();
+    const styles = useMemo(() => makeStyles(scale, verticalScale, moderateScale, insets), [scale, verticalScale, moderateScale, insets]);
 
     // Mode State
     const [isEditing, setIsEditing] = useState(route.params?.autoEdit || false);
@@ -561,7 +561,7 @@ const RegistrationFormEditor = ({ isEmbedded = false, eventId: propEventId }: { 
     const renderPreviewMode = () => (
         <SafeAreaView style={{ flex: 1, backgroundColor: 'white' }} edges={['left', 'right', 'bottom']}>
             {!isEmbedded && (
-                <View style={[styles.header, { backgroundColor: 'white', borderBottomWidth: 0, paddingTop: insets.top }]}>
+                <View style={[styles.header, { backgroundColor: 'white', borderBottomWidth: 0 }]}>
                     <BackButton onPress={() => navigation.goBack()} />
                     <Text style={[styles.headerTitle, { flex: 1, textAlign: 'center' }]}>Preview Form</Text>
                     {/* Edit Icon Right aligned */}
@@ -691,7 +691,7 @@ const RegistrationFormEditor = ({ isEmbedded = false, eventId: propEventId }: { 
     const renderEditMode = () => (
         <SafeAreaView style={{ flex: 1, backgroundColor: 'white' }} edges={['left', 'right', 'bottom']}>
             {!isEmbedded && (
-                <View style={[styles.header, { backgroundColor: 'white', borderBottomWidth: 0, elevation: 2, paddingTop: insets.top }]}>
+                <View style={[styles.header, { backgroundColor: 'white', borderBottomWidth: 0, elevation: 2 }]}>
                     <BackButton onPress={() => setIsEditing(false)} />
                     <Text style={styles.headerTitle}>Edit Form</Text>
                     <View style={{ width: scale(40) }} />
@@ -915,7 +915,7 @@ const RegistrationFormEditor = ({ isEmbedded = false, eventId: propEventId }: { 
 
 export default RegistrationFormEditor
 
-const makeStyles = (scale: (size: number) => number, verticalScale: (size: number) => number, moderateScale: (size: number, factor?: number) => number) => StyleSheet.create({
+const makeStyles = (scale: (size: number) => number, verticalScale: (size: number) => number, moderateScale: (size: number, factor?: number) => number, insets: any) => StyleSheet.create({
     container: {
         flex: 1,
         backgroundColor: 'white',
@@ -925,8 +925,8 @@ const makeStyles = (scale: (size: number) => number, verticalScale: (size: numbe
         alignItems: 'center',
         justifyContent: 'space-between',
         paddingHorizontal: moderateScale(20),
-        paddingTop: verticalScale(40),
-        paddingBottom: verticalScale(5),
+        paddingTop: insets.top + verticalScale(10),
+        paddingBottom: verticalScale(16),
         backgroundColor: 'white',
         borderBottomWidth: 1,
         borderBottomColor: '#F0F0F0',

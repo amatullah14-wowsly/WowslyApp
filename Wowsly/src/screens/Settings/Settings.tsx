@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { StyleSheet, Text, View, SafeAreaView, TouchableOpacity, ScrollView, Image, Switch, TextInput, useWindowDimensions, Alert } from 'react-native';
+import { StyleSheet, Text, View, TouchableOpacity, ScrollView, Image, Switch, TextInput, useWindowDimensions, Alert } from 'react-native';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Path } from 'react-native-svg';
 import BackButton from '../../components/BackButton';
 import { useNavigation, useRoute } from '@react-navigation/native';
@@ -46,7 +47,8 @@ const Settings = () => {
     const { width } = useWindowDimensions();
     const isTablet = width >= 720;
     const { scale, verticalScale, moderateScale } = useScale();
-    const styles = useMemo(() => makeStyles(scale, verticalScale, moderateScale), [scale, verticalScale, moderateScale]);
+    const insets = useSafeAreaInsets();
+    const styles = useMemo(() => makeStyles(scale, verticalScale, moderateScale, insets), [scale, verticalScale, moderateScale, insets]);
 
     const [eventType, setEventType] = useState<'public' | 'invite' | null>(null);
     const [ticketType, setTicketType] = useState<'free' | 'paid'>('free');
@@ -315,7 +317,7 @@ const Settings = () => {
     };
 
     return (
-        <SafeAreaView style={styles.container}>
+        <SafeAreaView style={styles.container} edges={['left', 'right']}>
 
             {/* Header */}
 
@@ -718,14 +720,16 @@ const SettingItem = ({ label, value, onToggle, last, disabled, styles, scale }: 
     </View>
 );
 
-const makeStyles = (scale: (size: number) => number, verticalScale: (size: number) => number, moderateScale: (size: number, factor?: number) => number) => StyleSheet.create({
+const makeStyles = (scale: (size: number) => number, verticalScale: (size: number) => number, moderateScale: (size: number, factor?: number) => number, insets: any) => StyleSheet.create({
     container: {
         flex: 1,
         backgroundColor: 'white', // Slight off-white for background
     },
     header: {
         width: '100%',
-        height: verticalScale(80),
+        // height: verticalScale(80), // Removed fixed height
+        paddingTop: insets.top + verticalScale(10),
+        paddingBottom: verticalScale(20),
         backgroundColor: 'white',
         alignItems: 'center',
         flexDirection: 'row',

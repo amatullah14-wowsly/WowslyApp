@@ -355,18 +355,19 @@ const OfflineGuestList = () => {
 
                     {/* Search & Filter Row */}
                     <View style={{ marginTop: 10 }}>
-                        {/* Search Bar */}
-                        <View style={styles.searchContainer}>
-                            <Image source={SEARCH_ICON} style={styles.searchIcon} />
-                            <TextInput
-                                style={styles.searchInput}
-                                placeholder="Search guests..."
-                                placeholderTextColor="#999"
-                                value={searchQuery}
-                                onChangeText={setSearchQuery}
-                            />
+                        {/* Search Bar - Standardized */}
+                        <View style={styles.searchWrapper}>
+                            <View style={styles.searchField}>
+                                <Image source={SEARCH_ICON} style={styles.searchIcon} />
+                                <TextInput
+                                    style={styles.searchInput}
+                                    placeholder="Search guests..."
+                                    placeholderTextColor="#9E9E9E"
+                                    value={searchQuery}
+                                    onChangeText={setSearchQuery}
+                                />
+                            </View>
                         </View>
-
                     </View>
 
 
@@ -494,25 +495,38 @@ const makeStyles = (scale: (size: number) => number, verticalScale: (size: numbe
         color: '#1F1F1F',
         textAlign: 'center',
     },
-    searchContainer: {
+    // Search Styles - Standardized from EventListing.tsx
+    searchWrapper: {
         flexDirection: 'row',
         alignItems: 'center',
-        backgroundColor: '#F6F6F6',
-        borderRadius: scale(12),
-        paddingHorizontal: scale(14),
-        height: verticalScale(48),
+        backgroundColor: '#FFFFFF',
+        borderRadius: moderateScale(20),
+        paddingHorizontal: moderateScale(20),
+        height: verticalScale(55),
         marginBottom: verticalScale(25),
+        shadowColor: '#999',
+        shadowOpacity: 0.1,
+        shadowOffset: { width: 0, height: verticalScale(4) },
+        shadowRadius: moderateScale(6),
+        elevation: 3, // Slightly higher elevation for float effect
+        gap: moderateScale(12),
+        borderWidth: 0, // Ensure no border overrides shadow
+    },
+    searchField: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        flex: 1,
     },
     searchIcon: {
-        width: scale(16),
-        height: scale(16),
-        marginRight: scale(8),
-        tintColor: '#9B9B9B',
+        width: moderateScale(18),
+        height: moderateScale(18),
+        // removed margin as gap handles it
     },
     searchInput: {
         flex: 1,
-        fontSize: moderateScale(14),
+        fontSize: moderateScale(FontSize.md),
         color: '#111111',
+        paddingLeft: moderateScale(8),
     },
     listContent: {
         paddingBottom: verticalScale(24),
