@@ -204,13 +204,12 @@ const GuestScreenTemplate: React.FC<GuestScreenTemplateProps> = ({
   const [activeFilter, setActiveFilter] = useState<GuestFilter>(initialFilter);
   const [searchQuery, setSearchQuery] = useState('');
   const [guests, setGuests] = useState<any[]>([]);
-  const [filteredGuests, setFilteredGuests] = useState<any[]>([]); // Optimization: Async filtered state
-  const [loading, setLoading] = useState(false);
+  /* REMOVED: filteredGuests state and async useEffect - caused empty state flash */
+  const [loading, setLoading] = useState(true);
   const [modalVisible, setModalVisible] = useState(false);
   const [selectedGuestId, setSelectedGuestId] = useState<string | null>(null);
   const [lastUpdate, setLastUpdate] = useState(0);
 
-  // Pagination State
   // Pagination State
   const [currentPage, setCurrentPage] = useState(1);
   const [lastPage, setLastPage] = useState(1);
@@ -246,52 +245,30 @@ const GuestScreenTemplate: React.FC<GuestScreenTemplateProps> = ({
     return () => clearTimeout(timer);
   }, [searchQuery]);
 
-  // Optimization: Background/Timeout filtering
-  useEffect(() => {
-    let active = true;
-
-    const filterLogic = () => {
-      const result = guests.map(g => {
-        // MERGE LOCAL SCANS FROM GLOBAL STORE
-        return getMergedGuest(g);
-      }).filter((guest) => {
-        // FILTERING LOGIC
-        // 1. Manager: Strict check because API might return mixed results or we want to be safe.
-        if (activeFilter === 'Manager') {
-          // Check common variations of manager status
-          const isManager = guest.role === 'manager' || guest.type === 'manager' || guest.is_manager === 1 || guest.is_manager === true;
-          if (!isManager) return false;
-        }
-
-        // 2. Invited/Registered: Trust the API 'type' param filter.
-        // Previous client-side logic (generated_by_owner) was flaky and hid valid guests.
-        // If API returns them, we show them.
-
-        const query = searchQuery.trim().toLowerCase();
-        if (!query) return true;
-
-        const name = (guest.name || guest.first_name + ' ' + guest.last_name || 'Guest').toLowerCase();
-        const phone = (guest.mobile || guest.phone || guest.phone_number || '').toString().toLowerCase();
-        const id = (guest.id || guest.ticket_id || '').toString().toLowerCase();
-
-        return name.includes(query) || phone.includes(query) || id.includes(query);
-      });
-
-      if (active) {
-        setFilteredGuests(result);
+  // ⚡⚡⚡ SYNCHRONOUS FILTERING ⚡⚡⚡
+  // guests only contains current page data (small array), so useMemo is fast & robust.
+  const filteredGuests = useMemo(() => {
+    return guests.map(g => {
+      // MERGE LOCAL SCANS FROM GLOBAL STORE
+      return getMergedGuest(g);
+    }).filter((guest) => {
+      // FILTERING LOGIC
+      // 1. Manager: Strict check
+      if (activeFilter === 'Manager') {
+        const isManager = guest.role === 'manager' || guest.type === 'manager' || guest.is_manager === 1 || guest.is_manager === true;
+        if (!isManager) return false;
       }
-    };
 
-    // Use InteractionManager or setTimeout to unblock JS thread
-    const task = InteractionManager.runAfterInteractions(() => {
-      // Also verify this runs smoothly; fallback to setTimeout if needed
-      setTimeout(filterLogic, 0);
+      // 2. Search Filter
+      const query = searchQuery.trim().toLowerCase();
+      if (!query) return true;
+
+      const name = (guest.name || guest.first_name + ' ' + guest.last_name || 'Guest').toLowerCase();
+      const phone = (guest.mobile || guest.phone || guest.phone_number || '').toString().toLowerCase();
+      const id = (guest.id || guest.ticket_id || '').toString().toLowerCase();
+
+      return name.includes(query) || phone.includes(query) || id.includes(query);
     });
-
-    return () => {
-      active = false;
-      task.cancel();
-    };
   }, [guests, lastUpdate, activeFilter, searchQuery]);
 
 

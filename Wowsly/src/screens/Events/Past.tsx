@@ -296,12 +296,13 @@ const Past = () => {
             refreshControl={
               <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#FF8A3C']} />
             }
-          />
-
-          <Pagination
-            currentPage={page}
-            totalPages={totalPages}
-            onPageChange={setPage}
+            ListFooterComponent={
+              <Pagination
+                currentPage={page}
+                totalPages={totalPages}
+                onPageChange={setPage}
+              />
+            }
           />
         </>
       )}
@@ -403,17 +404,16 @@ const makeStyles = (scale: (size: number) => number, verticalScale: (size: numbe
   listContent: {
     paddingHorizontal: width >= 600 ? 20 : moderateScale(20),
     paddingTop: verticalScale(18),
-    paddingBottom: verticalScale(90),
+    paddingBottom: verticalScale(20),
   },
   pagination: {
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
     gap: width >= 600 ? 16 : moderateScale(16),
-    paddingBottom: verticalScale(10),
-    backgroundColor: 'white',
+    backgroundColor: 'transparent',
     height: width >= 600 ? 70 : verticalScale(60),
-    marginBottom: width >= 600 ? 20 : 0,
+    marginBottom: verticalScale(10),
   },
   pageIcon: {
     width: moderateScale(28),

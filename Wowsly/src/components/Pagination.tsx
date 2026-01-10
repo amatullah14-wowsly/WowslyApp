@@ -1,7 +1,6 @@
 import React, { useMemo } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Image, useWindowDimensions } from 'react-native';
 import { scale, moderateScale, verticalScale } from '../utils/scaling';
-import { FontSize } from '../constants/fontSizes';
 
 interface PaginationProps {
     currentPage: number;
@@ -62,7 +61,7 @@ const Pagination = ({ currentPage, totalPages, onPageChange }: PaginationProps) 
             <TouchableOpacity
                 onPress={() => onPageChange(Math.max(currentPage - 1, 1))}
                 disabled={currentPage === 1}
-                style={[styles.arrowButton, currentPage === 1 && styles.disabledArrow]}
+                style={[styles.arrowButton]}
             >
                 <Image
                     source={require('../assets/img/common/previous.png')}
@@ -82,7 +81,7 @@ const Pagination = ({ currentPage, totalPages, onPageChange }: PaginationProps) 
             <TouchableOpacity
                 onPress={() => onPageChange(Math.min(currentPage + 1, totalPages))}
                 disabled={currentPage === totalPages}
-                style={[styles.arrowButton, currentPage === totalPages && styles.disabledArrow]}
+                style={[styles.arrowButton]}
             >
                 <Image
                     source={require('../assets/img/common/next.png')}
@@ -101,6 +100,7 @@ const makeStyles = (width: number) => StyleSheet.create({
         justifyContent: 'center',
         paddingVertical: width >= 600 ? 10 : verticalScale(10),
         width: '100%',
+        backgroundColor: 'transparent', // No background for container
     },
     numbersContainer: {
         flexDirection: 'row',
@@ -108,47 +108,53 @@ const makeStyles = (width: number) => StyleSheet.create({
         justifyContent: 'center',
     },
     arrowButton: {
-        width: width >= 600 ? 40 : Math.min(scale(36), 44),
-        height: width >= 600 ? 40 : Math.min(scale(36), 44),
+        width: width >= 600 ? 40 : Math.min(scale(34), 40),
+        height: width >= 600 ? 40 : Math.min(scale(34), 40),
         justifyContent: 'center',
         alignItems: 'center',
-        borderWidth: 1,
-        borderColor: '#FF8A3C',
-        borderRadius: width >= 600 ? 20 : Math.min(scale(18), 22),
-        marginHorizontal: width >= 600 ? 8 : Math.min(scale(5), 8),
-    },
-    disabledArrow: {
-        borderColor: '#fbc8a6ff',
+        // No borders
+        // No background for arrows
     },
     arrowIcon: {
-        width: width >= 600 ? 14 : Math.min(scale(14), 18),
-        height: width >= 600 ? 14 : Math.min(scale(14), 18),
-        tintColor: '#FF8A3C',
+        width: width >= 600 ? 18 : Math.min(scale(16), 20),
+        height: width >= 600 ? 18 : Math.min(scale(16), 20),
+        tintColor: '#1F1F1F', // Black arrows
     },
     disabledArrowIcon: {
-        tintColor: '#fbc8a6ff',
+        tintColor: '#E0E0E0', // Light grey for disabled
     },
     pageNumber: {
-        width: width >= 600 ? 40 : Math.min(scale(36), 44),
-        height: width >= 600 ? 40 : Math.min(scale(36), 44),
+        width: width >= 600 ? 32 : Math.min(scale(32), 36), // Smaller inactive
+        height: width >= 600 ? 32 : Math.min(scale(32), 36),
         justifyContent: 'center',
         alignItems: 'center',
-        borderRadius: width >= 600 ? 20 : Math.min(scale(18), 22),
-        borderWidth: 1,
-        borderColor: '#FF8A3C',
-        backgroundColor: 'white',
+        borderRadius: width >= 600 ? 16 : Math.min(scale(16), 18),
+        backgroundColor: '#F5F5F5', // Light grey background for inactive
+        marginHorizontal: scale(2), // Add slight margin for spacing
     },
     activePageNumber: {
-        backgroundColor: '#FFF5E5', // Light orange background for active
-        borderColor: '#FF8A3C',
+        width: width >= 600 ? 48 : Math.min(scale(44), 50), // Larger active (Zoom effect)
+        height: width >= 600 ? 48 : Math.min(scale(44), 50),
+        borderRadius: width >= 600 ? 24 : Math.min(scale(22), 25),
+        backgroundColor: '#FF8A3C', // Orange for active
+        // Lift effect (optional)
+        shadowColor: "#FF8A3C",
+        shadowOffset: {
+            width: 0,
+            height: 4,
+        },
+        shadowOpacity: 0.3,
+        shadowRadius: 4.65,
+        elevation: 8,
     },
     pageText: {
-        fontSize: width >= 600 ? 14 : Math.min(moderateScale(14), 16),
-        color: '#333',
-        fontWeight: '500',
+        fontSize: width >= 600 ? 12 : Math.min(moderateScale(12), 14), // Smaller inactive text
+        color: '#666666', // Slightly lighter dark text for inactive
+        fontWeight: '600',
     },
     activePageText: {
-        color: '#FF8A3C',
+        fontSize: width >= 600 ? 16 : Math.min(moderateScale(16), 18), // Larger active text
+        color: '#FFFFFF', // White text for active
         fontWeight: '700',
     },
     ellipsisContainer: {
@@ -163,3 +169,4 @@ const makeStyles = (width: number) => StyleSheet.create({
 });
 
 export default Pagination;
+

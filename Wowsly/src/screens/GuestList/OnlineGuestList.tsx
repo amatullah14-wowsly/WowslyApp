@@ -334,7 +334,7 @@ const OnlineGuestList = () => {
                                     </View>
                                 }
                                 ListFooterComponent={
-                                    displayedGuests.length > 0 ? (
+                                    !loading && displayedGuests.length > 0 ? (
                                         <Pagination
                                             currentPage={currentPage}
                                             totalPages={lastPage}
@@ -633,34 +633,12 @@ const makeStyles = (scale: (size: number) => number, verticalScale: (size: numbe
         justifyContent: 'center',
         alignItems: 'center',
     },
-    // Pagination Styles
-    paginationContainer: {
-        flexDirection: 'row',
-        justifyContent: 'center',
+    paginationWrapper: {
+        position: 'absolute',
+        bottom: verticalScale(20),
+        left: 0,
+        right: 0,
+        zIndex: 10,
         alignItems: 'center',
-        gap: scale(16),
-        paddingTop: verticalScale(16),
-        backgroundColor: '#FFFFFF',
-    },
-    pageButton: {
-        backgroundColor: '#FF8A3C',
-        paddingHorizontal: scale(15),
-        paddingVertical: verticalScale(8),
-        borderRadius: scale(12),
-    },
-    disabledPageButton: {
-        backgroundColor: '#FFD2B3',
-    },
-    pageIcon: {
-        width: scale(28),
-        height: scale(28),
-        tintColor: '#FF8A3C',
-    },
-    disabledIcon: {
-        tintColor: '#E0E0E0',
-    },
-    pageInfo: {
-        fontWeight: '600',
-        color: '#333',
     },
 });
