@@ -227,52 +227,32 @@ export async function initDB() {
 // ======================================================
 // ATOMIC FULL SYNC: DELETE ALL CLEAN + INSERT NEW
 // ======================================================
+// ======================================================
+// ATOMIC FULL SYNC: DELETE ALL + INSERT NEW
+// ======================================================
 export async function replaceAllGuestsForEvent(eventId: number, guestsArray: any[], isFullSync: boolean = true) {
   if (!Array.isArray(guestsArray)) return;
   console.log(`[DB] replaceAllGuestsForEvent called. EventId: ${eventId}, Guests: ${guestsArray.length}, isFullSync: ${isFullSync}`);
 
   const db = await openDB();
 
-  // 1. Identify Unsynced Guests (Protected Set)
-  // We must NOT overwrite these guests as they have pending offline check-ins
-  const [unsyncedRes] = await db.executeSql(
-    `SELECT qrGuestUuid, qrTicketId FROM tickets WHERE event_id = ? AND synced = 0;`,
-    [eventId]
-  );
-
-  const protectedSet = new Set<string>();
-  for (let i = 0; i < unsyncedRes.rows.length; i++) {
-    const item = unsyncedRes.rows.item(i);
-    // Key: guestUuid (Guest-Based Identity)
-    protectedSet.add(item.qrGuestUuid);
-  }
-
-  // 2. Identify Unsynced Facilities (Protected Set)
-  const [unsyncedFacRes] = await db.executeSql(
-    `SELECT guest_uuid, facilityId FROM facility WHERE eventId = ? AND synced = 0;`,
-    [eventId]
-  );
-  const protectedFacilities = new Set<string>();
-  for (let i = 0; i < unsyncedFacRes.rows.length; i++) {
-    const item = unsyncedFacRes.rows.item(i);
-    protectedFacilities.add(`${item.guest_uuid}_${item.facilityId}`);
-  }
+  // ⚡⚡⚡ KOTLIN-MATCHING LOGIC ⚡⚡⚡
+  // No "Protected Set". We trust that Sync has already run. 
+  // We wipe local data for this event and replace it with Server Truth.
+  // This prevents ghost rows and mismatching counts.
 
   // ⚡⚡⚡ MANUAL TRANSACTION START ⚡⚡⚡
-  // Using explicit BEGIN/COMMIT allows us to await Promises reliably in the loop
   try {
     await db.executeSql('BEGIN EXCLUSIVE TRANSACTION;');
 
-    // 3. DELETE CLEAN DATA (Mocking "Delete All")
-    // Only delete rows that are synced=1. Unsynced rows stay untouched.
+    // 1. DELETE ALL DATA FOR EVENT (Full Wipe)
     if (isFullSync) {
-      console.log(`[DB] DELETING synced tickets and facilities for event ${eventId}`);
-      await db.executeSql(`DELETE FROM tickets WHERE event_id = ? AND synced = 1;`, [eventId]);
-      await db.executeSql(`DELETE FROM facility WHERE eventId = ? AND synced = 1;`, [eventId]);
+      console.log(`[DB] DELETING ALL tickets and facilities for event ${eventId}`);
+      await db.executeSql(`DELETE FROM tickets WHERE event_id = ?;`, [eventId]);
+      await db.executeSql(`DELETE FROM facility WHERE eventId = ?;`, [eventId]);
     }
 
-    // 4. INSERT FRESH DATA (Skipping Protected) in BATCHES
-    // We cannot simply push 16,000 promises. We must batch them.
+    // 2. INSERT FRESH DATA in BATCHES
     const BATCH_SIZE = 100;
     const allFacilitiesToInsert: { eventId: number, qrGuestUuid: string, ticketId: any, facility: any }[] = [];
 
@@ -289,15 +269,11 @@ export async function replaceAllGuestsForEvent(eventId: number, guestsArray: any
         null;
 
       if (!ticketId) {
-        console.warn("[DB] ⚠️ Missing ticket_id for guest:", g.guest_uuid || g.uuid, JSON.stringify(g).substring(0, 100));
+        // Warning is fine, ticket_id is metadata
+        // console.warn("[DB] ⚠️ Missing ticket_id for guest:", g.guest_uuid || g.uuid);
       }
 
       const qrGuestUuid = g.guest_uuid || g.uuid || null;
-
-      // IDENTITY CHECK: If this guest is locally modified, SKIP overwrite
-      if (protectedSet.has(qrGuestUuid)) {
-        continue;
-      }
 
       // PREPARE DATA
       const qr = (g.qr_code || g.code || g.uuid || g.guest_uuid || '').toString().trim();
@@ -322,15 +298,12 @@ export async function replaceAllGuestsForEvent(eventId: number, guestsArray: any
       // STAGE FACILITIES
       if (g.facilities && Array.isArray(g.facilities)) {
         g.facilities.forEach((fac: any) => {
-          const facKey = `${qrGuestUuid}_${fac.id}`;
-          if (!protectedFacilities.has(facKey)) {
-            allFacilitiesToInsert.push({
-              eventId,
-              qrGuestUuid,
-              ticketId,
-              facility: fac
-            });
-          }
+          allFacilitiesToInsert.push({
+            eventId,
+            qrGuestUuid,
+            ticketId,
+            facility: fac
+          });
         });
       }
 
@@ -368,7 +341,6 @@ export async function replaceAllGuestsForEvent(eventId: number, guestsArray: any
         await Promise.all(currentBatch);
         processedCount += currentBatch.length;
         currentBatch = [];
-        // Optional: logging every 1000 items
         if (processedCount % 1000 === 0) console.log(`[DB] Inserted ${processedCount} guests...`);
       }
     }
@@ -381,8 +353,7 @@ export async function replaceAllGuestsForEvent(eventId: number, guestsArray: any
 
     console.log(`[DB] Inserted/Verified ${processedCount} guests.`);
 
-    // 5. BATCH INSERT FACILITIES (OPTIMIZED MULTI-ROW INSERT)
-    // Reduce 32,000 calls to ~600 calls
+    // 3. BATCH INSERT FACILITIES (OPTIMIZED MULTI-ROW INSERT)
     console.log(`[DB] Starting optimized facility insertion. Count: ${allFacilitiesToInsert.length}`);
 
     // SQLite limit is 999 params. 8 params per facility.
@@ -442,6 +413,9 @@ export const insertOrReplaceGuests = replaceAllGuestsForEvent;
 // ======================================================
 // FIND TICKET BY QR
 // ======================================================
+// ======================================================
+// FIND TICKET BY QR
+// ======================================================
 export async function findTicketByQr(qrValue: string) {
   if (!qrValue) return null;
   const db = await openDB();
@@ -451,6 +425,18 @@ export async function findTicketByQr(qrValue: string) {
     [qrValue.trim()]
   );
 
+  return res.rows.length > 0 ? res.rows.item(0) : null;
+}
+
+// ======================================================
+// GET GUEST BY UUID (STRICT LOOKUP)
+// ======================================================
+export async function getGuestByUuid(uuid: string) {
+  const db = await openDB();
+  const [res] = await db.executeSql(
+    `SELECT * FROM tickets WHERE qrGuestUuid = ? OR qr_code = ? LIMIT 1;`,
+    [uuid, uuid]
+  );
   return res.rows.length > 0 ? res.rows.item(0) : null;
 }
 

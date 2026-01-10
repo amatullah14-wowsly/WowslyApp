@@ -1012,9 +1012,22 @@ const QrCode = () => {
     try {
       // ⚡⚡⚡ OFFLINE MODE BULK CHECK-IN ⚡⚡⚡
       if (isOfflineMode) {
+        // 1. LOOKUP IDENTITY FROM QR (Strict Resolve)
+        const { findTicketByQr, performGateCheckIn } = require('../../db');
+        const ticket = await findTicketByQr(qrCode);
+
+        if (!ticket || !ticket.qrGuestUuid) {
+          showStatus("Ticket not found in offline DB", "error");
+          setIsVerifying(false);
+          return;
+        }
+
+        const strictGuestUuid = ticket.qrGuestUuid;
+        console.log(`[Offline] Resolved QR ${qrCode} -> UUID ${strictGuestUuid}`);
+
         // STRICT: use performGateCheckIn which enforces used_entries = 0
         // REFACTORED: Guest-based identity only (no ticketId), scoped by Event
-        const rowsAffected = await performGateCheckIn(Number(eventId), qrCode);
+        const rowsAffected = await performGateCheckIn(Number(eventId), strictGuestUuid);
 
         if (rowsAffected === 0) {
           // This means already checked in (used_entries != 0) or ticket not found
@@ -1023,7 +1036,7 @@ const QrCode = () => {
           return;
         }
 
-        console.log(`Offline Gate Check-in Success: ${qrCode}`);
+        console.log(`Offline Gate Check-in Success: ${strictGuestUuid}`);
 
         // Update local history for session
         // @ts-ignore

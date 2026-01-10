@@ -19,7 +19,7 @@ import {
 } from 'react-native';
 import FastImage from 'react-native-fast-image';
 import { RouteProp, useNavigation, useRoute, useFocusEffect } from '@react-navigation/native';
-import { initDB, getTicketsForEvent, updateTicketStatusLocal, getTicketsForEventPage } from '../../db';
+import { initDB, getTicketsForEvent, updateTicketStatusLocal, getTicketsForEventPage, performGateCheckIn } from '../../db';
 import { verifyQrCode } from '../../api/event';
 import Toast from 'react-native-toast-message';
 import BackButton from '../../components/BackButton';
@@ -233,32 +233,29 @@ const OfflineGuestList = () => {
         // Offline Manual Check-in
         try {
             const qrCode = selectedGuest.qr_code;
+            /* ⚡⚡⚡ REFACTORED: Use performGateCheckIn for Strict Single Entry ⚡⚡⚡ */
+            const uuid = selectedGuest.qrGuestUuid || selectedGuest.guest_uuid || selectedGuest.uuid;
 
-            if (!qrCode) {
-                Toast.show({
-                    type: 'error',
-                    text1: 'Invalid QR Verification',
-                    text2: 'Guest does not have a valid ticket.'
-                });
-                return;
-            }
+            if (uuid) {
+                // 1. ATOMIC UPDATE (Returns 0 if already checked in)
+                const rowsAffected = await performGateCheckIn(Number(eventId), uuid);
 
-            if (qrCode) {
-                // 1. Update local DB
-                await updateTicketStatusLocal(qrCode, 'checked_in', 1);
+                if (rowsAffected === 0) {
+                    Toast.show({
+                        type: 'error',
+                        text1: 'Check-in Failed',
+                        text2: 'Guest already checked in'
+                    });
+                    return;
+                }
 
                 // 2. Call API to verify/sync immediately if possible
-                const guestUuid = selectedGuest.guest_uuid || selectedGuest.uuid || selectedGuest.unique_id; // Try multiple fields if needed
+                // (Optional: can just queue it. But existing logic tried to sync)
+                const guestUuid = uuid;
                 if (guestUuid) {
                     verifyQrCode(eventId, { qrGuestUuid: guestUuid })
                         .then((res) => {
-                            if (res && (res.message === "QR code verified" || res.success)) {
-                                Toast.show({
-                                    type: 'success',
-                                    text1: 'Check-in Successful',
-                                    text2: `${selectedGuest.guest_name || 'Guest'} checked in successfully`
-                                });
-                            }
+                            // ... silent success
                         })
                         .catch(err => console.log("Manual verification API failed silently:", err));
                 }

@@ -26,6 +26,15 @@ type GuestDetailsModalProps = {
     offline?: boolean;
 };
 
+// ⚡⚡⚡ HELPER: SINGLE SOURCE OF TRUTH FOR UUID ⚡⚡⚡
+// Normalizes conflicting keys to match SQLite (qrGuestUuid)
+const getGuestUUID = (g: any) =>
+    g?.qrGuestUuid ||
+    g?.guest_uuid ||
+    g?.uuid ||
+    g?.qr_code ||
+    null;
+
 const GuestDetailsModal: React.FC<GuestDetailsModalProps> = ({
     visible,
     onClose,
@@ -49,7 +58,7 @@ const GuestDetailsModal: React.FC<GuestDetailsModalProps> = ({
 
     /* ---------------------- Fetch API details ---------------------- */
     useEffect(() => {
-        if (visible && eventId && guestId && !offline) {
+        if (visible && eventId && guestId) {
             // Delay fetch to allow modal animation to complete (prevents UI freeze)
             const timer = setTimeout(() => {
                 fetchGuestDetails();
@@ -67,48 +76,29 @@ const GuestDetailsModal: React.FC<GuestDetailsModalProps> = ({
     }, [guest]);
 
     const fetchFacilities = async () => {
-        if (!eventId && !offline ? true : !guestData?.guest_uuid) return; // Basic validation
-
         if (offline) {
-            const uuid = guestData?.guest_uuid || guestData?.uuid || guestData?.qr_code;
-            if (uuid) {
-                const localFacilities = await getFacilitiesForGuest(uuid);
-                // Format for UI (match API structure if needed, or adapt)
-                // Local DB: { id, facilityId, name, availableScans, checkIn }
-                // UI expects: array of tickets/facilities? 
-                // The line 131: currentTicketWithFacilities = facilities.find(...)
-                // The UI expects facilities to be linked to ticket types.
-                // But offline we just get flat facilities for this guest.
-                // We can mock the structure so existing UI logic works.
+            const uuid = getGuestUUID(guestData);
+            if (!uuid) return;
 
-                const mockTicket = {
-                    id: 'OFFLINE_TICKET', // Decoupled from ticket_id
-                    facilities: localFacilities.map(f => ({
-                        id: f.facilityId, // Use facilityId as 'id' for selection
-                        name: f.name,
-                        // Adapt fields for usage check
-                        // UI check: status.available_scans <= 0
-                        // We don't have separate 'facilityStatus' array yet for offline, 
-                        // or we can generate it from here.
-                    }))
-                };
-                setFacilities([mockTicket]);
+            const localFacilities = await getFacilitiesForGuest(uuid);
+            console.log("OFFLINE FACILITIES:", uuid, localFacilities);
 
-                // Also set availability status specifically for offline
-                // The UI logic checks 'facilityStatus' state too (lines 196, 330)
-                const statuses = localFacilities.map(f => ({
+            // FIX: Set FLAT list of facilities directly (Guest owns facilities)
+            const flatFacilities = localFacilities.map(f => ({
+                id: f.facilityId,
+                name: f.name
+            }));
+            setFacilities(flatFacilities);
+
+            // Set availability status
+            setFacilityStatus(
+                localFacilities.map(f => ({
                     id: f.facilityId,
-                    available_scans: (f.availableScans || 0) - (f.checkIn || 0)
-                }));
-                setFacilityStatus(statuses);
-            }
-        } else {
-            if (!eventId) return;
-            const res = await getEventTickets(eventId);
-            if (res && res.data) {
-                setFacilities(res.data);
-            }
+                    available_scans: Math.max(0, (f.availableScans || 0) - (f.checkIn || 0))
+                }))
+            );
         }
+        // Online: Do nothing. Facilities come from verifyQrCode response.
     };
 
     const fetchGuestDetails = async () => {
@@ -149,6 +139,31 @@ const GuestDetailsModal: React.FC<GuestDetailsModalProps> = ({
         });
     };
 
+    // ⚡⚡⚡ HELPER: REFRESH FROM SQLITE (SINGLE SOURCE OF TRUTH) ⚡⚡⚡
+    const refreshOfflineData = async (uuid: string) => {
+        const { getGuestByUuid, getFacilitiesForGuest } = require('../db');
+        const dbGuest = await getGuestByUuid(uuid);
+        const dbFacilities = await getFacilitiesForGuest(uuid);
+
+        if (dbGuest) {
+            setGuestData((prev: any) => ({
+                ...prev,
+                used_entries: dbGuest.used_entries || 0,
+                // Status update based on usage
+                status: (dbGuest.used_entries || 0) > 0 ? 'checked_in' : prev.status
+            }));
+        }
+
+        if (dbFacilities) {
+            setFacilityStatus(
+                dbFacilities.map((f: any) => ({
+                    id: f.facilityId,
+                    available_scans: Math.max(0, (f.availableScans || 0) - (f.checkIn || 0))
+                }))
+            );
+        }
+    };
+
     const isManager =
         guestData?.type === "manager" ||
         guestData?.role === "manager" ||
@@ -160,14 +175,8 @@ const GuestDetailsModal: React.FC<GuestDetailsModalProps> = ({
     const isFullyCheckedIn = usedCount >= totalEntries;
 
     // Determine facilities for THIS guest
-    const guestTicketId = guestData?.ticket_data?.ticket_id || guestData?.ticket_id;
-
-    // REFACTORED: Offline mode uses flat facilities for the guest, not ticket-type based
-    const currentTicketWithFacilities = offline
-        ? facilities[0]
-        : facilities.find((t: any) => t.id == guestTicketId);
-
-    const availableFacilities = currentTicketWithFacilities?.facilities || [];
+    // FIX: Facilities is now a flat list (Facility[]) owned by the guest
+    const availableFacilities = facilities || [];
     const hasFacilities = availableFacilities.length > 0;
 
     // "Check-in" option should be disabled if fully checked in
@@ -250,7 +259,8 @@ const GuestDetailsModal: React.FC<GuestDetailsModalProps> = ({
                                                     if (!eventId) return;
 
                                                     try {
-                                                        const uuid = guestData.guest_uuid || guestData.uuid || guestData.qr_code;
+                                                        // FIX: STRICT UUID LOOKUP
+                                                        const uuid = guestData.qrGuestUuid || guestData.guest_uuid || guestData.uuid;
 
                                                         // Check if fully used (Main + Facilities) before allowing verify? 
                                                         // User logic: "if all the facilities got scanned or checked in then manual check in button should get disabled"
@@ -264,9 +274,26 @@ const GuestDetailsModal: React.FC<GuestDetailsModalProps> = ({
                                                         }
 
                                                         setLoading(true);
+
+                                                        // ⚡⚡⚡ OFFLINE BYPASS: SKIP API ⚡⚡⚡
+                                                        // Kotlin Logic: Offline = Trust local SQLite data. DO NOT call verifyQrCode.
+                                                        if (offline) {
+                                                            console.log("Offline Mode: Skipping QR API verify, using local data.");
+
+                                                            // Proceed directly to Step 2
+                                                            setLoading(false);
+                                                            setCheckInStep('quantity');
+
+                                                            // Ensure facilities are loaded (from SQLite)
+                                                            // (Previous fix ensures they load correctly even without ticket_id)
+                                                            await fetchFacilities();
+                                                            return;
+                                                        }
+
                                                         const res = await verifyQrCode(eventId, { qrGuestUuid: uuid });
                                                         console.log("VerifyQR Result:", res);
 
+                                                        // 🟢 ONLINE success
                                                         if (res && (res.message === 'QR code verified' || res.success)) {
                                                             console.log("QR Verified. Fetching fresh details...");
 
@@ -288,15 +315,19 @@ const GuestDetailsModal: React.FC<GuestDetailsModalProps> = ({
                                                             // Store facility availability status from verify response
                                                             if (res.facility_availability_status) {
                                                                 setFacilityStatus(res.facility_availability_status);
-                                                            } else {
-                                                                // If missing, maybe reset or keep empty?
-                                                                // setFacilityStatus([]); 
+                                                            }
+
+                                                            // FIX: Set facilities from verify response (Server Truth)
+                                                            // Do NOT call fetchFacilities() or getEventTickets()
+                                                            // mergedData comes from guest_data[0]
+                                                            if (mergedData.facilities) {
+                                                                setFacilities(mergedData.facilities);
+                                                            } else if (res.facilities) {
+                                                                setFacilities(res.facilities);
                                                             }
 
                                                             const detailsRes = await getGuestDetails(eventId, guestId);
-
-                                                            // Also ensure facilities are fetched
-                                                            await fetchFacilities();
+                                                            // Removed await fetchFacilities();
 
                                                             if (detailsRes?.data) {
                                                                 const newData = detailsRes.data;
@@ -309,13 +340,46 @@ const GuestDetailsModal: React.FC<GuestDetailsModalProps> = ({
                                                             // Or stick to 'check_in' and let user see it's disabled.
                                                             // If usedCount >= totalEntries, 'check_in' radio will be disabled in render but we should auto select something else?
                                                             // For now defaults to 'check_in'
-
-                                                        } else {
-                                                            Toast.show({ type: 'error', text1: 'Verification Failed', text2: res?.message || 'Invalid QR' });
-                                                            setLoading(false);
+                                                            return;
                                                         }
+
+                                                        // 🟡 OFFLINE MODE (Network Error)
+                                                        if (!res || res.status === false) {
+                                                            if (offline) {
+                                                                Toast.show({
+                                                                    type: 'info',
+                                                                    text1: 'Offline Mode',
+                                                                    text2: 'Verified locally. Using offline data.'
+                                                                });
+
+                                                                // Manually proceed as verified
+                                                                await fetchFacilities();     // load facilities from SQLite
+                                                                setCheckInStep('quantity');  // move to step 2
+                                                                setLoading(false);
+                                                                return;
+                                                            }
+                                                        }
+
+                                                        // 🔴 REAL failure
+                                                        Toast.show({ type: 'error', text1: 'Verification Failed', text2: res?.message || 'Invalid QR' });
+                                                        setLoading(false);
                                                     } catch (e) {
                                                         console.error(e);
+                                                        // 🟡 CATCH-ALL OFFLINE MODE (If calling verifyQrCode threw instead of returning error obj)
+                                                        if (offline) {
+                                                            Toast.show({
+                                                                type: 'info',
+                                                                text1: 'Offline Mode',
+                                                                text2: 'Verified locally. Using offline data.'
+                                                            });
+
+                                                            // Manually proceed as verified
+                                                            await fetchFacilities();     // load facilities from SQLite
+                                                            setCheckInStep('quantity');  // move to step 2
+                                                            setLoading(false);
+                                                            return;
+                                                        }
+
                                                         Toast.show({ type: 'error', text1: 'Error', text2: 'Verification failed' });
                                                         setLoading(false);
                                                     }
@@ -369,10 +433,10 @@ const GuestDetailsModal: React.FC<GuestDetailsModalProps> = ({
                                             {/* Logic: Enabled ONLY if Main Tickets <= 0 AND Facility Scans > 0 */}
                                             {availableFacilities.map((fac: any) => {
                                                 const remainingMain = Math.max(0, totalEntries - usedCount);
-                                                // Kotlin Rule: Facilities enabled only if main ticket is exhausted
-                                                const mainTicketExhausted = remainingMain <= 0;
+                                                // Kotlin Rule: Facilities enabled after FIRST main check-in
+                                                const mainCheckedIn = usedCount > 0;
 
-                                                let facilityDisabled = !mainTicketExhausted; // Disabled if main ticket still valid
+                                                let facilityDisabled = !mainCheckedIn; // Disabled if NOT checked in yet
 
                                                 // Also check specific facility availability
                                                 if (!facilityDisabled && facilityStatus.length > 0) {
@@ -444,7 +508,8 @@ const GuestDetailsModal: React.FC<GuestDetailsModalProps> = ({
                                                         return remainingMain <= 0; // Disable if no main tickets left
                                                     } else {
                                                         // Facility logic
-                                                        if (remainingMain > 0) return true; // Disable facility if main tickets exist
+                                                        // Kotlin Rule: Facilities enabled after FIRST main check-in
+                                                        if (usedCount <= 0) return true; // Disable facility if NOT checked in yet
 
                                                         // Check specific facility availability
                                                         const stat = facilityStatus.find((s: any) => s.id == selectedScanningOption);
@@ -458,7 +523,7 @@ const GuestDetailsModal: React.FC<GuestDetailsModalProps> = ({
                                                     if (selectedScanningOption === 'check_in') {
                                                         return remainingMain <= 0;
                                                     } else {
-                                                        if (remainingMain > 0) return true;
+                                                        if (usedCount <= 0) return true; // Disabled if not checked in yet
                                                         const stat = facilityStatus.find((s: any) => s.id == selectedScanningOption);
                                                         return stat ? stat.available_scans <= 0 : false;
                                                     }
@@ -470,8 +535,7 @@ const GuestDetailsModal: React.FC<GuestDetailsModalProps> = ({
                                                 try {
                                                     // OFFLINE LOGIC
                                                     if (offline) {
-                                                        const uuid = guestData.guest_uuid || guestData.uuid || guestData.qr_code;
-                                                        // const ticketId = guestData.ticket_data?.ticket_id || guestData.ticket_id; // Unused in new logic
+                                                        const uuid = getGuestUUID(guestData);
 
                                                         if (selectedScanningOption === 'check_in') {
                                                             // STRICT GATE ENTRY (Using performGateCheckIn)
@@ -484,13 +548,72 @@ const GuestDetailsModal: React.FC<GuestDetailsModalProps> = ({
                                                                 setLoading(false);
                                                                 return;
                                                             }
+
+                                                            // ⚡⚡⚡ OFFLINE STATE REFRESH (CRITICAL) ⚡⚡⚡
+                                                            Toast.show({ type: 'success', text1: 'Success', text2: 'Checked in locally' });
+
+                                                            // ⚡⚡⚡ OFFLINE STATE REFRESH (CRITICAL) ⚡⚡⚡
+                                                            Toast.show({ type: 'success', text1: 'Success', text2: 'Checked in locally' });
+
+                                                            // INLINE FIX: Explicit refresh to prove DB update
+                                                            const { getGuestByUuid, getFacilitiesForGuest } = require('../db');
+                                                            const dbGuest = await getGuestByUuid(uuid);
+                                                            console.log("DB GUEST AFTER CHECKIN", dbGuest);
+
+                                                            // Refresh Guest Data
+                                                            if (dbGuest) {
+                                                                setGuestData((prev: any) => ({
+                                                                    ...prev,
+                                                                    used_entries: dbGuest.used_entries,
+                                                                    checked_in_count: dbGuest.used_entries,   // 🔥 FIX: Ensure this is updated too
+                                                                    status: dbGuest.used_entries > 0 ? 'checked_in' : prev.status
+                                                                }));
+                                                            }
+
+                                                            // Refresh Facilities (Unlocking depends on used_entries)
+                                                            const dbFacilities = await getFacilitiesForGuest(uuid);
+                                                            setFacilityStatus(
+                                                                dbFacilities.map((f: any) => ({
+                                                                    id: f.facilityId,
+                                                                    available_scans: Math.max(0, (f.availableScans || 0) - (f.checkIn || 0))
+                                                                }))
+                                                            );
+
+                                                            // 🔥 Kotlin behavior: AUTO SWITCH to first available facility
+                                                            const firstAvailable = dbFacilities.find((f: any) =>
+                                                                (f.availableScans || 0) - (f.checkIn || 0) > 0
+                                                            );
+                                                            if (firstAvailable) {
+                                                                setSelectedScanningOption(firstAvailable.facilityId);
+                                                            }
+
+                                                            DeviceEventEmitter.emit('REFRESH_GUEST_LIST');
+                                                            // Stay on 'quantity' step or go back?
+                                                            // Gate check in successful -> usually we want to SCAN FACILITIES now.
+                                                            // If we go back to 'initial' we lose the "Now scan facility" flow.
+                                                            // Kotlin stays on screen.
+                                                            // Keep step 'quantity' so user sees updated facility radios.
+                                                            // setCheckInStep('initial');
+                                                            setLoading(false);
+                                                            return;
                                                         } else {
                                                             // Facility Check-In
                                                             // Ensure main ticket is checked in first? (Already disabled in UI)
-                                                            await updateFacilityCheckInLocal(uuid, Number(selectedScanningOption), checkInQuantity);
-                                                        }
+                                                            const updated = await updateFacilityCheckInLocal(uuid, Number(selectedScanningOption), checkInQuantity);
 
-                                                        Toast.show({ type: 'success', text1: 'Success', text2: 'Checked in locally' });
+                                                            if (updated > 0) {
+                                                                Toast.show({ type: 'success', text1: 'Success', text2: 'Facility checked in locally' });
+
+                                                                // ⚡⚡⚡ OFFLINE STATE REFRESH ⚡⚡⚡
+                                                                await refreshOfflineData(uuid);
+
+                                                                DeviceEventEmitter.emit('REFRESH_GUEST_LIST'); // Ensure list refreshes
+                                                                setLoading(false);
+                                                                return; // Stop here. Do NOT fall through to naive verification below.
+                                                            } else {
+                                                                Toast.show({ type: 'error', text1: 'Check-in Failed', text2: 'Facility already checked in or not available' });
+                                                            }
+                                                        }
 
                                                         // Refresh Data
                                                         const updatedGuestData = {
@@ -539,21 +662,37 @@ const GuestDetailsModal: React.FC<GuestDetailsModalProps> = ({
                                                         Toast.show({ type: 'success', text1: 'Success', text2: 'Checked in successfully' });
 
                                                         // Refresh data locally
-                                                        const uuid = guestData.guest_uuid || guestData.uuid || guestData.qr_code;
+                                                        const uuid = guestData.qrGuestUuid || guestData.guest_uuid || guestData.uuid;
                                                         if (selectedScanningOption === 'check_in' && uuid) {
                                                             try {
                                                                 // Sync main check-in to DB
-                                                                const newUsed = (Number(guestData.used_entries) || 0) + Number(checkInQuantity);
-                                                                const { insertOrReplaceGuests } = require('../db');
-                                                                await insertOrReplaceGuests(Number(eventId), [{
-                                                                    ...guestData,
-                                                                    qr_code: uuid,
-                                                                    status: 'checked_in',
-                                                                    used_entries: newUsed,
-                                                                    check_in_count: checkInQuantity,
-                                                                    synced: 1
-                                                                }]);
-                                                            } catch (e) { }
+                                                                await updateTicketStatusLocal(uuid, 'checked_in', 1, false);
+
+                                                                // ⚡⚡⚡ OFFLINE STATE REFRESH (CRITICAL) ⚡⚡⚡
+                                                                // Recalculate used_entries from DB so UI unlocks facilities
+                                                                const { getGuestByUuid, getFacilitiesForGuest } = require('../db');
+
+                                                                const dbGuest = await getGuestByUuid(uuid);
+                                                                const dbFacilities = await getFacilitiesForGuest(uuid);
+
+                                                                if (dbGuest) {
+                                                                    setGuestData((prev: any) => ({
+                                                                        ...prev,
+                                                                        used_entries: dbGuest.used_entries,
+                                                                        status: dbGuest.used_entries > 0 ? 'checked_in' : prev.status
+                                                                    }));
+                                                                }
+
+                                                                setFacilityStatus(
+                                                                    dbFacilities.map((f: any) => ({
+                                                                        id: f.facilityId,
+                                                                        available_scans: Math.max(0, (f.availableScans || 0) - (f.checkIn || 0))
+                                                                    }))
+                                                                );
+
+                                                            } catch (err) {
+                                                                console.log('Error updating local ticket:', err);
+                                                            }
                                                         }
 
                                                         // Optimistic Update
