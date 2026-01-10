@@ -66,8 +66,10 @@ const QrCode = () => {
   const [isVerifying, setIsVerifying] = useState(false)
   const [selectedQuantity, setSelectedQuantity] = useState(1);
   const [scanStatus, setScanStatus] = useState<{ text: string, type: 'success' | 'error' | 'warning' } | null>(null);
+  const [cameraPaused, setCameraPaused] = useState(false); // ⚡⚡⚡ UI CAMERA PAUSE STATE ⚡⚡⚡
 
   const scanLockRef = useRef<string | null>(null);
+  const isProcessingRef = useRef(false); // ⚡⚡⚡ HARD LOCK REF ⚡⚡⚡
 
   // ⚡⚡⚡ OFFLINE SAFE EXIT LOGIC ⚡⚡⚡
   const handleBackPress = useCallback(async () => {
@@ -204,10 +206,9 @@ const QrCode = () => {
         panY.setOffset((panY as any)._value);
         panY.setValue(0);
       },
-      onPanResponderMove: Animated.event(
-        [null, { dy: panY }],
-        { useNativeDriver: true } // ⚡⚡⚡ NATIVE DRIVER OPTIMIZATION ⚡⚡⚡
-      ),
+      onPanResponderMove: (_, gestureState) => {
+        panY.setValue(gestureState.dy);
+      },
       onPanResponderRelease: (_, gestureState) => {
         panY.flattenOffset();
 
@@ -242,6 +243,16 @@ const QrCode = () => {
     extrapolate: 'clamp'
   });
 
+  const unlockScanner = useCallback((delay = 600) => {
+    setTimeout(() => {
+      isProcessingRef.current = false;
+      setCameraPaused(false);
+      scanLockRef.current = null;
+      setScannedValue(null);
+      // setGuestData(null); // Optional: Do not force clear guestData here to avoid UI flicker if not needed
+    }, delay);
+  }, []);
+
   const openSheet = () => {
     Animated.spring(panY, {
       toValue: MAX_UPWARD_TRANSLATE,
@@ -259,9 +270,9 @@ const QrCode = () => {
       // ⚡⚡⚡ RESET SCANNED VALUE ON CLOSE ⚡⚡⚡
       setScannedValue(null);
       setGuestData(null);
-      setScannedValue(null);
-      setGuestData(null);
-      scanLockRef.current = null;
+
+      // ⚡⚡⚡ DELAYED UNLOCK (User Requirement: 600ms) ⚡⚡⚡
+      unlockScanner(600);
     });
   };
 
@@ -325,6 +336,9 @@ const QrCode = () => {
 
   // ----------------- QR SCAN HANDLER -----------------
   const onReadCode = useCallback((event: any) => {
+    // ⚡⚡⚡ HARD LOCK CHECK ⚡⚡⚡
+    if (isProcessingRef.current) return;
+
     const rawCode = event.nativeEvent.codeStringValue;
     if (!rawCode) return;
 
@@ -332,19 +346,29 @@ const QrCode = () => {
 
     // 🔐 STRICT LOCK: Prevent re-scanning the same code while it's being processed or open
     // We check both state (scannedValue) and Ref (scanLockRef)
+    // Note: isProcessingRef handles the "Processing" state, this handles "Same Code" debounce if allowed through
     if (code === scannedValue || code === scanLockRef.current) return;
 
     console.log("New QR Scan:", code);
 
     // 🔐 LOCK THIS SCAN IMMEDIATELY
+    isProcessingRef.current = true; // HARD LOCK
+    setCameraPaused(true);          // PAUSE CAMERA UI
     scanLockRef.current = code;
 
-    // ⚡⚡⚡ DEFER HEAVY PROCESSING ⚡⚡⚡
-    InteractionManager.runAfterInteractions(() => {
+    // ⚡⚡⚡ EXECUTE IMMEDIATELY (InteractionManager caused hangs) ⚡⚡⚡
+    try {
       setScannedValue(code); // Update state to trigger UI changes if any
-      handleVerifyQR(code);
-    });
-  }, [scannedValue]);
+      handleVerifyQR(code).catch(err => {
+        console.error("Linker Error in handleVerifyQR:", err);
+        showStatus("Scan Error", "error");
+        unlockScanner(2000);
+      });
+    } catch (e) {
+      console.error("Sync Error in onReadCode:", e);
+      unlockScanner(2000);
+    }
+  }, [scannedValue, unlockScanner]);
 
   // ----------------- OFFLINE DATA STATE -----------------
   const isOfflineMode = route.params?.offline ?? false
@@ -475,7 +499,7 @@ const QrCode = () => {
             console.log(`OFFLINE SECURITY: Blocked cross-event scan. Ticket Event: ${ticket.event_id}, Current Event: ${eventId}`);
             showStatus('Invalid Ticket (Wrong Event)', 'error');
             setGuestData(null);
-            setTimeout(() => setScannedValue(null), 2000);
+            unlockScanner(2000);
             return;
           }
 
@@ -525,8 +549,13 @@ const QrCode = () => {
           console.log(`DEBUG: total_entries: ${ticket.total_entries}, used_entries: ${ticket.used_entries}`);
 
           if (usedEntries >= totalEntries) {
-            const hasFacilities = facilities && facilities.length > 0;
-            if (!hasFacilities) {
+            const allFacilitiesUsed = hasFacilities && facilities.every((f: any) => {
+              const available = f.quantity ?? f.availableScans ?? 1;
+              const scanned = f.scanned_count ?? f.checkIn ?? 0;
+              return scanned >= available;
+            });
+
+            if (!hasFacilities || allFacilitiesUsed) {
               showStatus('Already Scanned', 'warning');
               setGuestData({
                 name: ticket.guest_name || "Guest",
@@ -536,16 +565,13 @@ const QrCode = () => {
                 totalEntries,
                 usedEntries,
                 facilities,
-                facilities,
-                scanToken: scanLockRef.current,
                 uuid: ticket.qrGuestUuid || ticket.guest_uuid || ticket.qr_code
               });
-              // Reset scan after delay
-              setTimeout(() => setScannedValue(null), 2000);
-              return; // Stop execution
+              unlockScanner(2000);
+              return;
             }
-            // If has facilities, fall through to allow facility check-in
-            console.log("Offline: Main ticket used but facilities exist. Allowing scan.");
+
+            console.log("Offline: Main ticket used but facilities remain. Allowing facility scan.");
           }
 
           // ⚡⚡⚡ MULTI-ENTRY OR ALREADY USED LOGIC ⚡⚡⚡
@@ -613,20 +639,20 @@ const QrCode = () => {
                 scanToken: scanLockRef.current,
                 uuid: ticket.qrGuestUuid || ticket.guest_uuid || ticket.qr_code
               });
-              setTimeout(() => setScannedValue(null), 2000);
+              unlockScanner(2000);
             }
           }
 
         } else {
           showStatus('Invalid QR Code', 'error');
           // Reset scan after delay to allow reading toast
-          setTimeout(() => setScannedValue(null), 2000);
+          unlockScanner(2000);
           setGuestData(null)
         }
       } catch (error) {
         console.error("Offline verification error:", error)
         showStatus('Failed to verify ticket', 'error');
-        setTimeout(() => setScannedValue(null), 2000);
+        unlockScanner(2000);
         setGuestData(null)
       } finally {
         setIsVerifying(false)
@@ -646,6 +672,23 @@ const QrCode = () => {
         // ⚡⚡⚡ CAPTURE FACILITY STATUS ⚡⚡⚡
         if (response.facility_availability_status) {
           setFacilityStatus(response.facility_availability_status);
+        }
+
+        // ⚡⚡⚡ CHECK ALREADY SCANNED (Backend Logic) ⚡⚡⚡
+        const availableTickets = response.available_tickets ?? (guest.tickets_bought ? 1 : 0);
+        const facilities = response.facility_availability_status || [];
+        // If facilities exist, check if ALL are used (available_scans = 0)
+        const areFacilitiesExhausted = facilities.length > 0 && facilities.every((f: any) => f.available_scans <= 0);
+
+        // If Main Ticket is used (available <= 0) AND (No facilities OR All facilities used)
+        if (availableTickets <= 0) {
+          if (facilities.length === 0 || areFacilitiesExhausted) {
+            console.log("Blocking scan: Ticket and Facilities exhausted.");
+            showStatus("Already Scanned", "warning");
+            unlockScanner(2000);
+            setIsVerifying(false);
+            return;
+          }
         }
 
         // 1. Fetch detailed guest info FIRST to check current status
@@ -694,7 +737,7 @@ const QrCode = () => {
                 showStatus('Already Scanned', 'warning');
 
                 // Do NOT open sheet. Just reset scanner.
-                setTimeout(() => setScannedValue(null), 2000);
+                unlockScanner(2000);
                 setIsVerifying(false);
                 return;
               }
@@ -736,7 +779,7 @@ const QrCode = () => {
 
             if (isMainTicketFull && allFacilitiesFull && !isOfflineMode) {
               showStatus('Ticket and all facilities fully redeemed', 'error');
-              setTimeout(() => setScannedValue(null), 2000);
+              unlockScanner(2000);
               return;
             }
 
@@ -758,12 +801,12 @@ const QrCode = () => {
         }
       } else {
         showStatus(response?.message === "QR verification failed" ? "Invalid QR Code" : (response?.message || 'Invalid QR Code'), 'error');
-        setTimeout(() => setScannedValue(null), 2000);
+        unlockScanner(2000);
       }
     } catch (error) {
       console.error("Online verification error:", error);
       showStatus('Invalid QR Code', 'error');
-      setTimeout(() => setScannedValue(null), 2000);
+      unlockScanner(2000);
     } finally {
       setIsVerifying(false);
     }
@@ -876,7 +919,7 @@ const QrCode = () => {
       } catch (error) {
         console.error("Direct check-in error:", error);
         showStatus('Check-in failed', 'error');
-        setTimeout(() => setScannedValue(null), 2000);
+        unlockScanner(2000);
       } finally {
         setIsVerifying(false);
       }
@@ -1151,9 +1194,6 @@ const QrCode = () => {
       if (selectedScanningOption === 'check_in') {
         // Auto-close for main check-in to allow next scan
         setTimeout(() => {
-          setScannedValue(null);
-          setGuestData(null);
-          scanLockRef.current = null;
           closeSheet();
         }, 1500);
       } else {
@@ -1598,7 +1638,7 @@ const QrCode = () => {
             <View style={StyleSheet.absoluteFill}>
               <Camera
                 style={{ flex: 1 }}
-                scanBarcode={true}
+                scanBarcode={!cameraPaused} // ⚡⚡⚡ PAUSE SCANNING WHEN LOCKED ⚡⚡⚡
                 onReadCode={onReadCode}
                 showFrame={false}
                 laserColor="transparent"

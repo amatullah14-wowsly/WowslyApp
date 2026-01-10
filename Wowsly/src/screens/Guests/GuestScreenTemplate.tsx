@@ -330,7 +330,7 @@ const GuestScreenTemplate: React.FC<GuestScreenTemplateProps> = ({
     setLoading(true);
 
     try {
-      let type = 'all';
+      let type = '';
       if (activeFilter === 'Manager') type = 'manager';
       if (activeFilter === 'Invited') type = 'invited';
       if (activeFilter === 'Registered') type = 'registered';

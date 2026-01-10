@@ -469,14 +469,17 @@ export const getEventUsers = async (eventId, page = 1, type = 'all') => {
     }
 };
 
-export const getEventUsersPage = async (eventId, page = 1, type = 'all', search = '') => {
+export const getEventUsersPage = async (eventId, page = 1, type = '', search = '') => {
     try {
-        let url = `/events/${eventId}/eventuser/fetch?page=${page}&type=${type}&per_page=15`;
+        let url = `/events/${eventId}/eventuser?page=${page}&per_page=15`;
+        if (type) {
+            url += `&type=${type}`;
+        }
         if (search) {
             url += `&search=${encodeURIComponent(search)}`;
         }
 
-        console.log(`Requesting Page (Using /fetch): ${url}`);
+        console.log(`Requesting Page: ${url}`);
         const response = await client.get(url);
         return response.data; // Should return { data: [], meta: { current_page, last_page, total, ... } }
     } catch (error) {
