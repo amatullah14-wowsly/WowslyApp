@@ -23,7 +23,7 @@ import { FontSize } from '../../constants/fontSizes';
 import { useTabletScale, useTabletModerateScale } from '../../utils/tabletScaling';
 import { ResponsiveContainer } from '../../components/ResponsiveContainer';
 
-import { initDB, findTicketByQr, updateTicketStatusLocal, getTicketsForEvent, insertOrReplaceGuests, getFacilitiesForGuest, updateFacilityCheckInLocal, insertFacilityForGuest, getUnsyncedCheckins, getUnsyncedFacilities } from '../../db'
+import { initDB, findTicketByQr, updateTicketStatusLocal, getTicketsForEvent, insertOrReplaceGuests, getFacilitiesForGuest, updateFacilityCheckInLocal, insertFacilityForGuest, getUnsyncedCheckins, getUnsyncedFacilities, performGateCheckIn } from '../../db'
 import { performSyncIfOnline } from '../../sync/syncService' // 👈 Added
 import { RouteProp, useRoute, useNavigation, useFocusEffect } from '@react-navigation/native'
 import { Camera } from 'react-native-camera-kit'
@@ -916,30 +916,28 @@ const QrCode = () => {
       // ⚡⚡⚡ USE CORRECT UUID FOR FACILITY LOOKUP ⚡⚡⚡
       const uuid = guestData.uuid || guestData.qrCode;
 
+      // ⚡⚡⚡ STRICT 2-STEP FLOW ENFORCEMENT ⚡⚡⚡
+      // Rule: Facility Check-in allowed ONLY IF Main Ticket Check-in is DONE (usedEntries > 0)
+      const isMainCheckedIn = (guestData.usedEntries || 0) > 0;
+      if (!isMainCheckedIn) {
+        showStatus("Gate Entry Required First", "error");
+        return;
+      }
+
       if (isOfflineMode) {
         // ⚡⚡⚡ OFFLINE FACILITY CHECK-IN ⚡⚡⚡
         console.log(`DEBUG: Offline Facility Check-In Selected. Option: ${selectedScanningOption}, UUID: ${uuid}, Count: ${checkInCount}`);
 
         try {
-          // Ensure facility row exists locally before updating (fallback for guests saved without facility rows)
-          const selectedFacility = guestData.facilities?.find((f: any) => Number(f.id) === facilityId);
-          const availableScans = selectedFacility?.quantity ?? selectedFacility?.scan_quantity ?? selectedFacility?.total_scans ?? 1;
-          const currentScanned = selectedFacility?.scanned_count ?? 0;
-
-          await insertFacilityForGuest({
-            guest_uuid: uuid,
-            facilityId,
-            name: selectedFacility?.name || `Facility ${facilityId}`,
-            availableScans: parseInt(String(availableScans || 1), 10),
-            checkIn: parseInt(String(currentScanned || 0), 10),
-            eventId: eventId,
-            ticket_id: guestData.actualTicketId || guestData.ticketId || 0
-          });
-
+          // STRICT: Do not insert/overwrite facility. It must exist from download.
+          // Directly update the check-in count.
           const rowsAffected = await updateFacilityCheckInLocal(uuid, facilityId, checkInCount);
 
           if (!rowsAffected || rowsAffected === 0) {
-            showStatus("Facility check-in failed", "error");
+            // This happens if:
+            // 1. Facility doesn't exist (wasn't downloaded)
+            // 2. Already fully checked in (checkIn + 1 > availableScans)
+            showStatus("Facility check-in failed or limit reached", "error");
             return;
           }
 
@@ -1003,6 +1001,8 @@ const QrCode = () => {
     const currentUsed = guestData.usedEntries || 0;
     const totalEntries = guestData.totalEntries || 1;
 
+    // STRICT: In offline, main ticket scan is strictly ONCE.
+    // So if currentUsed > 0, we block (unless it's online logic handling multi-entry).
     if (currentUsed + checkInCount > totalEntries) {
       showStatus(`Cannot check in more than ${totalEntries} tickets.`, 'error');
       return;
@@ -1012,24 +1012,31 @@ const QrCode = () => {
     try {
       // ⚡⚡⚡ OFFLINE MODE BULK CHECK-IN ⚡⚡⚡
       if (isOfflineMode) {
-        // Just update local DB with increment
-        // This sets synced = 0 automatically
-        await updateTicketStatusLocal(qrCode, 'checked_in', checkInCount);
+        // STRICT: use performGateCheckIn which enforces used_entries = 0
+        // REFACTORED: Guest-based identity only (no ticketId), scoped by Event
+        const rowsAffected = await performGateCheckIn(Number(eventId), qrCode);
 
-        console.log(`Offline Bulk Check-in: +${checkInCount} for ${qrCode}`);
+        if (rowsAffected === 0) {
+          // This means already checked in (used_entries != 0) or ticket not found
+          showStatus("Already Checked In", "error");
+          setIsVerifying(false);
+          return;
+        }
+
+        console.log(`Offline Gate Check-in Success: ${qrCode}`);
 
         // Update local history for session
         // @ts-ignore
         const currentUsed = localScanHistory.get(qrCode) || guestData.usedEntries || 0;
         // @ts-ignore
-        localScanHistory.set(qrCode, currentUsed + checkInCount);
+        localScanHistory.set(qrCode, currentUsed + 1); // Strictly +1
 
         // Broadcast
         const broadcastData = {
           guest_name: guestData.name,
           qr_code: qrCode,
           total_entries: guestData.totalEntries,
-          used_entries: currentUsed + checkInCount,
+          used_entries: 1, // Strictly 1
           facilities: guestData.facilities,
           guest_id: guestData.guestId
         };

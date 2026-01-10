@@ -82,7 +82,7 @@ const GuestDetailsModal: React.FC<GuestDetailsModalProps> = ({
                 // We can mock the structure so existing UI logic works.
 
                 const mockTicket = {
-                    id: guestData?.ticket_data?.ticket_id || guestData?.ticket_id,
+                    id: 'OFFLINE_TICKET', // Decoupled from ticket_id
                     facilities: localFacilities.map(f => ({
                         id: f.facilityId, // Use facilityId as 'id' for selection
                         name: f.name,
@@ -161,7 +161,12 @@ const GuestDetailsModal: React.FC<GuestDetailsModalProps> = ({
 
     // Determine facilities for THIS guest
     const guestTicketId = guestData?.ticket_data?.ticket_id || guestData?.ticket_id;
-    const currentTicketWithFacilities = facilities.find((t: any) => t.id == guestTicketId);
+
+    // REFACTORED: Offline mode uses flat facilities for the guest, not ticket-type based
+    const currentTicketWithFacilities = offline
+        ? facilities[0]
+        : facilities.find((t: any) => t.id == guestTicketId);
+
     const availableFacilities = currentTicketWithFacilities?.facilities || [];
     const hasFacilities = availableFacilities.length > 0;
 
@@ -466,10 +471,22 @@ const GuestDetailsModal: React.FC<GuestDetailsModalProps> = ({
                                                     // OFFLINE LOGIC
                                                     if (offline) {
                                                         const uuid = guestData.guest_uuid || guestData.uuid || guestData.qr_code;
+                                                        // const ticketId = guestData.ticket_data?.ticket_id || guestData.ticket_id; // Unused in new logic
+
                                                         if (selectedScanningOption === 'check_in') {
-                                                            await updateTicketStatusLocal(uuid, 'checked_in', checkInQuantity, false);
+                                                            // STRICT GATE ENTRY (Using performGateCheckIn)
+                                                            const { performGateCheckIn } = require('../db');
+                                                            // REFACTORED: Guest-based identity only, scoped by Event
+                                                            const rowsAffected = await performGateCheckIn(Number(eventId), uuid);
+
+                                                            if (rowsAffected === 0) {
+                                                                Toast.show({ type: 'error', text1: 'Check-in Failed', text2: 'Guest already checked in' });
+                                                                setLoading(false);
+                                                                return;
+                                                            }
                                                         } else {
                                                             // Facility Check-In
+                                                            // Ensure main ticket is checked in first? (Already disabled in UI)
                                                             await updateFacilityCheckInLocal(uuid, Number(selectedScanningOption), checkInQuantity);
                                                         }
 

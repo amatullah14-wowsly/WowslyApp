@@ -202,8 +202,8 @@ export async function initDB() {
   await safeAddIndex("tickets", "idx_tickets_status", "status");
 
   // ⚡⚡⚡ ENFORCE IDENTITY RULE ⚡⚡⚡
-  // UNIQUE(event_id, qrGuestUuid, qrTicketId)
-  await safeAddIndex("tickets", "idx_tickets_identity", "event_id, qrGuestUuid, qrTicketId", true);
+  // UNIQUE(event_id, qrGuestUuid)
+  await safeAddIndex("tickets", "idx_tickets_identity", "event_id, qrGuestUuid", true);
 
   await safeAddIndex("facility", "idx_facility_guest_uuid", "guest_uuid");
   await safeAddIndex("facility", "idx_facility_facilityId", "facilityId");
@@ -243,8 +243,8 @@ export async function replaceAllGuestsForEvent(eventId: number, guestsArray: any
   const protectedSet = new Set<string>();
   for (let i = 0; i < unsyncedRes.rows.length; i++) {
     const item = unsyncedRes.rows.item(i);
-    // Key: guestUuid + ticketId
-    protectedSet.add(`${item.qrGuestUuid}_${item.qrTicketId}`);
+    // Key: guestUuid (Guest-Based Identity)
+    protectedSet.add(item.qrGuestUuid);
   }
 
   // 2. Identify Unsynced Facilities (Protected Set)
@@ -280,12 +280,22 @@ export async function replaceAllGuestsForEvent(eventId: number, guestsArray: any
     let processedCount = 0;
 
     for (const g of guestsArray) {
-      const ticketId = g.ticket_id || g.id || null;
+      // ⚡⚡⚡ CORRECT TICKET ID EXTRACTION ⚡⚡⚡
+      const ticketId =
+        g.ticket_id ??
+        g.ticket?.id ??
+        g.ticket_data?.ticket_id ??
+        g.ticket_data?.id ??
+        null;
+
+      if (!ticketId) {
+        console.warn("[DB] ⚠️ Missing ticket_id for guest:", g.guest_uuid || g.uuid, JSON.stringify(g).substring(0, 100));
+      }
+
       const qrGuestUuid = g.guest_uuid || g.uuid || null;
 
       // IDENTITY CHECK: If this guest is locally modified, SKIP overwrite
-      const identityKey = `${qrGuestUuid}_${ticketId}`;
-      if (protectedSet.has(identityKey)) {
+      if (protectedSet.has(qrGuestUuid)) {
         continue;
       }
 
@@ -442,6 +452,39 @@ export async function findTicketByQr(qrValue: string) {
   );
 
   return res.rows.length > 0 ? res.rows.item(0) : null;
+}
+
+// ======================================================
+// STRICT GATE ENTRY CHECK-IN (OFFLINE)
+// ======================================================
+// ======================================================
+// STRICT GATE ENTRY CHECK-IN (OFFLINE)
+// ======================================================
+// ======================================================
+// STRICT GATE ENTRY CHECK-IN (OFFLINE)
+// ======================================================
+export async function performGateCheckIn(eventId: number, qrGuestUuid: string) {
+  const db = await openDB();
+  const iso = new Date().toISOString();
+  const sqlTime = formatToSQLDatetime(iso);
+
+  // STRICT RULE: Update ONLY if used_entries = 0
+  // REFACTORED: Guest-based identity (qrGuestUuid), ignoring ticket_id uniqueness
+  const [result] = await db.executeSql(
+    `UPDATE tickets 
+     SET status = 'checked_in',
+         used_entries = 1,
+         check_in_count = 1,
+         scanned_at = ?,
+         synced = 0,
+         given_check_in_time = ?
+     WHERE event_id = ? 
+       AND qrGuestUuid = ? 
+       AND (used_entries IS NULL OR used_entries = 0)`,
+    [iso, sqlTime, eventId, qrGuestUuid]
+  );
+
+  return result.rowsAffected;
 }
 
 // ======================================================
