@@ -66,10 +66,10 @@ const QrCode = () => {
   const [isVerifying, setIsVerifying] = useState(false)
   const [selectedQuantity, setSelectedQuantity] = useState(1);
   const [scanStatus, setScanStatus] = useState<{ text: string, type: 'success' | 'error' | 'warning' } | null>(null);
-  const [cameraPaused, setCameraPaused] = useState(false); // ⚡⚡⚡ UI CAMERA PAUSE STATE ⚡⚡⚡
-
+  // ⚡⚡⚡ SCAN ENABLED STATE (Hard Lock) ⚡⚡⚡
+  const [scanEnabled, setScanEnabled] = useState(true);
   const scanLockRef = useRef<string | null>(null);
-  const isProcessingRef = useRef(false); // ⚡⚡⚡ HARD LOCK REF ⚡⚡⚡
+  const isProcessingRef = useRef(false); // Keeps track of active processing
 
   // ⚡⚡⚡ OFFLINE SAFE EXIT LOGIC ⚡⚡⚡
   const handleBackPress = useCallback(async () => {
@@ -246,10 +246,9 @@ const QrCode = () => {
   const unlockScanner = useCallback((delay = 600) => {
     setTimeout(() => {
       isProcessingRef.current = false;
-      setCameraPaused(false);
+      setScanEnabled(true);
       scanLockRef.current = null;
       setScannedValue(null);
-      // setGuestData(null); // Optional: Do not force clear guestData here to avoid UI flicker if not needed
     }, delay);
   }, []);
 
@@ -267,12 +266,15 @@ const QrCode = () => {
       useNativeDriver: true, // ⚡⚡⚡ NATIVE DRIVER ⚡⚡⚡
       bounciness: 4
     }).start(() => {
-      // ⚡⚡⚡ RESET SCANNED VALUE ON CLOSE ⚡⚡⚡
       setScannedValue(null);
       setGuestData(null);
 
-      // ⚡⚡⚡ DELAYED UNLOCK (User Requirement: 600ms) ⚡⚡⚡
-      unlockScanner(600);
+      // 🔓 unlock QR session only AFTER guest is done
+      setTimeout(() => {
+        setScanEnabled(true);
+        scanLockRef.current = null;
+        isProcessingRef.current = false;
+      }, 500);
     });
   };
 
@@ -337,7 +339,8 @@ const QrCode = () => {
   // ----------------- QR SCAN HANDLER -----------------
   const onReadCode = useCallback((event: any) => {
     // ⚡⚡⚡ HARD LOCK CHECK ⚡⚡⚡
-    if (isProcessingRef.current) return;
+    // If scanning is disabled, ignore EVERYTHING
+    if (!scanEnabled) return;
 
     const rawCode = event.nativeEvent.codeStringValue;
     if (!rawCode) return;
@@ -345,30 +348,29 @@ const QrCode = () => {
     const code = rawCode.trim();
 
     // 🔐 STRICT LOCK: Prevent re-scanning the same code while it's being processed or open
-    // We check both state (scannedValue) and Ref (scanLockRef)
-    // Note: isProcessingRef handles the "Processing" state, this handles "Same Code" debounce if allowed through
     if (code === scannedValue || code === scanLockRef.current) return;
 
     console.log("New QR Scan:", code);
 
     // 🔐 LOCK THIS SCAN IMMEDIATELY
-    isProcessingRef.current = true; // HARD LOCK
-    setCameraPaused(true);          // PAUSE CAMERA UI
+    isProcessingRef.current = true; // Logic lock
+    setScanEnabled(false);          // HARDWARE LOCK (Disable Camera)
     scanLockRef.current = code;
 
-    // ⚡⚡⚡ EXECUTE IMMEDIATELY (InteractionManager caused hangs) ⚡⚡⚡
+    // ⚡⚡⚡ EXECUTE IMMEDIATELY ⚡⚡⚡
     try {
       setScannedValue(code); // Update state to trigger UI changes if any
       handleVerifyQR(code).catch(err => {
         console.error("Linker Error in handleVerifyQR:", err);
         showStatus("Scan Error", "error");
-        unlockScanner(2000);
+        // Ensure unlock happens even if fatal error
+        unlockScanner(1200);
       });
     } catch (e) {
       console.error("Sync Error in onReadCode:", e);
-      unlockScanner(2000);
+      unlockScanner(1200);
     }
-  }, [scannedValue, unlockScanner]);
+  }, [scanEnabled, scannedValue, unlockScanner]);
 
   // ----------------- OFFLINE DATA STATE -----------------
   const isOfflineMode = route.params?.offline ?? false
@@ -395,8 +397,9 @@ const QrCode = () => {
     }
   }
 
-  // ----------------- VERIFY QR FUNCTION -----------------
-  const handleVerifyQR = async (qrGuestUuid: string) => {
+  // ----------------- VERIFY QR LOGIC -----------------
+  // Internal logic function (renamed from handleVerifyQR)
+  const verifyQRLogic = async (qrGuestUuid: string) => {
     setIsVerifying(true)
     setSelectedQuantity(1); // Reset quantity selector
     setSelectedScanningOption('check_in'); // Default to main check-in
@@ -809,6 +812,18 @@ const QrCode = () => {
       unlockScanner(2000);
     } finally {
       setIsVerifying(false);
+    }
+  };
+
+  // ⚡⚡⚡ WRAPPER FOR SAFE UNLOCKING ⚡⚡⚡
+  const handleVerifyQR = async (code: string) => {
+    try {
+      await verifyQRLogic(code);
+    } finally {
+      // ⚡⚡⚡ REMOVED AUTO UNLOCK ⚡⚡⚡
+      // Session must stay locked until sheet is closed.
+      // Logic moved to closeSheet()
+      console.log("Scan verified. Waiting for user action.");
     }
   };
 
@@ -1234,20 +1249,14 @@ const QrCode = () => {
 
 
   const getDisplayedStats = () => {
-    if (!guestData) return { bought: 0, scanned: 0, remaining: 0 };
+    if (!guestData) return { bought: 0, remaining: 0 };
 
-    // Only add selectedQuantity if it's a multi-entry ticket AND valid for check-in
-    // For single entry, it auto-checks in, so we don't add the projection.
-    const isMultiEntry = guestData.totalEntries > 1;
-    const quantityToAdd = (isMultiEntry && guestData.isValid) ? selectedQuantity : 0;
-
-    const currentUsed = (guestData.usedEntries || 0) + quantityToAdd;
-    const currentRemaining = (guestData.totalEntries || 1) - currentUsed;
+    const total = guestData.totalEntries || 1;
+    const used = guestData.usedEntries || 0;
 
     return {
-      bought: guestData.totalEntries || 1,
-      scanned: currentUsed,
-      remaining: Math.max(0, currentRemaining)
+      bought: total,
+      remaining: Math.max(0, total - used)
     };
   };
 
@@ -1638,7 +1647,7 @@ const QrCode = () => {
             <View style={StyleSheet.absoluteFill}>
               <Camera
                 style={{ flex: 1 }}
-                scanBarcode={!cameraPaused} // ⚡⚡⚡ PAUSE SCANNING WHEN LOCKED ⚡⚡⚡
+                scanBarcode={scanEnabled} // ⚡⚡⚡ HARD LOCK: DISABLE SCANNING WHEN FALSE ⚡⚡⚡
                 onReadCode={onReadCode}
                 showFrame={false}
                 laserColor="transparent"
@@ -1732,11 +1741,6 @@ const QrCode = () => {
                         <View style={styles.statItem}>
                           <Text style={styles.statLabel}>Bought</Text>
                           <Text style={styles.statValue}>{stats.bought}</Text>
-                        </View>
-                        <View style={styles.statDivider} />
-                        <View style={styles.statItem}>
-                          <Text style={styles.statLabel}>Scanned</Text>
-                          <Text style={styles.statValue}>{stats.scanned}</Text>
                         </View>
                         <View style={styles.statDivider} />
                         <View style={styles.statItem}>

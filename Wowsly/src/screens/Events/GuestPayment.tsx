@@ -226,7 +226,7 @@ const GuestPayment = () => {
                         )}
                     </TouchableOpacity>
 
-                    <TouchableOpacity
+                    {/* <TouchableOpacity
                         style={[styles.paymentOption, paymentMode === 'Online' && styles.paymentOptionSelected]}
                         onPress={() => setPaymentMode('Online')}
                         activeOpacity={0.9}
@@ -237,7 +237,7 @@ const GuestPayment = () => {
                             </View>
                             <Text style={[styles.paymentText, paymentMode === 'Online' && styles.paymentTextSelected]}>Online</Text>
                         </View>
-                    </TouchableOpacity>
+                    </TouchableOpacity> */}
                 </View>
 
             </ScrollView>

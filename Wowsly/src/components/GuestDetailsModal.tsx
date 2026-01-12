@@ -7,7 +7,9 @@ import {
     StyleSheet,
     ActivityIndicator,
     DeviceEventEmitter,
-    ScrollView
+    ScrollView,
+    Switch,
+    TouchableWithoutFeedback
 } from 'react-native';
 import { scale, verticalScale, moderateScale } from '../utils/scaling';
 import { getGuestDetails, verifyQrCode, checkInEventUser, getEventTickets } from '../api/event';
@@ -48,6 +50,7 @@ const GuestDetailsModal: React.FC<GuestDetailsModalProps> = ({
 }) => {
     const [loading, setLoading] = useState(false);
     const [guestData, setGuestData] = useState<any>(null);
+    const [showAdditional, setShowAdditional] = useState(false);
     const [checkInStep, setCheckInStep] = useState<'initial' | 'quantity'>('initial');
     const [checkInQuantity, setCheckInQuantity] = useState(1);
 
@@ -183,168 +186,301 @@ const GuestDetailsModal: React.FC<GuestDetailsModalProps> = ({
     // Facilities should be disabled if NOT checked in (usedCount == 0) - per user req
     const isGuestCheckedIn = usedCount > 0 || guestData?.status === 'checked_in';
 
+    // 🔐 Lock quantity when selected option is exhausted
+    const isQuantityLocked = (() => {
+        const remainingMain = Math.max(0, totalEntries - usedCount);
+
+        // Main ticket selected
+        if (selectedScanningOption === 'check_in') {
+            return remainingMain <= 0;
+        }
+
+        // Facility selected
+        const stat = facilityStatus.find(s => String(s.id) === String(selectedScanningOption));
+        if (!stat) return false;
+
+        return stat.available_scans <= 0;
+    })();
+
+    useEffect(() => {
+        if (isQuantityLocked) {
+            setCheckInQuantity(1);
+        }
+    }, [isQuantityLocked]);
+
+    // ⚡⚡⚡ HELPER: Format Date to IST ⚡⚡⚡
+    const formatToIST = (dateInput: string | number | null | undefined) => {
+        if (!dateInput) return null;
+        try {
+            const date = new Date(typeof dateInput === 'number' ? dateInput * 1000 : dateInput);
+            return date.toLocaleString('en-IN', {
+                year: 'numeric',
+                month: 'short',
+                day: 'numeric',
+                hour: 'numeric',
+                minute: 'numeric',
+                hour12: true,
+                timeZone: 'Asia/Kolkata' // Ensure IST
+            });
+        } catch (e) {
+            return String(dateInput);
+        }
+    };
+
     return (
         <Modal visible={visible} transparent animationType="slide">
             <TouchableOpacity style={styles.overlay} activeOpacity={1} onPress={onClose}>
-                <TouchableOpacity activeOpacity={1} style={styles.modalContainer} onPress={(e) => e.stopPropagation()}>
-                    <View style={styles.header}>
-                        <Text style={styles.title}>Guest details</Text>
-                        <TouchableOpacity onPress={onClose}>
-                            <Text style={styles.closeText}>✕</Text>
-                        </TouchableOpacity>
-                    </View>
-
-                    {loading ? (
-                        <View style={styles.loadingContainer}>
-                            <ActivityIndicator size="large" color="#FF8A3C" />
+                <TouchableWithoutFeedback onPress={() => { }}>
+                    <View style={styles.modalContainer}>
+                        <View style={styles.header}>
+                            <Text style={styles.title}>Guest details</Text>
+                            <TouchableOpacity onPress={onClose}>
+                                <Text style={styles.closeText}>✕</Text>
+                            </TouchableOpacity>
                         </View>
-                    ) : guestData ? (
-                        <ScrollView style={{ flexShrink: 1 }} contentContainerStyle={styles.scrollContent}>
-                            <View style={styles.detailsContainer}>
-                                <View style={styles.detailRow}>
-                                    <Text style={styles.label}>Name:</Text>
-                                    <Text style={styles.value}>{guestData.name || "N/A"}</Text>
-                                </View>
 
-                                <View style={styles.detailRow}>
-                                    <Text style={styles.label}>Email:</Text>
-                                    <Text style={styles.value}>{guestData.email || "N/A"}</Text>
-                                </View>
+                        {loading ? (
+                            <View style={styles.loadingContainer}>
+                                <ActivityIndicator size="large" color="#FF8A3C" />
+                            </View>
+                        ) : guestData ? (
+                            <ScrollView
+                                style={{ flexShrink: 1 }}
+                                contentContainerStyle={styles.scrollContent}
+                                showsVerticalScrollIndicator={false}
+                                bounces={true}
+                                overScrollMode="always"
+                                keyboardShouldPersistTaps="handled"
+                            >
+                                <View style={styles.detailsContainer}>
+                                    <View style={styles.detailRow}>
+                                        <Text style={styles.label}>Name:</Text>
+                                        <Text style={styles.value}>{guestData.name || "N/A"}</Text>
+                                    </View>
 
-                                <View style={styles.detailRow}>
-                                    <Text style={styles.label}>Contact:</Text>
-                                    <Text style={styles.value}>{guestData.phone || "N/A"}</Text>
-                                </View>
+                                    <View style={styles.detailRow}>
+                                        <Text style={styles.label}>Email:</Text>
+                                        <Text style={styles.value}>{guestData.email || "N/A"}</Text>
+                                    </View>
 
-                                <View style={styles.detailRow}>
-                                    <Text style={styles.label}>Ticket Title:</Text>
-                                    <Text style={styles.value}>{guestData.ticket_data?.ticket_title || "Standard"}</Text>
-                                </View>
+                                    <View style={styles.detailRow}>
+                                        <Text style={styles.label}>Contact:</Text>
+                                        <Text style={styles.value}>{guestData.phone || "N/A"}</Text>
+                                    </View>
 
-                                <View style={styles.detailRow}>
-                                    <Text style={styles.label}>Tickets Purchased:</Text>
-                                    <Text style={styles.value}>{totalEntries}</Text>
-                                </View>
+                                    {guestData.registration_time && (
+                                        <View style={styles.detailRow}>
+                                            <Text style={styles.label}>Registration Time:</Text>
+                                            <Text style={styles.value}>{formatToIST(guestData.registration_time)}</Text>
+                                        </View>
+                                    )}
 
-                                <View style={styles.detailRow}>
-                                    <Text style={styles.label}>Amount Paid:</Text>
-                                    <Text style={styles.value}>{guestData.amount || guestData.price || 0} ₹</Text>
-                                </View>
+                                    <View style={styles.detailRow}>
+                                        <Text style={styles.label}>Ticket Name:</Text>
+                                        <Text style={styles.value}>{guestData.ticket_data?.ticket_title || guestData.ticket_title || "Standard"}</Text>
+                                    </View>
 
+                                    {guestData.ticket_data?.ticket_id && (
+                                        <View style={styles.detailRow}>
+                                            <Text style={styles.label}>Ticket ID:</Text>
+                                            <Text style={styles.value}>{guestData.ticket_data.ticket_id}</Text>
+                                        </View>
+                                    )}
 
+                                    <View style={styles.detailRow}>
+                                        <Text style={styles.label}>Tickets Purchased:</Text>
+                                        <Text style={styles.value}>{totalEntries}</Text>
+                                    </View>
 
-                                {checkInStep === 'initial' ? (
-                                    <View style={styles.buttonContainer}>
-                                        {(onManualCheckIn || (eventId && guestId)) && (
-                                            <TouchableOpacity
-                                                style={[
-                                                    styles.actionButton,
-                                                    ((isFullyCheckedIn && !hasFacilities) || (isFullyCheckedIn && hasFacilities && facilityStatus.length > 0 && availableFacilities.every(fac => {
-                                                        const stat = facilityStatus.find(s => s.id == fac.id);
-                                                        return stat ? stat.available_scans <= 0 : false;
-                                                    }))) && styles.disabledButton
-                                                ]}
-                                                disabled={
-                                                    (isFullyCheckedIn && !hasFacilities) ||
-                                                    (isFullyCheckedIn && hasFacilities && facilityStatus.length > 0 && availableFacilities.every(fac => {
-                                                        const stat = facilityStatus.find(s => s.id == fac.id);
-                                                        return stat ? stat.available_scans <= 0 : false;
-                                                    }))
-                                                }
-                                                onPress={async () => {
-                                                    if (onManualCheckIn && guestId) {
-                                                        onManualCheckIn(guestId);
-                                                        return;
+                                    <View style={styles.detailRow}>
+                                        <Text style={styles.label}>Amount Paid:</Text>
+                                        <Text style={styles.value}>{guestData.ticket_data?.amount_paid || guestData.amount || guestData.price || 0} ₹</Text>
+                                    </View>
+
+                                    {guestData.ticket_data?.payment_id && (
+                                        <View style={styles.detailRow}>
+                                            <Text style={styles.label}>Payment ID:</Text>
+                                            <Text style={styles.value}>{guestData.ticket_data.payment_id}</Text>
+                                        </View>
+                                    )}
+
+                                    {guestData.ticket_data?.payment_method && (
+                                        <View style={styles.detailRow}>
+                                            <Text style={styles.label}>Payment Method:</Text>
+                                            <Text style={styles.value}>{guestData.ticket_data.payment_method}</Text>
+                                        </View>
+                                    )}
+
+                                    {guestData.ticket_data?.payment_time && (
+                                        <View style={styles.detailRow}>
+                                            <Text style={styles.label}>Payment Time:</Text>
+                                            <Text style={styles.value}>{formatToIST(guestData.ticket_data.payment_time)}</Text>
+                                        </View>
+                                    )}
+
+                                    {guestData.registered_by && (
+                                        <View style={styles.detailRow}>
+                                            <Text style={styles.label}>Registered By:</Text>
+                                            <Text style={styles.value}>{guestData.registered_by}</Text>
+                                        </View>
+                                    )}
+
+                                    {/* Additional Details Toggle */}
+                                    <View style={styles.additionalToggleRow}>
+                                        <Text style={styles.additionalText}>Show additional guest details</Text>
+                                        <Switch
+                                            value={showAdditional}
+                                            onValueChange={setShowAdditional}
+                                            trackColor={{ false: "#ccc", true: "#FF8A3C" }} // Using app theme color
+                                            thumbColor={"#fff"}
+                                        />
+                                    </View>
+
+                                    {/* Additional Details List */}
+                                    {showAdditional && guestData?.additional_form_replies?.length > 0 && (
+                                        <View style={styles.additionalDetailsContainer}>
+                                            {guestData.additional_form_replies.map((item: any, index: number) => (
+                                                <View key={index} style={styles.additionalItem}>
+                                                    <Text style={styles.additionalQuestion}>{item.question}:</Text>
+                                                    <Text style={styles.additionalAnswer}>{item.answer}</Text>
+                                                </View>
+                                            ))}
+                                        </View>
+                                    )}
+
+                                    {checkInStep === 'initial' ? (
+                                        <View style={styles.buttonContainer}>
+                                            {(onManualCheckIn || (eventId && guestId)) && (
+                                                <TouchableOpacity
+                                                    style={[
+                                                        styles.actionButton,
+                                                        ((isFullyCheckedIn && !hasFacilities) || (isFullyCheckedIn && hasFacilities && facilityStatus.length > 0 && availableFacilities.every(fac => {
+                                                            const stat = facilityStatus.find(s => s.id == fac.id);
+                                                            return stat ? stat.available_scans <= 0 : false;
+                                                        }))) && styles.disabledButton
+                                                    ]}
+                                                    disabled={
+                                                        (isFullyCheckedIn && !hasFacilities) ||
+                                                        (isFullyCheckedIn && hasFacilities && facilityStatus.length > 0 && availableFacilities.every(fac => {
+                                                            const stat = facilityStatus.find(s => s.id == fac.id);
+                                                            return stat ? stat.available_scans <= 0 : false;
+                                                        }))
                                                     }
-                                                    if (!eventId) return;
-
-                                                    try {
-                                                        // FIX: STRICT UUID LOOKUP
-                                                        const uuid = guestData.qrGuestUuid || guestData.guest_uuid || guestData.uuid;
-
-                                                        // Check if fully used (Main + Facilities) before allowing verify? 
-                                                        // User logic: "if all the facilities got scanned or checked in then manual check in button should get disabled"
-                                                        // We can calculate this using current data if we have it, OR rely on verify call to return status and THEN disable.
-                                                        // But the button ITSELF is what triggers verify. So we need to disable it in render.
-
-                                                        // Fallback if no UUID found - manual bypass (or error if strict)
-                                                        if (!uuid) {
-                                                            Toast.show({ type: 'error', text1: 'Invalid QR Verification', text2: 'Guest does not have a valid ticket.' });
+                                                    onPress={async () => {
+                                                        if (onManualCheckIn && guestId) {
+                                                            onManualCheckIn(guestId);
                                                             return;
                                                         }
+                                                        if (!eventId) return;
 
-                                                        setLoading(true);
+                                                        try {
+                                                            // FIX: STRICT UUID LOOKUP
+                                                            const uuid = guestData.qrGuestUuid || guestData.guest_uuid || guestData.uuid;
 
-                                                        // ⚡⚡⚡ OFFLINE BYPASS: SKIP API ⚡⚡⚡
-                                                        // Kotlin Logic: Offline = Trust local SQLite data. DO NOT call verifyQrCode.
-                                                        if (offline) {
-                                                            console.log("Offline Mode: Skipping QR API verify, using local data.");
+                                                            // Check if fully used (Main + Facilities) before allowing verify? 
+                                                            // User logic: "if all the facilities got scanned or checked in then manual check in button should get disabled"
+                                                            // We can calculate this using current data if we have it, OR rely on verify call to return status and THEN disable.
+                                                            // But the button ITSELF is what triggers verify. So we need to disable it in render.
 
-                                                            // Proceed directly to Step 2
-                                                            setLoading(false);
-                                                            setCheckInStep('quantity');
+                                                            // Fallback if no UUID found - manual bypass (or error if strict)
+                                                            if (!uuid) {
+                                                                Toast.show({ type: 'error', text1: 'Invalid QR Verification', text2: 'Guest does not have a valid ticket.' });
+                                                                return;
+                                                            }
 
-                                                            // Ensure facilities are loaded (from SQLite)
-                                                            // (Previous fix ensures they load correctly even without ticket_id)
-                                                            await fetchFacilities();
-                                                            return;
-                                                        }
+                                                            setLoading(true);
 
-                                                        const res = await verifyQrCode(eventId, { qrGuestUuid: uuid });
-                                                        console.log("VerifyQR Result:", res);
+                                                            // ⚡⚡⚡ OFFLINE BYPASS: SKIP API ⚡⚡⚡
+                                                            // Kotlin Logic: Offline = Trust local SQLite data. DO NOT call verifyQrCode.
+                                                            if (offline) {
+                                                                console.log("Offline Mode: Skipping QR API verify, using local data.");
 
-                                                        // 🟢 ONLINE success
-                                                        if (res && (res.message === 'QR code verified' || res.success)) {
-                                                            console.log("QR Verified. Fetching fresh details...");
+                                                                // Proceed directly to Step 2
+                                                                setLoading(false);
+                                                                setCheckInStep('quantity');
 
-                                                            // Handle guest_data as Array or Object
-                                                            let mergedData = {};
-                                                            if (res.guest_data) {
-                                                                if (Array.isArray(res.guest_data) && res.guest_data.length > 0) {
-                                                                    mergedData = res.guest_data[0];
-                                                                } else if (!Array.isArray(res.guest_data)) {
-                                                                    mergedData = res.guest_data;
+                                                                // Ensure facilities are loaded (from SQLite)
+                                                                // (Previous fix ensures they load correctly even without ticket_id)
+                                                                await fetchFacilities();
+                                                                return;
+                                                            }
+
+                                                            const res = await verifyQrCode(eventId, { qrGuestUuid: uuid });
+                                                            console.log("VerifyQR Result:", res);
+
+                                                            // 🟢 ONLINE success
+                                                            if (res && (res.message === 'QR code verified' || res.success)) {
+                                                                console.log("QR Verified. Fetching fresh details...");
+
+                                                                // Handle guest_data as Array or Object
+                                                                let mergedData = {};
+                                                                if (res.guest_data) {
+                                                                    if (Array.isArray(res.guest_data) && res.guest_data.length > 0) {
+                                                                        mergedData = res.guest_data[0];
+                                                                    } else if (!Array.isArray(res.guest_data)) {
+                                                                        mergedData = res.guest_data;
+                                                                    }
+                                                                } else if (res.data) {
+                                                                    mergedData = res.data;
                                                                 }
-                                                            } else if (res.data) {
-                                                                mergedData = res.data;
+
+                                                                // Update state immediately with verify response
+                                                                setGuestData((prev: any) => ({ ...prev, ...mergedData }));
+
+                                                                // Store facility availability status from verify response
+                                                                if (res.facility_availability_status) {
+                                                                    setFacilityStatus(res.facility_availability_status);
+                                                                }
+
+                                                                // FIX: Set facilities from verify response (Server Truth)
+                                                                // Do NOT call fetchFacilities() or getEventTickets()
+                                                                // mergedData comes from guest_data[0]
+                                                                if (mergedData.facilities) {
+                                                                    setFacilities(mergedData.facilities);
+                                                                } else if (res.facilities) {
+                                                                    setFacilities(res.facilities);
+                                                                }
+
+                                                                const detailsRes = await getGuestDetails(eventId, guestId);
+                                                                // Removed await fetchFacilities();
+
+                                                                if (detailsRes?.data) {
+                                                                    const newData = detailsRes.data;
+                                                                    setGuestData((prev: any) => ({ ...prev, ...newData }));
+                                                                }
+
+                                                                setLoading(false);
+                                                                setCheckInStep('quantity');
+                                                                // Default selection: If fully checked in, maybe select first facility?
+                                                                // Or stick to 'check_in' and let user see it's disabled.
+                                                                // If usedCount >= totalEntries, 'check_in' radio will be disabled in render but we should auto select something else?
+                                                                // For now defaults to 'check_in'
+                                                                return;
                                                             }
 
-                                                            // Update state immediately with verify response
-                                                            setGuestData((prev: any) => ({ ...prev, ...mergedData }));
+                                                            // 🟡 OFFLINE MODE (Network Error)
+                                                            if (!res || res.status === false) {
+                                                                if (offline) {
+                                                                    Toast.show({
+                                                                        type: 'info',
+                                                                        text1: 'Offline Mode',
+                                                                        text2: 'Verified locally. Using offline data.'
+                                                                    });
 
-                                                            // Store facility availability status from verify response
-                                                            if (res.facility_availability_status) {
-                                                                setFacilityStatus(res.facility_availability_status);
+                                                                    // Manually proceed as verified
+                                                                    await fetchFacilities();     // load facilities from SQLite
+                                                                    setCheckInStep('quantity');  // move to step 2
+                                                                    setLoading(false);
+                                                                    return;
+                                                                }
                                                             }
 
-                                                            // FIX: Set facilities from verify response (Server Truth)
-                                                            // Do NOT call fetchFacilities() or getEventTickets()
-                                                            // mergedData comes from guest_data[0]
-                                                            if (mergedData.facilities) {
-                                                                setFacilities(mergedData.facilities);
-                                                            } else if (res.facilities) {
-                                                                setFacilities(res.facilities);
-                                                            }
-
-                                                            const detailsRes = await getGuestDetails(eventId, guestId);
-                                                            // Removed await fetchFacilities();
-
-                                                            if (detailsRes?.data) {
-                                                                const newData = detailsRes.data;
-                                                                setGuestData((prev: any) => ({ ...prev, ...newData }));
-                                                            }
-
+                                                            // 🔴 REAL failure
+                                                            Toast.show({ type: 'error', text1: 'Verification Failed', text2: res?.message || 'Invalid QR' });
                                                             setLoading(false);
-                                                            setCheckInStep('quantity');
-                                                            // Default selection: If fully checked in, maybe select first facility?
-                                                            // Or stick to 'check_in' and let user see it's disabled.
-                                                            // If usedCount >= totalEntries, 'check_in' radio will be disabled in render but we should auto select something else?
-                                                            // For now defaults to 'check_in'
-                                                            return;
-                                                        }
-
-                                                        // 🟡 OFFLINE MODE (Network Error)
-                                                        if (!res || res.status === false) {
+                                                        } catch (e) {
+                                                            console.error(e);
+                                                            // 🟡 CATCH-ALL OFFLINE MODE (If calling verifyQrCode threw instead of returning error obj)
                                                             if (offline) {
                                                                 Toast.show({
                                                                     type: 'info',
@@ -358,331 +494,201 @@ const GuestDetailsModal: React.FC<GuestDetailsModalProps> = ({
                                                                 setLoading(false);
                                                                 return;
                                                             }
-                                                        }
 
-                                                        // 🔴 REAL failure
-                                                        Toast.show({ type: 'error', text1: 'Verification Failed', text2: res?.message || 'Invalid QR' });
-                                                        setLoading(false);
-                                                    } catch (e) {
-                                                        console.error(e);
-                                                        // 🟡 CATCH-ALL OFFLINE MODE (If calling verifyQrCode threw instead of returning error obj)
-                                                        if (offline) {
-                                                            Toast.show({
-                                                                type: 'info',
-                                                                text1: 'Offline Mode',
-                                                                text2: 'Verified locally. Using offline data.'
-                                                            });
-
-                                                            // Manually proceed as verified
-                                                            await fetchFacilities();     // load facilities from SQLite
-                                                            setCheckInStep('quantity');  // move to step 2
+                                                            Toast.show({ type: 'error', text1: 'Error', text2: 'Verification failed' });
                                                             setLoading(false);
-                                                            return;
                                                         }
-
-                                                        Toast.show({ type: 'error', text1: 'Error', text2: 'Verification failed' });
-                                                        setLoading(false);
-                                                    }
-                                                }}
-                                            >
-                                                <Text style={styles.buttonText}>
-                                                    {isFullyCheckedIn && !hasFacilities ? 'Checked In' : 'Manual Check-In'}
-                                                </Text>
-                                            </TouchableOpacity>
-                                        )}
-
-                                        {isManager ? (
-                                            <TouchableOpacity style={styles.actionButton} onPress={() => onMakeGuest?.(guestId!)}>
-                                                <Text style={styles.buttonText}>Make Guest</Text>
-                                            </TouchableOpacity>
-                                        ) : (
-                                            <TouchableOpacity style={styles.actionButton} onPress={() => onMakeManager?.(guestId!)}>
-                                                <Text style={styles.buttonText}>Make Manager</Text>
-                                            </TouchableOpacity>
-                                        )}
-                                    </View>
-                                ) : (
-                                    /* ---------------------- STEP 2: Quantity Selection ---------------------- */
-                                    <View style={styles.checkInContainer}>
-                                        <Text style={styles.scanningReportsTitle}>Scanning Reports</Text>
-
-                                        <Text style={styles.scanningForTitle}>Scanning for</Text>
-
-                                        <View style={styles.radioGroup}>
-                                            {/* CHECK-IN RADIO (Main Ticket) */}
-                                            {/* Logic: Enabled ONLY if remaining tickets > 0 */}
-                                            {(() => {
-                                                const remainingMain = Math.max(0, totalEntries - usedCount);
-                                                const mainCheckInDisabled = remainingMain <= 0;
-
-                                                return (
-                                                    <TouchableOpacity
-                                                        style={styles.radioItem}
-                                                        onPress={() => !mainCheckInDisabled && setSelectedScanningOption('check_in')}
-                                                        activeOpacity={mainCheckInDisabled ? 1 : 0.7}
-                                                    >
-                                                        <View style={[styles.radioOuter, { borderColor: mainCheckInDisabled ? '#CCC' : '#FF8A3C' }]}>
-                                                            {selectedScanningOption === 'check_in' && <View style={[styles.radioInner, { backgroundColor: mainCheckInDisabled ? '#CCC' : '#FF8A3C' }]} />}
-                                                        </View>
-                                                        <Text style={[styles.radioLabel, mainCheckInDisabled && styles.disabledText]}>Check-In</Text>
-                                                    </TouchableOpacity>
-                                                );
-                                            })()}
-
-                                            {/* FACILITIES RADIOS */}
-                                            {/* Logic: Enabled ONLY if Main Tickets <= 0 AND Facility Scans > 0 */}
-                                            {availableFacilities.map((fac: any) => {
-                                                const remainingMain = Math.max(0, totalEntries - usedCount);
-                                                // Kotlin Rule: Facilities enabled after FIRST main check-in
-                                                const mainCheckedIn = usedCount > 0;
-
-                                                let facilityDisabled = !mainCheckedIn; // Disabled if NOT checked in yet
-
-                                                // Also check specific facility availability
-                                                if (!facilityDisabled && facilityStatus.length > 0) {
-                                                    const status = facilityStatus.find((s: any) => s.id == fac.id);
-                                                    if (status && status.available_scans <= 0) {
-                                                        facilityDisabled = true;
-                                                    }
-                                                }
-
-                                                return (
-                                                    <TouchableOpacity
-                                                        key={fac.id}
-                                                        style={styles.radioItem}
-                                                        onPress={() => !facilityDisabled && setSelectedScanningOption(fac.id)}
-                                                        activeOpacity={facilityDisabled ? 1 : 0.7}
-                                                    >
-                                                        <View style={[styles.radioOuter, { borderColor: facilityDisabled ? '#CCC' : '#FF8A3C' }]}>
-                                                            {selectedScanningOption === fac.id && <View style={[styles.radioInner, { backgroundColor: facilityDisabled ? '#CCC' : '#FF8A3C' }]} />}
-                                                        </View>
-                                                        <Text style={[styles.radioLabel, facilityDisabled && styles.disabledText]}>{fac.name}</Text>
-                                                    </TouchableOpacity>
-                                                );
-                                            })}
-                                        </View>
-
-                                        <View style={styles.quantityRow}>
-                                            <Text style={styles.quantityLabel}>Number of guests:</Text>
-
-                                            <View style={styles.counterControl}>
-                                                <TouchableOpacity
-                                                    onPress={() => setCheckInQuantity(Math.max(1, checkInQuantity - 1))}
-                                                    style={styles.counterButton}
-                                                >
-                                                    <Text style={styles.counterButtonText}>-</Text>
-                                                </TouchableOpacity>
-
-                                                <View style={styles.counterValueContainer}>
-                                                    <Text style={styles.counterValue}>{checkInQuantity}</Text>
-                                                </View>
-
-                                                <TouchableOpacity
-                                                    onPress={() => {
-                                                        let maxLimit = 1;
-                                                        if (selectedScanningOption === 'check_in') {
-                                                            const remaining = Math.max(0, totalEntries - usedCount);
-                                                            maxLimit = remaining;
-                                                        } else {
-                                                            // Logic for facility limit?
-                                                            // Usually same as total tickets bought? Or per facility logic?
-                                                            // User didn't specify facility limits. Assuming same as ticket count.
-                                                            maxLimit = totalEntries;
-                                                        }
-                                                        setCheckInQuantity(Math.min(checkInQuantity + 1, maxLimit));
                                                     }}
-                                                    style={styles.counterButton}
                                                 >
-                                                    <Text style={styles.counterButtonText}>+</Text>
+                                                    <Text style={styles.buttonText}>
+                                                        {isFullyCheckedIn && !hasFacilities ? 'Checked In' : 'Manual Check-In'}
+                                                    </Text>
                                                 </TouchableOpacity>
-                                            </View>
+                                            )}
+
+                                            {isManager ? (
+                                                <TouchableOpacity style={styles.actionButton} onPress={() => onMakeGuest?.(guestId!)}>
+                                                    <Text style={styles.buttonText}>Make Guest</Text>
+                                                </TouchableOpacity>
+                                            ) : (
+                                                <TouchableOpacity style={styles.actionButton} onPress={() => onMakeManager?.(guestId!)}>
+                                                    <Text style={styles.buttonText}>Make Manager</Text>
+                                                </TouchableOpacity>
+                                            )}
                                         </View>
+                                    ) : (
+                                        /* ---------------------- STEP 2: Quantity Selection ---------------------- */
+                                        <View style={styles.checkInContainer}>
+                                            <Text style={styles.scanningReportsTitle}>Scanning Reports</Text>
 
-                                        <TouchableOpacity
-                                            style={[
-                                                styles.confirmCheckInButton,
-                                                // Disable logic matching strict rules
-                                                (() => {
+                                            <Text style={styles.scanningForTitle}>Scanning for</Text>
+
+                                            <View style={styles.radioGroup}>
+                                                {/* CHECK-IN RADIO (Main Ticket) */}
+                                                {/* Logic: Enabled ONLY if remaining tickets > 0 */}
+                                                {(() => {
                                                     const remainingMain = Math.max(0, totalEntries - usedCount);
-                                                    if (selectedScanningOption === 'check_in') {
-                                                        return remainingMain <= 0; // Disable if no main tickets left
-                                                    } else {
-                                                        // Facility logic
-                                                        // Kotlin Rule: Facilities enabled after FIRST main check-in
-                                                        if (usedCount <= 0) return true; // Disable facility if NOT checked in yet
+                                                    const mainCheckInDisabled = remainingMain <= 0;
 
-                                                        // Check specific facility availability
-                                                        const stat = facilityStatus.find((s: any) => s.id == selectedScanningOption);
-                                                        return stat ? stat.available_scans <= 0 : false;
-                                                    }
-                                                })() && styles.disabledButton
-                                            ]}
-                                            disabled={
-                                                (() => {
+                                                    return (
+                                                        <TouchableOpacity
+                                                            style={styles.radioItem}
+                                                            onPress={() => !mainCheckInDisabled && setSelectedScanningOption('check_in')}
+                                                            activeOpacity={mainCheckInDisabled ? 1 : 0.7}
+                                                        >
+                                                            <View style={[styles.radioOuter, { borderColor: mainCheckInDisabled ? '#CCC' : '#FF8A3C' }]}>
+                                                                {selectedScanningOption === 'check_in' && <View style={[styles.radioInner, { backgroundColor: mainCheckInDisabled ? '#CCC' : '#FF8A3C' }]} />}
+                                                            </View>
+                                                            <Text style={[styles.radioLabel, mainCheckInDisabled && styles.disabledText]}>Check-In</Text>
+                                                        </TouchableOpacity>
+                                                    );
+                                                })()}
+
+                                                {/* FACILITIES RADIOS */}
+                                                {/* Logic: Enabled ONLY if Main Tickets <= 0 AND Facility Scans > 0 */}
+                                                {availableFacilities.map((fac: any) => {
                                                     const remainingMain = Math.max(0, totalEntries - usedCount);
-                                                    if (selectedScanningOption === 'check_in') {
-                                                        return remainingMain <= 0;
-                                                    } else {
-                                                        if (usedCount <= 0) return true; // Disabled if not checked in yet
-                                                        const stat = facilityStatus.find((s: any) => s.id == selectedScanningOption);
-                                                        return stat ? stat.available_scans <= 0 : false;
+                                                    // Kotlin Rule: Facilities enabled after FIRST main check-in
+                                                    const mainCheckedIn = usedCount > 0;
+
+                                                    let facilityDisabled = !mainCheckedIn; // Disabled if NOT checked in yet
+
+                                                    // Also check specific facility availability
+                                                    if (!facilityDisabled && facilityStatus.length > 0) {
+                                                        const status = facilityStatus.find((s: any) => s.id == fac.id);
+                                                        if (status && status.available_scans <= 0) {
+                                                            facilityDisabled = true;
+                                                        }
                                                     }
-                                                })()
-                                            }
-                                            onPress={async () => {
-                                                if ((!eventId && !offline) || (!guestData && offline)) return;
-                                                setLoading(true);
-                                                try {
-                                                    // OFFLINE LOGIC
-                                                    if (offline) {
-                                                        const uuid = getGuestUUID(guestData);
 
-                                                        if (selectedScanningOption === 'check_in') {
-                                                            // STRICT GATE ENTRY (Using performGateCheckIn)
-                                                            const { performGateCheckIn } = require('../db');
-                                                            // REFACTORED: Guest-based identity only, scoped by Event
-                                                            const rowsAffected = await performGateCheckIn(Number(eventId), uuid);
+                                                    return (
+                                                        <TouchableOpacity
+                                                            key={fac.id}
+                                                            style={styles.radioItem}
+                                                            onPress={() => !facilityDisabled && setSelectedScanningOption(fac.id)}
+                                                            activeOpacity={facilityDisabled ? 1 : 0.7}
+                                                        >
+                                                            <View style={[styles.radioOuter, { borderColor: facilityDisabled ? '#CCC' : '#FF8A3C' }]}>
+                                                                {selectedScanningOption === fac.id && <View style={[styles.radioInner, { backgroundColor: facilityDisabled ? '#CCC' : '#FF8A3C' }]} />}
+                                                            </View>
+                                                            <Text style={[styles.radioLabel, facilityDisabled && styles.disabledText]}>{fac.name}</Text>
+                                                        </TouchableOpacity>
+                                                    );
+                                                })}
+                                            </View>
 
-                                                            if (rowsAffected === 0) {
-                                                                Toast.show({ type: 'error', text1: 'Check-in Failed', text2: 'Guest already checked in' });
-                                                                setLoading(false);
-                                                                return;
-                                                            }
+                                            <View style={styles.quantityRow}>
+                                                <Text style={styles.quantityLabel}>Number of guests:</Text>
 
-                                                            // ⚡⚡⚡ OFFLINE STATE REFRESH (CRITICAL) ⚡⚡⚡
-                                                            Toast.show({ type: 'success', text1: 'Success', text2: 'Checked in locally' });
+                                                <View style={styles.counterControl}>
+                                                    <TouchableOpacity
+                                                        disabled={isQuantityLocked}
+                                                        onPress={() => !isQuantityLocked && setCheckInQuantity(Math.max(1, checkInQuantity - 1))}
+                                                        style={[styles.counterButton, isQuantityLocked && styles.disabledButton]}
+                                                    >
+                                                        <Text style={styles.counterButtonText}>-</Text>
+                                                    </TouchableOpacity>
 
-                                                            // ⚡⚡⚡ OFFLINE STATE REFRESH (CRITICAL) ⚡⚡⚡
-                                                            Toast.show({ type: 'success', text1: 'Success', text2: 'Checked in locally' });
+                                                    <View style={styles.counterValueContainer}>
+                                                        <Text style={styles.counterValue}>{checkInQuantity}</Text>
+                                                    </View>
 
-                                                            // INLINE FIX: Explicit refresh to prove DB update
-                                                            const { getGuestByUuid, getFacilitiesForGuest } = require('../db');
-                                                            const dbGuest = await getGuestByUuid(uuid);
-                                                            console.log("DB GUEST AFTER CHECKIN", dbGuest);
+                                                    <TouchableOpacity
+                                                        disabled={isQuantityLocked}
+                                                        onPress={() => {
+                                                            if (isQuantityLocked) return;
 
-                                                            // Refresh Guest Data
-                                                            if (dbGuest) {
-                                                                setGuestData((prev: any) => ({
-                                                                    ...prev,
-                                                                    used_entries: dbGuest.used_entries,
-                                                                    checked_in_count: dbGuest.used_entries,   // 🔥 FIX: Ensure this is updated too
-                                                                    status: dbGuest.used_entries > 0 ? 'checked_in' : prev.status
-                                                                }));
-                                                            }
-
-                                                            // Refresh Facilities (Unlocking depends on used_entries)
-                                                            const dbFacilities = await getFacilitiesForGuest(uuid);
-                                                            setFacilityStatus(
-                                                                dbFacilities.map((f: any) => ({
-                                                                    id: f.facilityId,
-                                                                    available_scans: Math.max(0, (f.availableScans || 0) - (f.checkIn || 0))
-                                                                }))
-                                                            );
-
-                                                            // 🔥 Kotlin behavior: AUTO SWITCH to first available facility
-                                                            const firstAvailable = dbFacilities.find((f: any) =>
-                                                                (f.availableScans || 0) - (f.checkIn || 0) > 0
-                                                            );
-                                                            if (firstAvailable) {
-                                                                setSelectedScanningOption(firstAvailable.facilityId);
-                                                            }
-
-                                                            DeviceEventEmitter.emit('REFRESH_GUEST_LIST');
-                                                            // Stay on 'quantity' step or go back?
-                                                            // Gate check in successful -> usually we want to SCAN FACILITIES now.
-                                                            // If we go back to 'initial' we lose the "Now scan facility" flow.
-                                                            // Kotlin stays on screen.
-                                                            // Keep step 'quantity' so user sees updated facility radios.
-                                                            // setCheckInStep('initial');
-                                                            setLoading(false);
-                                                            return;
-                                                        } else {
-                                                            // Facility Check-In
-                                                            // Ensure main ticket is checked in first? (Already disabled in UI)
-                                                            const updated = await updateFacilityCheckInLocal(uuid, Number(selectedScanningOption), checkInQuantity);
-
-                                                            if (updated > 0) {
-                                                                Toast.show({ type: 'success', text1: 'Success', text2: 'Facility checked in locally' });
-
-                                                                // ⚡⚡⚡ OFFLINE STATE REFRESH ⚡⚡⚡
-                                                                await refreshOfflineData(uuid);
-
-                                                                DeviceEventEmitter.emit('REFRESH_GUEST_LIST'); // Ensure list refreshes
-                                                                setLoading(false);
-                                                                return; // Stop here. Do NOT fall through to naive verification below.
+                                                            let maxLimit = 1;
+                                                            if (selectedScanningOption === 'check_in') {
+                                                                const remaining = Math.max(0, totalEntries - usedCount);
+                                                                maxLimit = remaining;
                                                             } else {
-                                                                Toast.show({ type: 'error', text1: 'Check-in Failed', text2: 'Facility already checked in or not available' });
+                                                                const stat = facilityStatus.find(s => String(s.id) === String(selectedScanningOption));
+                                                                maxLimit = stat ? stat.available_scans : 1;
                                                             }
+                                                            setCheckInQuantity(Math.min(checkInQuantity + 1, maxLimit));
+                                                        }}
+                                                        style={[styles.counterButton, isQuantityLocked && styles.disabledButton]}
+                                                    >
+                                                        <Text style={styles.counterButtonText}>+</Text>
+                                                    </TouchableOpacity>
+                                                </View>
+                                            </View>
+
+                                            <TouchableOpacity
+                                                style={[
+                                                    styles.confirmCheckInButton,
+                                                    // Disable logic matching strict rules
+                                                    (() => {
+                                                        const remainingMain = Math.max(0, totalEntries - usedCount);
+                                                        if (selectedScanningOption === 'check_in') {
+                                                            return remainingMain <= 0; // Disable if no main tickets left
+                                                        } else {
+                                                            // Facility logic
+                                                            // Kotlin Rule: Facilities enabled after FIRST main check-in
+                                                            if (usedCount <= 0) return true; // Disable facility if NOT checked in yet
+
+                                                            // Check specific facility availability
+                                                            const stat = facilityStatus.find((s: any) => s.id == selectedScanningOption);
+                                                            return stat ? stat.available_scans <= 0 : false;
                                                         }
+                                                    })() && styles.disabledButton
+                                                ]}
+                                                disabled={
+                                                    (() => {
+                                                        const remainingMain = Math.max(0, totalEntries - usedCount);
+                                                        if (selectedScanningOption === 'check_in') {
+                                                            return remainingMain <= 0;
+                                                        } else {
+                                                            if (usedCount <= 0) return true; // Disabled if not checked in yet
+                                                            const stat = facilityStatus.find((s: any) => s.id == selectedScanningOption);
+                                                            return stat ? stat.available_scans <= 0 : false;
+                                                        }
+                                                    })()
+                                                }
+                                                onPress={async () => {
+                                                    if ((!eventId && !offline) || (!guestData && offline)) return;
+                                                    setLoading(true);
+                                                    try {
+                                                        // OFFLINE LOGIC
+                                                        if (offline) {
+                                                            const uuid = getGuestUUID(guestData);
 
-                                                        // Refresh Data
-                                                        const updatedGuestData = {
-                                                            ...guestData,
-                                                            status: 'Checked In',
-                                                            used_entries: selectedScanningOption === 'check_in'
-                                                                ? (Number(guestData?.used_entries) || 0) + checkInQuantity
-                                                                : (Number(guestData?.used_entries) || 0)
-                                                        };
-                                                        setGuestData(updatedGuestData);
+                                                            if (selectedScanningOption === 'check_in') {
+                                                                // STRICT GATE ENTRY (Using performGateCheckIn)
+                                                                const { performGateCheckIn } = require('../db');
+                                                                // REFACTORED: Guest-based identity only, scoped by Event
+                                                                const rowsAffected = await performGateCheckIn(Number(eventId), uuid);
 
-                                                        if (selectedScanningOption !== 'check_in') {
-                                                            // Update local status state
-                                                            setFacilityStatus(prev => prev.map(f => {
-                                                                if (String(f.id) === String(selectedScanningOption)) {
-                                                                    return { ...f, available_scans: Math.max(0, f.available_scans - checkInQuantity) };
+                                                                if (rowsAffected === 0) {
+                                                                    Toast.show({ type: 'error', text1: 'Check-in Failed', text2: 'Guest already checked in' });
+                                                                    setLoading(false);
+                                                                    return;
                                                                 }
-                                                                return f;
-                                                            }));
-                                                        }
-
-                                                        DeviceEventEmitter.emit('REFRESH_GUEST_LIST'); // Notify list to refresh from DB
-                                                        setCheckInStep('initial');
-                                                        setLoading(false);
-                                                        return;
-                                                    }
-
-                                                    // Standard Payload base
-                                                    let payload: any = {
-                                                        event_id: Number(eventId),
-                                                        guest_id: guestData?.id || guestData?.guest_id,
-                                                        category_check_in_count: "",
-                                                        other_category_check_in_count: 0,
-                                                        ticket_id: guestData?.ticket_data?.ticket_id || guestData?.ticket_id, // ALWAYS Main Ticket ID
-                                                        check_in_count: checkInQuantity
-                                                    };
-
-                                                    if (selectedScanningOption !== 'check_in') {
-                                                        // Facility Check-in: Add guest_facility_id
-                                                        payload.guest_facility_id = String(selectedScanningOption);
-                                                    }
-
-                                                    const res = await checkInEventUser(eventId, payload);
-
-                                                    if (res && (res.success || res.id)) {
-                                                        Toast.show({ type: 'success', text1: 'Success', text2: 'Checked in successfully' });
-
-                                                        // Refresh data locally
-                                                        const uuid = guestData.qrGuestUuid || guestData.guest_uuid || guestData.uuid;
-                                                        if (selectedScanningOption === 'check_in' && uuid) {
-                                                            try {
-                                                                // Sync main check-in to DB
-                                                                await updateTicketStatusLocal(uuid, 'checked_in', 1, false);
 
                                                                 // ⚡⚡⚡ OFFLINE STATE REFRESH (CRITICAL) ⚡⚡⚡
-                                                                // Recalculate used_entries from DB so UI unlocks facilities
+                                                                Toast.show({ type: 'success', text1: 'Success', text2: 'Checked in locally' });
+
+                                                                // ⚡⚡⚡ OFFLINE STATE REFRESH (CRITICAL) ⚡⚡⚡
+                                                                Toast.show({ type: 'success', text1: 'Success', text2: 'Checked in locally' });
+
+                                                                // INLINE FIX: Explicit refresh to prove DB update
                                                                 const { getGuestByUuid, getFacilitiesForGuest } = require('../db');
-
                                                                 const dbGuest = await getGuestByUuid(uuid);
-                                                                const dbFacilities = await getFacilitiesForGuest(uuid);
+                                                                console.log("DB GUEST AFTER CHECKIN", dbGuest);
 
+                                                                // Refresh Guest Data
                                                                 if (dbGuest) {
                                                                     setGuestData((prev: any) => ({
                                                                         ...prev,
                                                                         used_entries: dbGuest.used_entries,
+                                                                        checked_in_count: dbGuest.used_entries,   // 🔥 FIX: Ensure this is updated too
                                                                         status: dbGuest.used_entries > 0 ? 'checked_in' : prev.status
                                                                     }));
                                                                 }
 
+                                                                // Refresh Facilities (Unlocking depends on used_entries)
+                                                                const dbFacilities = await getFacilitiesForGuest(uuid);
                                                                 setFacilityStatus(
                                                                     dbFacilities.map((f: any) => ({
                                                                         id: f.facilityId,
@@ -690,61 +696,174 @@ const GuestDetailsModal: React.FC<GuestDetailsModalProps> = ({
                                                                     }))
                                                                 );
 
-                                                            } catch (err) {
-                                                                console.log('Error updating local ticket:', err);
-                                                            }
-                                                        }
-
-                                                        // Optimistic Update
-                                                        const updatedGuestData = {
-                                                            ...guestData,
-                                                            status: 'Checked In',
-                                                            // Only increment used_entries if main check-in
-                                                            used_entries: selectedScanningOption === 'check_in'
-                                                                ? (Number(guestData?.used_entries) || 0) + checkInQuantity
-                                                                : (Number(guestData?.used_entries) || 0)
-                                                        };
-                                                        setGuestData(updatedGuestData);
-
-                                                        // Optimistic Facility Status Update
-                                                        if (selectedScanningOption !== 'check_in') {
-                                                            setFacilityStatus(prev => prev.map(f => {
-                                                                if (String(f.id) === String(selectedScanningOption)) {
-                                                                    return { ...f, available_scans: Math.max(0, f.available_scans - checkInQuantity) };
+                                                                // 🔥 Kotlin behavior: AUTO SWITCH to first available facility
+                                                                const firstAvailable = dbFacilities.find((f: any) =>
+                                                                    (f.availableScans || 0) - (f.checkIn || 0) > 0
+                                                                );
+                                                                if (firstAvailable) {
+                                                                    setSelectedScanningOption(firstAvailable.facilityId);
                                                                 }
-                                                                return f;
-                                                            }));
+
+                                                                DeviceEventEmitter.emit('REFRESH_GUEST_LIST');
+                                                                // Stay on 'quantity' step or go back?
+                                                                // Gate check in successful -> usually we want to SCAN FACILITIES now.
+                                                                // If we go back to 'initial' we lose the "Now scan facility" flow.
+                                                                // Kotlin stays on screen.
+                                                                // Keep step 'quantity' so user sees updated facility radios.
+                                                                // setCheckInStep('initial');
+                                                                setLoading(false);
+                                                                return;
+                                                            } else {
+                                                                // Facility Check-In
+                                                                // Ensure main ticket is checked in first? (Already disabled in UI)
+                                                                const updated = await updateFacilityCheckInLocal(uuid, Number(selectedScanningOption), checkInQuantity);
+
+                                                                if (updated > 0) {
+                                                                    Toast.show({ type: 'success', text1: 'Success', text2: 'Facility checked in locally' });
+
+                                                                    // ⚡⚡⚡ OFFLINE STATE REFRESH ⚡⚡⚡
+                                                                    await refreshOfflineData(uuid);
+
+                                                                    DeviceEventEmitter.emit('REFRESH_GUEST_LIST'); // Ensure list refreshes
+                                                                    setLoading(false);
+                                                                    return; // Stop here. Do NOT fall through to naive verification below.
+                                                                } else {
+                                                                    Toast.show({ type: 'error', text1: 'Check-in Failed', text2: 'Facility already checked in or not available' });
+                                                                }
+                                                            }
+
+                                                            // Refresh Data
+                                                            const updatedGuestData = {
+                                                                ...guestData,
+                                                                status: 'Checked In',
+                                                                used_entries: selectedScanningOption === 'check_in'
+                                                                    ? (Number(guestData?.used_entries) || 0) + checkInQuantity
+                                                                    : (Number(guestData?.used_entries) || 0)
+                                                            };
+                                                            setGuestData(updatedGuestData);
+
+                                                            if (selectedScanningOption !== 'check_in') {
+                                                                // Update local status state
+                                                                setFacilityStatus(prev => prev.map(f => {
+                                                                    if (String(f.id) === String(selectedScanningOption)) {
+                                                                        return { ...f, available_scans: Math.max(0, f.available_scans - checkInQuantity) };
+                                                                    }
+                                                                    return f;
+                                                                }));
+                                                            }
+
+                                                            DeviceEventEmitter.emit('REFRESH_GUEST_LIST'); // Notify list to refresh from DB
+                                                            setCheckInStep('initial');
+                                                            setLoading(false);
+                                                            return;
                                                         }
 
-                                                        await fetchFacilities(); // Refresh facilities to check subsequent availability
+                                                        // Standard Payload base
+                                                        let payload: any = {
+                                                            event_id: Number(eventId),
+                                                            guest_id: guestData?.id || guestData?.guest_id,
+                                                            category_check_in_count: "",
+                                                            other_category_check_in_count: 0,
+                                                            ticket_id: guestData?.ticket_data?.ticket_id || guestData?.ticket_id, // ALWAYS Main Ticket ID
+                                                            check_in_count: checkInQuantity
+                                                        };
 
-                                                        DeviceEventEmitter.emit('REFRESH_GUEST_LIST');
+                                                        if (selectedScanningOption !== 'check_in') {
+                                                            // Facility Check-in: Add guest_facility_id
+                                                            payload.guest_facility_id = String(selectedScanningOption);
+                                                        }
 
-                                                        setCheckInStep('initial');
-                                                        // onClose(); // Keep modal open as per requirement
-                                                    } else {
-                                                        Toast.show({ type: 'error', text1: 'Check-in Failed', text2: res?.message || 'Unknown error' });
+                                                        const res = await checkInEventUser(eventId, payload);
+
+                                                        if (res && (res.success || res.id)) {
+                                                            Toast.show({ type: 'success', text1: 'Success', text2: 'Checked in successfully' });
+
+                                                            // Refresh data locally
+                                                            const uuid = guestData.qrGuestUuid || guestData.guest_uuid || guestData.uuid;
+                                                            if (selectedScanningOption === 'check_in' && uuid) {
+                                                                try {
+                                                                    // Sync main check-in to DB
+                                                                    await updateTicketStatusLocal(uuid, 'checked_in', 1, false);
+
+                                                                    // ⚡⚡⚡ OFFLINE STATE REFRESH (CRITICAL) ⚡⚡⚡
+                                                                    // Recalculate used_entries from DB so UI unlocks facilities
+                                                                    const { getGuestByUuid, getFacilitiesForGuest } = require('../db');
+
+                                                                    const dbGuest = await getGuestByUuid(uuid);
+                                                                    const dbFacilities = await getFacilitiesForGuest(uuid);
+
+                                                                    if (dbGuest) {
+                                                                        setGuestData((prev: any) => ({
+                                                                            ...prev,
+                                                                            used_entries: dbGuest.used_entries,
+                                                                            status: dbGuest.used_entries > 0 ? 'checked_in' : prev.status
+                                                                        }));
+                                                                    }
+
+                                                                    setFacilityStatus(
+                                                                        dbFacilities.map((f: any) => ({
+                                                                            id: f.facilityId,
+                                                                            available_scans: Math.max(0, (f.availableScans || 0) - (f.checkIn || 0))
+                                                                        }))
+                                                                    );
+
+                                                                } catch (err) {
+                                                                    console.log('Error updating local ticket:', err);
+                                                                }
+                                                            }
+
+                                                            // Optimistic Update
+                                                            const updatedGuestData = {
+                                                                ...guestData,
+                                                                status: 'Checked In',
+                                                                // Only increment used_entries if main check-in
+                                                                used_entries: selectedScanningOption === 'check_in'
+                                                                    ? (Number(guestData?.used_entries) || 0) + checkInQuantity
+                                                                    : (Number(guestData?.used_entries) || 0)
+                                                            };
+                                                            setGuestData(updatedGuestData);
+
+                                                            // Optimistic Facility Status Update
+                                                            if (selectedScanningOption !== 'check_in') {
+                                                                setFacilityStatus(prev => prev.map(f => {
+                                                                    if (String(f.id) === String(selectedScanningOption)) {
+                                                                        return { ...f, available_scans: Math.max(0, f.available_scans - checkInQuantity) };
+                                                                    }
+                                                                    return f;
+                                                                }));
+                                                            }
+
+                                                            await fetchFacilities(); // Refresh facilities to check subsequent availability
+
+                                                            DeviceEventEmitter.emit('REFRESH_GUEST_LIST');
+
+                                                            setCheckInStep('initial');
+                                                            // onClose(); // Keep modal open as per requirement
+                                                        } else {
+                                                            Toast.show({ type: 'error', text1: 'Check-in Failed', text2: res?.message || 'Unknown error' });
+                                                        }
+                                                    } catch (e) {
+                                                        console.error(e);
+                                                        Toast.show({ type: 'error', text1: 'Error', text2: 'Check-in failed' });
+                                                    } finally {
+                                                        setLoading(false);
                                                     }
-                                                } catch (e) {
-                                                    console.error(e);
-                                                    Toast.show({ type: 'error', text1: 'Error', text2: 'Check-in failed' });
-                                                } finally {
-                                                    setLoading(false);
-                                                }
-                                            }}
-                                        >
-                                            <Text style={styles.confirmButtonText}>Checkin</Text>
-                                        </TouchableOpacity>
-                                    </View>
-                                )}
+                                                }}
+                                            >
+                                                <Text style={styles.confirmButtonText}>Checkin</Text>
+                                            </TouchableOpacity>
+                                        </View>
+                                    )}
+                                </View>
+                            </ScrollView>
+                        ) : (
+                            <View style={styles.errorContainer}>
+                                <Text style={styles.errorText}>Failed to load guest details</Text>
                             </View>
-                        </ScrollView>
-                    ) : (
-                        <View style={styles.errorContainer}>
-                            <Text style={styles.errorText}>Failed to load guest details</Text>
-                        </View>
-                    )}
-                </TouchableOpacity>
+                        )}
+                    </View>
+
+                </TouchableWithoutFeedback>
             </TouchableOpacity>
         </Modal >
     );
@@ -798,10 +917,46 @@ const styles = StyleSheet.create({
     },
     closeText: {
         fontSize: moderateScale(15),
-        color: '#666666',
-        fontWeight: '600',
-        alignSelf: 'center',
+        color: '#666',
+        fontWeight: '600'
     },
+    // Additional Details Styles
+    additionalToggleRow: {
+        flexDirection: "row",
+        justifyContent: "space-between",
+        alignItems: "center",
+        marginTop: verticalScale(16),
+        marginBottom: verticalScale(10), // Add some spacing before buttons
+    },
+    additionalText: {
+        fontSize: moderateScale(14),
+        fontWeight: "500",
+        color: '#333',
+    },
+    additionalDetailsContainer: {
+        marginTop: verticalScale(5),
+        marginBottom: verticalScale(15),
+        padding: scale(10),
+        backgroundColor: '#F9F9F9',
+        borderRadius: moderateScale(8),
+    },
+    additionalItem: {
+        flexDirection: "row",
+        marginBottom: verticalScale(8),
+        flexWrap: 'wrap', // Allow wrapping for long addresses
+    },
+    additionalQuestion: {
+        fontWeight: "600",
+        marginRight: scale(6),
+        color: '#444',
+        fontSize: moderateScale(14),
+    },
+    additionalAnswer: {
+        flex: 1,
+        color: '#333',
+        fontSize: moderateScale(14),
+    },
+
     loadingContainer: {
         paddingVertical: verticalScale(40),
         alignItems: 'center',
