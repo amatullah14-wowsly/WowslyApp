@@ -314,7 +314,7 @@ const OnlineGuestList = () => {
                                 keyExtractor={(item, index) =>
                                     `${item.id || item.event_user_id}-${index}`
                                 }
-                                contentContainerStyle={styles.listContent}
+                                contentContainerStyle={[styles.listContent, { flexGrow: 1 }]}
                                 ItemSeparatorComponent={() => <View style={styles.separator} />}
                                 renderItem={renderGuestItem}
                                 getItemLayout={(data, index) => ({
@@ -334,7 +334,7 @@ const OnlineGuestList = () => {
                                     </View>
                                 }
                                 ListFooterComponent={
-                                    !loading && displayedGuests.length > 0 ? (
+                                    !loading && displayedGuests.length > 0 && lastPage > 1 ? (
                                         <Pagination
                                             currentPage={currentPage}
                                             totalPages={lastPage}
@@ -342,6 +342,7 @@ const OnlineGuestList = () => {
                                         />
                                     ) : null
                                 }
+                                ListFooterComponentStyle={{ flex: 1, justifyContent: 'flex-end' }}
                             />
                         )}
                     </GestureHandlerRootView>

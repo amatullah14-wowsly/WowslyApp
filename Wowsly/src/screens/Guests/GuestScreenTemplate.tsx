@@ -40,7 +40,7 @@ type GuestScreenTemplateProps = {
   eventId?: string;
 };
 
-const tabs: GuestFilter[] = ['All', 'Manager', 'Invited', 'Registered'];
+const tabs: GuestFilter[] = ['Registered', 'Invited', 'Manager'];
 
 const statusChipStyles: Record<
   string,
@@ -190,7 +190,7 @@ const GuestRow = React.memo(({ item, onPress, showActions, onActionPress, styles
 });
 
 const GuestScreenTemplate: React.FC<GuestScreenTemplateProps> = ({
-  initialFilter = 'All',
+  initialFilter = 'Registered',
   eventId,
 }) => {
   const navigation = useNavigation();
@@ -531,7 +531,7 @@ const GuestScreenTemplate: React.FC<GuestScreenTemplateProps> = ({
             <FlatList
               data={filteredGuests}
               keyExtractor={(item, index) => `${item.id}-${index}`}
-              contentContainerStyle={styles.listContent}
+              contentContainerStyle={[styles.listContent, { flexGrow: 1 }]}
               ItemSeparatorComponent={() => <View style={styles.separator} />}
               renderItem={renderItem}
               initialNumToRender={10}
@@ -549,7 +549,7 @@ const GuestScreenTemplate: React.FC<GuestScreenTemplateProps> = ({
                 </View>
               }
               ListFooterComponent={
-                filteredGuests.length > 0 && lastPage > 1 ? (
+                filteredGuests.length > 0 && lastPage > 1 && !loading ? (
                   <Pagination
                     currentPage={currentPage}
                     totalPages={lastPage}
@@ -557,6 +557,7 @@ const GuestScreenTemplate: React.FC<GuestScreenTemplateProps> = ({
                   />
                 ) : null
               }
+              ListFooterComponentStyle={{ flex: 1, justifyContent: 'flex-end' }}
             />
           )}
         </GestureHandlerRootView>

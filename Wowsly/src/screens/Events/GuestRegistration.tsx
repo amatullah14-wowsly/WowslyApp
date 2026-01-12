@@ -319,7 +319,28 @@ const GuestRegistration = () => {
                 Alert.alert("Success", "Guest Registered Successfully!", [{ text: "OK", onPress: () => navigation.goBack() }]);
             }
         } else {
-            Alert.alert("Error", res?.message || "Registration failed");
+            console.log("Registration Error Response:", JSON.stringify(res));
+            const message = (res?.message || "Registration failed").toLowerCase();
+            const errorsStr = res?.errors ? JSON.stringify(res.errors).toLowerCase() : "";
+
+            const isAlreadyRegistered =
+                message.includes('already registered') ||
+                message.includes('already been taken') ||
+                message.includes('exists') ||
+                message.includes('already guest') ||
+                errorsStr.includes('already registered') ||
+                errorsStr.includes('already been taken') ||
+                errorsStr.includes('exists');
+
+            if (isAlreadyRegistered) {
+                Toast.show({
+                    type: 'error',
+                    text1: 'Registration Failed',
+                    text2: 'Number is already registered'
+                });
+            } else {
+                Alert.alert("Error", res?.message || "Registration failed");
+            }
         }
     };
 

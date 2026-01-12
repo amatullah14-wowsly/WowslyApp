@@ -6,7 +6,7 @@ const GuestList = () => {
   const route = useRoute<any>();
   const { eventId } = route.params || {};
 
-  return <GuestScreenTemplate initialFilter="All" eventId={eventId} />;
+  return <GuestScreenTemplate initialFilter="Registered" eventId={eventId} />;
 };
 
 export default GuestList;

@@ -289,7 +289,7 @@ const Past = () => {
             keyExtractor={(item: any) => item.id.toString()}
             renderItem={renderCard}
             extraData={selectedEventId}
-            contentContainerStyle={[styles.listContent, paginatedEvents.length === 0 && { flexGrow: 1 }]}
+            contentContainerStyle={[styles.listContent, { flexGrow: 1 }]}
             ListEmptyComponent={renderEmptyComponent}
             style={{ marginTop: verticalScale(15) }}
             showsVerticalScrollIndicator={false}
@@ -303,6 +303,7 @@ const Past = () => {
                 onPageChange={setPage}
               />
             }
+            ListFooterComponentStyle={{ flex: 1, justifyContent: 'flex-end' }}
           />
         </>
       )}

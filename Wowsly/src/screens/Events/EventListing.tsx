@@ -332,7 +332,7 @@ const EventListing = () => {
         numColumns={numColumns}
         data={paginatedEvents}
         renderItem={renderCard}
-        contentContainerStyle={[styles.listContent, paginatedEvents.length === 0 && { flexGrow: 1 }]}
+        contentContainerStyle={[styles.listContent, { flexGrow: 1 }]}
         ListEmptyComponent={renderEmptyComponent}
         style={{ marginTop: verticalScale(15), flex: 1 }}
         showsVerticalScrollIndicator={false}
@@ -354,6 +354,7 @@ const EventListing = () => {
             onPageChange={setPage}
           />
         }
+        ListFooterComponentStyle={{ flex: 1, justifyContent: 'flex-end' }}
       />
     </View>
   );

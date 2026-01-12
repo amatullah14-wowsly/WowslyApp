@@ -611,18 +611,20 @@ const TicketCheckInDetails = () => {
                             key={'grid-view-records-compact'} // New key for layout change
                             keyExtractor={(item) => item.id.toString()}
                             renderItem={renderRecordItem}
-                            contentContainerStyle={styles.listContent}
+                            contentContainerStyle={[styles.listContent, { flexGrow: 1 }]}
                             numColumns={numColumns}
                             key={`grid-view-records-${numColumns}`} // Force re-render on column change
                             columnWrapperStyle={styles.columnWrapper}
-                        />
-                    )}
-
-                    {!recordsLoading && (
-                        <Pagination
-                            currentPage={page}
-                            totalPages={totalPages}
-                            onPageChange={fetchRecords}
+                            ListFooterComponent={
+                                !recordsLoading && totalPages > 1 ? (
+                                    <Pagination
+                                        currentPage={page}
+                                        totalPages={totalPages}
+                                        onPageChange={fetchRecords}
+                                    />
+                                ) : null
+                            }
+                            ListFooterComponentStyle={{ flex: 1, justifyContent: 'flex-end' }}
                         />
                     )}
                 </View>

@@ -24,12 +24,23 @@ const GuestPayment = () => {
     const [showOnlineScreen, setShowOnlineScreen] = useState(false);
 
     const ticketData = ticketResponse?.data || {};
+    const selectedTickets = route.params?.selectedTickets || [];
 
-    // 1. Calculate Ticket Qty
-    const ticketQty = Number(route.params?.quantity || ticketData.tickets_bought || 1);
+    // 1. Calculate Ticket Qty and Base Total
+    let totalTicketQty = 0;
+    let ticketBaseTotal = 0;
 
-    // 2. Base Ticket Price
-    const ticketBaseTotal = Number(ticketData.per_ticket_price || ticketData.amount || 0) * ticketQty;
+    if (selectedTickets.length > 0) {
+        selectedTickets.forEach((t: any) => {
+            const qty = Number(t.quantity || 0);
+            totalTicketQty += qty;
+            ticketBaseTotal += Number(t.price || 0) * qty;
+        });
+    } else {
+        // Fallback for single ticket (backward compatibility)
+        totalTicketQty = Number(route.params?.quantity || ticketData.tickets_bought || 1);
+        ticketBaseTotal = Number(ticketData.per_ticket_price || ticketData.amount || 0) * totalTicketQty;
+    }
 
     // 3. Map Facilities correctly (API uses 'price', we map to 'amount')
     const rawFacilities = route.params?.facilities || [];
@@ -42,10 +53,9 @@ const GuestPayment = () => {
     // 4. Calculate Facility Total (Exclude free/included)
     const facilityTotal = facilities.reduce((sum: number, f: any) => {
         if (f.is_free || f.is_included) return sum;
-        return sum + (Number(f.amount || 0) * ticketQty);
+        return sum + (Number(f.amount || 0) * totalTicketQty);
     }, 0);
 
-    // 5. Final Payable Amount
     // 5. Final Payable Amount
     const amountToPay = ticketBaseTotal + facilityTotal + (sendToWhatsapp ? 2 : 0);
 
@@ -186,31 +196,52 @@ const GuestPayment = () => {
 
                         {/* Ticket Info */}
                         <View style={styles.ticketSummaryContainer}>
-                            <View style={[styles.ticketRow, { marginBottom: verticalScale(4) }]}>
-                                {/* Ticket Name - Bold */}
-                                <Text style={[styles.ticketName, { flex: 1, fontWeight: '700', fontSize: moderateScale(16) }]}>
-                                    {ticketName || ticketData.ticket_name || ticketData.title || 'Ticket'}
-                                </Text>
-                                {/* Quantity - Right Aligned */}
-                                <Text style={styles.ticketQuantity}>Qty: {ticketQty}</Text>
-                            </View>
-
-                            <View style={styles.ticketRow}>
-                                {/* Per Ticket Price */}
-                                <Text style={styles.ticketPrice}>
-                                    Per Ticket: {ticketData.per_ticket_price} {currencySymbol}
-                                </Text>
-                                {/* Total Amount - Right Aligned */}
-                                <Text style={styles.itemTotal}>
-                                    Total: {Number(ticketData.per_ticket_price) * ticketQty} {currencySymbol}
-                                </Text>
-                            </View>
+                            {selectedTickets.length > 0 ? (
+                                selectedTickets.map((t: any, index: number) => {
+                                    const tCurrency = (t.currency === 'rupees' || t.currency === 'INR') ? '₹' : (t.currency || '₹');
+                                    return (
+                                        <View key={index} style={{ marginBottom: index === selectedTickets.length - 1 ? 0 : verticalScale(12) }}>
+                                            <View style={[styles.ticketRow, { marginBottom: verticalScale(4) }]}>
+                                                <Text style={[styles.ticketName, { flex: 1, fontWeight: '700', fontSize: moderateScale(16) }]}>
+                                                    {t.title || 'Ticket'}
+                                                </Text>
+                                                <Text style={styles.ticketQuantity}>Qty: {t.quantity}</Text>
+                                            </View>
+                                            <View style={styles.ticketRow}>
+                                                <Text style={styles.ticketPrice}>
+                                                    Price: {t.price} {tCurrency}
+                                                </Text>
+                                                <Text style={styles.itemTotal}>
+                                                    Subtotal: {Number(t.price) * Number(t.quantity)} {tCurrency}
+                                                </Text>
+                                            </View>
+                                        </View>
+                                    );
+                                })
+                            ) : (
+                                <View>
+                                    <View style={[styles.ticketRow, { marginBottom: verticalScale(4) }]}>
+                                        <Text style={[styles.ticketName, { flex: 1, fontWeight: '700', fontSize: moderateScale(16) }]}>
+                                            {ticketName || ticketData.ticket_name || ticketData.title || 'Ticket'}
+                                        </Text>
+                                        <Text style={styles.ticketQuantity}>Qty: {totalTicketQty}</Text>
+                                    </View>
+                                    <View style={styles.ticketRow}>
+                                        <Text style={styles.ticketPrice}>
+                                            Price: {ticketData.per_ticket_price} {currencySymbol}
+                                        </Text>
+                                        <Text style={styles.itemTotal}>
+                                            Subtotal: {Number(ticketData.per_ticket_price) * totalTicketQty} {currencySymbol}
+                                        </Text>
+                                    </View>
+                                </View>
+                            )}
                         </View>
 
                         {/* Facilities (Dynamic) */}
                         {facilities.map((facility: any, index: number) => {
                             const fAmount = Number(facility.amount || 0);
-                            const totalFAmount = fAmount * ticketQty;
+                            const totalFAmount = fAmount * totalTicketQty;
                             const isIncluded = facility.is_free || facility.is_included;
 
                             return (

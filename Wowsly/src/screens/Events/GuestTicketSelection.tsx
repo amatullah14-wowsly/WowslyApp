@@ -21,8 +21,7 @@ const GuestTicketSelection = () => {
 
     const [loading, setLoading] = useState(false);
     const [tickets, setTickets] = useState<any[]>([]);
-    const [selectedTicketId, setSelectedTicketId] = useState<number | null>(null);
-    const [quantity, setQuantity] = useState(1);
+    const [ticketQuantities, setTicketQuantities] = useState<Record<number, number>>({});
 
     const [sendToWhatsapp, setSendToWhatsapp] = useState(true);
     const [selectedFacilities, setSelectedFacilities] = useState<number[]>([]);
@@ -40,7 +39,12 @@ const GuestTicketSelection = () => {
             if (res && res.data) {
                 setTickets(res.data);
                 if (res.data.length > 0) {
-                    setSelectedTicketId(res.data[0].id);
+                    // Initialize with 0 for all tickets
+                    const initialQuantities: Record<number, number> = {};
+                    res.data.forEach((t: any) => initialQuantities[t.id] = 0);
+                    // Optionally set first ticket to 1 if user expects one to be selected by default, 
+                    // but according to the new UI, we start with 0.
+                    setTicketQuantities(initialQuantities);
                 }
             }
         } catch (error) {
@@ -51,57 +55,60 @@ const GuestTicketSelection = () => {
         }
     };
 
-    const handleQuantityChange = (change: number) => {
-        const newQ = quantity + change;
-        if (newQ >= 1) {
-            const ticket = tickets.find(t => t.id === selectedTicketId);
+    const handleQuantityChange = (ticketId: number, change: number) => {
+        const currentQ = ticketQuantities[ticketId] || 0;
+        const newQ = currentQ + change;
+        if (newQ >= 0) {
+            const ticket = tickets.find(t => t.id === ticketId);
             if (ticket && ticket.max_ticket_limit && newQ > ticket.max_ticket_limit) {
                 Toast.show({ type: 'info', text1: `Max limit is ${ticket.max_ticket_limit}` });
                 return;
             }
-            setQuantity(newQ);
+            setTicketQuantities(prev => ({ ...prev, [ticketId]: newQ }));
         }
     };
 
     const handleSubmit = async () => {
-        if (!selectedTicketId) return;
+        const selectedTickets = tickets.filter(t => (ticketQuantities[t.id] || 0) > 0);
+        if (selectedTickets.length === 0) {
+            Toast.show({ type: 'error', text1: 'Please select at least one ticket' });
+            return;
+        }
 
-        const ticket = tickets.find(t => t.id === selectedTicketId);
-        if (!ticket) return;
+        // Determine if there are paid tickets
+        const hasPaidTicket = selectedTickets.some(t => (t.amount && Number(t.amount) > 0));
 
-        // Determine if this is a paid ticket based on amount or type
-        const isPaidTicket = (ticket.amount && Number(ticket.amount) > 0);
+        // Aggregate facilities from all selected tickets (de-duplicated)
+        const allFacilities = Array.from(new Map(selectedTickets.flatMap(t => t.facilities || []).map(f => [f.id, f])).values());
+        const includedFacilitiesList = allFacilities.filter((f: any) => f.is_included === 1 || f.is_free === 1);
+        const optionalFacilitiesList = allFacilities.filter((f: any) => f.is_included === 0 && f.is_free === 0);
 
-        // 1. Split facilities
-        const includedFacilities = (ticket.facilities || []).filter(
-            (f: any) => f.is_included === 1 || f.is_free === 1
-        );
-        const optionalFacilities = (ticket.facilities || []).filter(
-            (f: any) => f.is_included === 0 && f.is_free === 0
-        );
-
-        // 2. Calculate Facility Total (Only selected optional ones)
-        const facilityTotal = optionalFacilities
+        // Facility Total Calculation
+        // Note: Current logic assumes selectedFacilities are global across all tickets
+        const facilityTotal = optionalFacilitiesList
             .filter((f: any) => selectedFacilities.includes(f.id))
             .reduce((sum: number, f: any) => sum + Number(f.price || 0), 0);
 
+        const totalTicketCount = selectedTickets.reduce((sum, t) => sum + (ticketQuantities[t.id] || 0), 0);
+
         const payload = {
-            amount_currency: ticket.currency || "rupees",
+            amount_currency: selectedTickets[0]?.currency || "rupees",
             facility_details: [
-                ...includedFacilities.map((f: any) => f.id),
+                ...includedFacilitiesList.map((f: any) => f.id),
                 ...selectedFacilities
             ],
             guest_uuid: guestUuid,
             registered_by: registeredBy,
-            selected_tickets: [{
-                ticket_id: ticket.id,
-                ticket_name: ticket.title,
-                ticket_count: quantity,
-                ticket_price: ticket.amount || 0,
-                facilities: ticket.facilities || []
-            }],
+            selected_tickets: selectedTickets.map(t => ({
+                ticket_id: t.id,
+                ticket_name: t.title,
+                ticket_count: ticketQuantities[t.id],
+                ticket_price: t.amount || 0,
+                facilities: t.facilities || []
+            })),
             send_to_whatsapp: sendToWhatsapp ? 1 : 0,
-            total_amount: (Number(ticket.amount || 0) * quantity) + (facilityTotal * quantity) + (sendToWhatsapp ? 2 : 0)
+            total_amount: selectedTickets.reduce((sum, t) => sum + (Number(t.amount || 0) * ticketQuantities[t.id]), 0) +
+                (facilityTotal * totalTicketCount) + (sendToWhatsapp ? 2 : 0)
         };
 
         setLoading(true);
@@ -109,7 +116,7 @@ const GuestTicketSelection = () => {
         setLoading(false);
 
         if (res && res.data) {
-            if (isPaidTicket) {
+            if (hasPaidTicket) {
                 // Navigate to Payment Screen for paid tickets
                 navigation.navigate("GuestPayment", {
                     eventId,
@@ -118,17 +125,21 @@ const GuestTicketSelection = () => {
                         mobile: route.params?.guestDetails?.mobile || "",
                         email: route.params?.guestDetails?.email || ""
                     },
-
                     facilities: [
-                        ...includedFacilities,
-                        ...optionalFacilities.filter((f: any) => selectedFacilities.includes(f.id))
+                        ...includedFacilitiesList,
+                        ...optionalFacilitiesList.filter((f: any) => selectedFacilities.includes(f.id))
                     ],
                     ticketResponse: res,
                     sendToWhatsapp: sendToWhatsapp,
                     registeredBy: registeredBy,
                     eventName: eventName,
-                    ticketName: ticket.title,
-                    quantity: quantity
+                    selectedTickets: selectedTickets.map(t => ({
+                        id: t.id,
+                        title: t.title,
+                        quantity: ticketQuantities[t.id],
+                        price: t.amount,
+                        currency: t.currency
+                    }))
                 });
             } else {
                 // Direct success for free tickets
@@ -139,17 +150,20 @@ const GuestTicketSelection = () => {
         }
     };
 
-    const selectedTicket = tickets.find(t => t.id === selectedTicketId);
+    const selectedTickets = useMemo(() => tickets.filter(t => (ticketQuantities[t.id] || 0) > 0), [tickets, ticketQuantities]);
 
-    const includedFacilities = useMemo(() =>
-        (selectedTicket?.facilities || []).filter((f: any) => f.is_included === 1 || f.is_free === 1),
-        [selectedTicket]
-    );
+    const includedFacilities = useMemo(() => {
+        const allFacilities = selectedTickets.flatMap(t => t.facilities || []);
+        // Remove duplicates if same facility exists in multiple tickets
+        const uniqueFacilities = Array.from(new Map(allFacilities.map(f => [f.id, f])).values());
+        return uniqueFacilities.filter((f: any) => f.is_included === 1 || f.is_free === 1);
+    }, [selectedTickets]);
 
-    const optionalFacilities = useMemo(() =>
-        (selectedTicket?.facilities || []).filter((f: any) => f.is_included === 0 && f.is_free === 0),
-        [selectedTicket]
-    );
+    const optionalFacilities = useMemo(() => {
+        const allFacilities = selectedTickets.flatMap(t => t.facilities || []);
+        const uniqueFacilities = Array.from(new Map(allFacilities.map(f => [f.id, f])).values());
+        return uniqueFacilities.filter((f: any) => f.is_included === 0 && f.is_free === 0);
+    }, [selectedTickets]);
 
     return (
         <ResponsiveContainer maxWidth={isTablet ? 800 : 420}>
@@ -166,34 +180,57 @@ const GuestTicketSelection = () => {
                     {/* Section Title */}
                     <Text style={styles.sectionTitle}>Available Tickets</Text>
 
-                    {/* Vertical List of Tickets */}
-                    <View style={styles.ticketList}>
+                    {/* Grid of Tickets */}
+                    <View style={styles.ticketGrid}>
                         {tickets.map((ticket) => {
-                            const isSelected = selectedTicketId === ticket.id;
+                            const qty = ticketQuantities[ticket.id] || 0;
+                            const isSelected = qty > 0;
+                            const currencySymbol = (ticket.currency === 'rupees' || ticket.currency === 'INR') ? '₹' : (ticket.currency || '₹');
+
                             return (
-                                <TouchableOpacity
+                                <View
                                     key={ticket.id}
                                     style={[styles.ticketCard, isSelected && styles.ticketCardSelected]}
-                                    onPress={() => { setSelectedTicketId(ticket.id); setQuantity(1); setSelectedFacilities([]); }}
-                                    activeOpacity={0.9}
                                 >
-                                    <View style={styles.cardContent}>
-                                        {/* Radio Indicator */}
-                                        <View style={[styles.radioCircle, isSelected && styles.radioCircleSelected]}>
-                                            {isSelected && <View style={styles.radioDot} />}
-                                        </View>
-
-                                        {/* Ticket Info */}
-                                        <View style={{ flex: 1 }}>
-                                            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-                                                <Text style={[styles.ticketTitle, isSelected && styles.ticketTitleSelected]}>{ticket.title}</Text>
+                                    <View style={styles.cardHeaderSmall}>
+                                        <Text style={styles.ticketTitle}>{ticket.title}</Text>
+                                        <TouchableOpacity onPress={() => {/* Show Info Modal */ }}>
+                                            <View style={styles.infoIconWrapper}>
+                                                <Text style={styles.infoIconText}>i</Text>
                                             </View>
-                                            <Text style={styles.ticketType}>{ticket.amount > 0 ? `${(ticket.currency === 'rupees' || ticket.currency === 'INR') ? '₹' : ticket.currency} ${ticket.amount}` : 'Free'}</Text>
-                                        </View>
-
-                                        {/* Checkmark or Info (Optional, keeping clean for now) */}
+                                        </TouchableOpacity>
                                     </View>
-                                </TouchableOpacity>
+
+                                    <View style={styles.priceContainer}>
+                                        <Text style={styles.priceLabel}>Price: {ticket.amount > 0 ? `${ticket.amount} ${currencySymbol}` : 'Free'}</Text>
+                                    </View>
+
+                                    <View style={styles.qtyContainer}>
+                                        <Text style={styles.qtyLabel}>Number of tickets:</Text>
+                                        <View style={styles.qtyControls}>
+                                            <TouchableOpacity
+                                                onPress={() => handleQuantityChange(ticket.id, -1)}
+                                                style={[styles.qtyBtn, qty === 0 && styles.qtyBtnDisabled]}
+                                                disabled={qty === 0}
+                                            >
+                                                <View style={styles.minusBtn}>
+                                                    <View style={styles.minusLine} />
+                                                </View>
+                                            </TouchableOpacity>
+
+                                            <View style={styles.qtyBox}>
+                                                <Text style={styles.qtyText}>{qty}</Text>
+                                            </View>
+
+                                            <TouchableOpacity onPress={() => handleQuantityChange(ticket.id, 1)} style={styles.qtyBtn}>
+                                                <View style={styles.plusBtn}>
+                                                    <View style={styles.plusLineH} />
+                                                    <View style={styles.plusLineV} />
+                                                </View>
+                                            </TouchableOpacity>
+                                        </View>
+                                    </View>
+                                </View>
                             );
                         })}
                     </View>
@@ -266,23 +303,7 @@ const GuestTicketSelection = () => {
 
                     <View style={styles.divider} />
 
-                    {/* Quantity Selector */}
-                    <View style={styles.actionRow}>
-                        <Text style={styles.quantityLabel}>Number of tickets</Text>
-                        <View style={styles.quantityControls}>
-                            <TouchableOpacity onPress={() => handleQuantityChange(-1)} style={styles.controlButton}>
-                                <Text style={styles.controlButtonText}>-</Text>
-                            </TouchableOpacity>
-
-                            <View style={styles.quantityBox}>
-                                <Text style={styles.quantityText}>{quantity}</Text>
-                            </View>
-
-                            <TouchableOpacity onPress={() => handleQuantityChange(1)} style={styles.controlButton}>
-                                <Text style={styles.controlButtonText}>+</Text>
-                            </TouchableOpacity>
-                        </View>
-                    </View>
+                    {/* Removed single Quantity Selector as it's now per ticket */}
 
                     {/* WhatsApp Toggle */}
                     <TouchableOpacity
@@ -298,9 +319,8 @@ const GuestTicketSelection = () => {
 
                 </ScrollView>
 
-                {/* Bottom Button */}
                 <View style={styles.footer}>
-                    <TouchableOpacity style={styles.nextButton} onPress={handleSubmit} disabled={loading}>
+                    <TouchableOpacity style={[styles.nextButton, selectedTickets.length === 0 && styles.nextButtonDisabled]} onPress={handleSubmit} disabled={loading || selectedTickets.length === 0}>
                         <Text style={styles.nextButtonText}>{loading ? 'Processing...' : 'Confirm Selection'}</Text>
                     </TouchableOpacity>
                 </View>
@@ -321,7 +341,7 @@ const makeStyles = (scale: (size: number) => number, verticalScale: (size: numbe
         borderBottomColor: '#F0F0F0',
     },
     headerTitle: {
-        fontSize: moderateScale(FontSize.xl), // 18 -> xl
+        fontSize: moderateScale(FontSize.xl),
         fontWeight: '600',
         color: '#333',
         flex: 1,
@@ -335,67 +355,169 @@ const makeStyles = (scale: (size: number) => number, verticalScale: (size: numbe
         alignSelf: 'center',
     },
     sectionTitle: {
-        fontSize: moderateScale(FontSize.lg), // 16 -> lg
+        fontSize: moderateScale(FontSize.lg),
         fontWeight: '600',
         color: '#333',
         marginBottom: verticalScale(15),
     },
-    ticketList: {
-        gap: verticalScale(12),
+    ticketGrid: {
+        flexDirection: isTablet ? 'row' : 'column',
+        flexWrap: 'wrap',
+        gap: scale(15),
     },
     ticketCard: {
         backgroundColor: 'white',
-        borderRadius: scale(12),
+        borderRadius: scale(10),
         padding: scale(16),
         borderWidth: 1,
         borderColor: '#EFEFEF',
+        width: isTablet ? '48%' : '100%',
+        minHeight: verticalScale(160),
+        justifyContent: 'space-between',
         shadowColor: "#000",
-        shadowOffset: { width: 0, height: verticalScale(1) },
-        shadowOpacity: 0.05,
-        shadowRadius: scale(2),
-        elevation: 1,
+        shadowOffset: { width: 0, height: verticalScale(2) },
+        shadowOpacity: 0.04,
+        shadowRadius: scale(4),
+        elevation: 2,
     },
     ticketCardSelected: {
         borderColor: '#FF8A3C',
-        backgroundColor: '#FFF8F4',
-        borderWidth: 1.5
+        borderWidth: 1.5,
     },
-    cardContent: {
+    cardHeaderSmall: {
         flexDirection: 'row',
-        alignItems: 'center',
-        gap: scale(15),
+        justifyContent: 'space-between',
+        alignItems: 'flex-start',
     },
-    radioCircle: {
-        width: scale(22),
-        height: scale(22),
-        borderRadius: scale(11),
-        borderWidth: 2,
-        borderColor: '#D0D0D0',
+    ticketTitle: {
+        fontSize: moderateScale(FontSize.lg),
+        fontWeight: '700',
+        color: '#1E232C',
+        flex: 1,
+        marginRight: scale(10),
+    },
+    infoIconWrapper: {
+        width: scale(20),
+        height: scale(20),
+        borderRadius: scale(10),
+        backgroundColor: '#1C274C',
         alignItems: 'center',
         justifyContent: 'center',
     },
-    radioCircleSelected: {
-        borderColor: '#FF8A3C',
+    infoIconText: {
+        color: 'white',
+        fontSize: moderateScale(12),
+        fontWeight: '800',
+        fontStyle: 'italic',
     },
-    radioDot: {
+    priceContainer: {
+        marginTop: verticalScale(8),
+    },
+    priceLabel: {
+        fontSize: moderateScale(FontSize.md),
+        color: '#666',
+        fontWeight: '500',
+    },
+    qtyContainer: {
+        marginTop: verticalScale(15),
+    },
+    qtyLabel: {
+        fontSize: moderateScale(FontSize.md),
+        color: '#666',
+        marginBottom: verticalScale(10),
+    },
+    qtyControls: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'flex-start',
+        gap: scale(12),
+    },
+    qtyBtn: {
+        width: scale(28),
+        height: scale(28),
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    qtyBtnDisabled: {
+        opacity: 0.5,
+    },
+    minusBtn: {
+        width: scale(24),
+        height: scale(24),
+        borderRadius: scale(12),
+        borderWidth: 1.5,
+        borderColor: '#FF8A3C',
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    minusLine: {
         width: scale(12),
-        height: scale(12),
-        borderRadius: scale(6),
+        height: 1.5,
         backgroundColor: '#FF8A3C',
     },
-    ticketTitle: {
-        fontSize: moderateScale(FontSize.lg), // 16 -> lg
-        fontWeight: '500',
-        color: '#333',
+    plusBtn: {
+        width: scale(24),
+        height: scale(24),
+        borderRadius: scale(12),
+        borderWidth: 1.5,
+        borderColor: '#FF8A3C',
+        alignItems: 'center',
+        justifyContent: 'center',
     },
-    ticketTitleSelected: {
-        color: '#FF8A3C',
+    plusLineH: {
+        width: scale(12),
+        height: 1.5,
+        backgroundColor: '#FF8A3C',
+        position: 'absolute',
+    },
+    plusLineV: {
+        width: 1.5,
+        height: scale(12),
+        backgroundColor: '#FF8A3C',
+        position: 'absolute',
+    },
+    qtyBox: {
+        backgroundColor: '#F8F9FA',
+        borderWidth: 1,
+        borderColor: '#D0D0D0',
+        borderRadius: scale(4),
+        paddingHorizontal: scale(18),
+        paddingVertical: verticalScale(6),
+        minWidth: scale(65),
+        alignItems: 'center',
+    },
+    qtyText: {
+        fontSize: moderateScale(FontSize.lg),
         fontWeight: '600',
+        color: '#1E232C',
     },
-    ticketType: {
-        fontSize: moderateScale(FontSize.xs),
-        color: '#888',
-        marginTop: verticalScale(2),
+    footer: {
+        padding: scale(20),
+        backgroundColor: 'white',
+        borderTopWidth: 1,
+        borderTopColor: '#F0F0F0',
+    },
+    nextButton: {
+        backgroundColor: '#FF8A3C',
+        paddingVertical: verticalScale(16),
+        borderRadius: scale(12),
+        alignItems: 'center',
+        shadowColor: "#FF8A3C",
+        shadowOffset: { width: 0, height: verticalScale(4) },
+        shadowOpacity: 0.2,
+        shadowRadius: scale(8),
+        elevation: 4,
+    },
+    nextButtonDisabled: {
+        backgroundColor: '#D1D1D1',
+        shadowOpacity: 0,
+        elevation: 0,
+    },
+    nextButtonText: {
+        color: 'white',
+        fontSize: moderateScale(FontSize.md),
+        fontWeight: '700',
+        letterSpacing: 0.5,
     },
     detailsContainer: {
         marginTop: verticalScale(25),
@@ -442,39 +564,6 @@ const makeStyles = (scale: (size: number) => number, verticalScale: (size: numbe
         borderWidth: 1,
         borderColor: '#EFEFEF'
     },
-    quantityLabel: {
-        fontSize: moderateScale(FontSize.md),
-        fontWeight: '500',
-        color: '#333',
-    },
-    quantityControls: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: scale(15),
-    },
-    controlButton: {
-        width: scale(32),
-        height: scale(32),
-        borderRadius: scale(16),
-        backgroundColor: '#FFF1E8', // Light orange bg
-        alignItems: 'center',
-        justifyContent: 'center',
-    },
-    controlButtonText: {
-        fontSize: moderateScale(20),
-        fontWeight: '600',
-        color: '#FF8A3C',
-        lineHeight: 22,
-    },
-    quantityBox: {
-        minWidth: scale(30),
-        alignItems: 'center',
-    },
-    quantityText: {
-        fontSize: moderateScale(FontSize.md),
-        fontWeight: '600',
-        color: '#333',
-    },
     whatsappText: {
         fontSize: moderateScale(FontSize.md),
         color: '#333',
@@ -495,31 +584,8 @@ const makeStyles = (scale: (size: number) => number, verticalScale: (size: numbe
     },
     checkmark: {
         color: 'white',
-        fontSize: moderateScale(FontSize.sm), // 14 -> sm
+        fontSize: moderateScale(FontSize.sm),
         fontWeight: 'bold',
-    },
-    footer: {
-        padding: scale(20),
-        backgroundColor: 'white',
-        borderTopWidth: 1,
-        borderTopColor: '#F0F0F0',
-    },
-    nextButton: {
-        backgroundColor: '#FF8A3C',
-        paddingVertical: verticalScale(16),
-        borderRadius: scale(12),
-        alignItems: 'center',
-        shadowColor: "#FF8A3C",
-        shadowOffset: { width: 0, height: verticalScale(4) },
-        shadowOpacity: 0.2,
-        shadowRadius: scale(8),
-        elevation: 4,
-    },
-    nextButtonText: {
-        color: 'white',
-        fontSize: moderateScale(FontSize.md),
-        fontWeight: '700',
-        letterSpacing: 0.5,
     },
     facilitiesCard: {
         marginTop: verticalScale(25),
