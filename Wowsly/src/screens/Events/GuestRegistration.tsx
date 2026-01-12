@@ -9,11 +9,12 @@ import BackButton from '../../components/BackButton';
 import DocumentPicker from 'react-native-document-picker';
 import { useTabletScale, useTabletModerateScale } from '../../utils/tabletScaling';
 import { ResponsiveContainer } from '../../components/ResponsiveContainer';
+import CountryPicker, { CountryCode } from 'react-native-country-picker-modal';
 
 const GuestRegistration = () => {
     const navigation = useNavigation();
     const route = useRoute<any>();
-    const { eventId, registeredBy } = route.params || {};
+    const { eventId, registeredBy, eventName } = route.params || {};
 
     const { width } = useWindowDimensions();
     const isTablet = width >= 720;
@@ -28,6 +29,9 @@ const GuestRegistration = () => {
     const [errors, setErrors] = useState<Record<string, string>>({}); // Validation errors
     const [formTitle, setFormTitle] = useState('Guest Registration Form');
     const [buttonText, setButtonText] = useState('Registration');
+
+    const [countryCode, setCountryCode] = useState<CountryCode>('IN');
+    const [callingCode, setCallingCode] = useState('91');
 
     useEffect(() => {
         if (eventId) {
@@ -97,7 +101,11 @@ const GuestRegistration = () => {
     const initializeFormValues = (fields: any[]) => {
         const initial: Record<string, any> = {};
         fields.forEach((f: any) => {
-            initial[f.id] = "";
+            if (f.question?.toLowerCase().includes('country code')) {
+                initial[f.id] = '91';
+            } else {
+                initial[f.id] = "";
+            }
         });
         setFormValues(initial);
     };
@@ -177,6 +185,18 @@ const GuestRegistration = () => {
                             isValid = false;
                         } else if (numericVal.length < 10) {
                             newErrors[field.id] = "Mobile number must be 10 digits";
+                            isValid = false;
+                        }
+                    }
+                }
+
+                // 3. Email Validation
+                if (field.type === 'email' || (field.question && field.question.toLowerCase().includes('email'))) {
+                    const v = typeof val === 'string' ? val : "";
+                    if (v) {
+                        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+                        if (!emailRegex.test(v)) {
+                            newErrors[field.id] = "Please enter a valid email address";
                             isValid = false;
                         }
                     }
@@ -292,7 +312,8 @@ const GuestRegistration = () => {
                         name: guestName,
                         mobile: guestMobile,
                         email: guestEmail
-                    }
+                    },
+                    eventName: eventName
                 });
             } else {
                 Alert.alert("Success", "Guest Registered Successfully!", [{ text: "OK", onPress: () => navigation.goBack() }]);
@@ -514,14 +535,30 @@ const GuestRegistration = () => {
                                                     <View style={{ flexDirection: 'row', gap: scale(10) }}>
                                                         {/* Country Code - Small Box (flex 0.28) */}
                                                         <View style={{ flex: 0.28 }}>
-                                                            <TextInput
-                                                                style={[styles.input, { textAlign: 'center', borderColor: errors[field.id] ? 'red' : '#E0E0E0' }]}
-                                                                placeholder="+91"
-                                                                placeholderTextColor="#999"
-                                                                value={formValues[field.id]}
-                                                                onChangeText={(t) => handleInputChange(field.id, t)}
-                                                                keyboardType="phone-pad"
-                                                            />
+                                                            <TouchableOpacity
+                                                                style={[styles.input, {
+                                                                    flexDirection: 'row',
+                                                                    alignItems: 'center',
+                                                                    justifyContent: 'center',
+                                                                    borderColor: errors[field.id] ? 'red' : '#E0E0E0',
+                                                                    paddingHorizontal: 0
+                                                                }]}
+                                                            >
+                                                                <CountryPicker
+                                                                    withFilter
+                                                                    withCallingCode
+                                                                    withFlag
+                                                                    countryCode={countryCode}
+                                                                    onSelect={(country) => {
+                                                                        setCountryCode(country.cca2);
+                                                                        setCallingCode(country.callingCode[0]);
+                                                                        handleInputChange(field.id, country.callingCode[0]);
+                                                                    }}
+                                                                />
+                                                                <Text style={{ marginLeft: scale(4), fontSize: moderateScale(FontSize.md), color: '#333' }}>
+                                                                    +{callingCode}
+                                                                </Text>
+                                                            </TouchableOpacity>
                                                         </View>
 
                                                         {/* Mobile Number - Large Box (flex 0.72) */}

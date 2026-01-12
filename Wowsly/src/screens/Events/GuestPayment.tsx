@@ -15,7 +15,7 @@ if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental
 const GuestPayment = () => {
     const navigation = useNavigation();
     const route = useRoute<any>();
-    const { eventId, guestDetails, ticketResponse, registeredBy } = route.params || {};
+    const { eventId, guestDetails, ticketResponse, registeredBy, eventName, ticketName } = route.params || {};
 
     const [loading, setLoading] = useState(false);
     const [paymentMode, setPaymentMode] = useState<'Cash' | 'Online'>('Cash');
@@ -24,7 +24,30 @@ const GuestPayment = () => {
     const [showOnlineScreen, setShowOnlineScreen] = useState(false);
 
     const ticketData = ticketResponse?.data || {};
-    const amountToPay = ticketData.amount_to_pay || 0;
+
+    // 1. Calculate Ticket Qty
+    const ticketQty = Number(ticketData.tickets_bought || 1);
+
+    // 2. Base Ticket Price
+    const ticketBaseTotal = Number(ticketData.per_ticket_price || ticketData.amount || 0) * ticketQty;
+
+    // 3. Map Facilities correctly (API uses 'price', we map to 'amount')
+    const rawFacilities = route.params?.facilities || [];
+    const facilities = rawFacilities.map((f: any) => ({
+        ...f,
+        amount: Number(f.price || 0),
+        currency: f.currency || ticketData.currency
+    }));
+
+    // 4. Calculate Facility Total (Exclude free/included)
+    const facilityTotal = facilities.reduce((sum: number, f: any) => {
+        if (f.is_free || f.is_included) return sum;
+        return sum + (Number(f.amount || 0) * ticketQty);
+    }, 0);
+
+    // 5. Final Payable Amount
+    const amountToPay = ticketBaseTotal + facilityTotal;
+
     const currencySymbol = (ticketData.currency === 'rupees' || ticketData.currency === 'INR') ? '₹' : (ticketData.currency || '₹');
 
     const { width } = useWindowDimensions();
@@ -155,30 +178,58 @@ const GuestPayment = () => {
                         {/* Event Name */}
                         <View style={styles.infoRow}>
                             <Text style={styles.label}>Event Name</Text>
-                            <Text style={styles.value}>Trip</Text>
+                            <Text style={styles.value}>{eventName || 'Event'}</Text>
                         </View>
 
                         <View style={styles.divider} />
 
                         {/* Ticket Info */}
-                        <View style={styles.ticketSummary}>
-                            <View style={styles.ticketRow}>
-                                <Text style={styles.ticketName}>{ticketData.ticket_name || ticketData.title || 'Ticket'}</Text>
-                                <Text style={styles.ticketPrice}>Per Ticket Price: {ticketData.per_ticket_price} {currencySymbol}</Text>
-                            </View>
-                            <View style={styles.ticketRow}>
+                        <View style={styles.ticketSummaryContainer}>
+                            <View style={[styles.ticketRow, { marginBottom: verticalScale(4) }]}>
+                                {/* Ticket Name - Bold */}
+                                <Text style={[styles.ticketName, { flex: 1, fontWeight: '700', fontSize: moderateScale(16) }]}>
+                                    {ticketName || ticketData.ticket_name || ticketData.title || 'Ticket'}
+                                </Text>
+                                {/* Quantity - Right Aligned */}
                                 <Text style={styles.ticketQuantity}>Qty: {ticketData.tickets_bought}</Text>
-                                <Text style={styles.itemTotal}>Total Ticket Amount: {Number(ticketData.per_ticket_price) * Number(ticketData.tickets_bought)} {currencySymbol}</Text>
+                            </View>
+
+                            <View style={styles.ticketRow}>
+                                {/* Per Ticket Price */}
+                                <Text style={styles.ticketPrice}>
+                                    Per Ticket: {ticketData.per_ticket_price} {currencySymbol}
+                                </Text>
+                                {/* Total Amount - Right Aligned */}
+                                <Text style={styles.itemTotal}>
+                                    Total: {Number(ticketData.per_ticket_price) * Number(ticketData.tickets_bought)} {currencySymbol}
+                                </Text>
                             </View>
                         </View>
 
                         {/* Facilities (Dynamic) */}
-                        {(route.params?.facilities || []).map((facility: any, index: number) => (
-                            <View key={index} style={styles.infoRow}>
-                                <Text style={styles.label}>{facility.name || facility.facility_name || 'Facility'}</Text>
-                                <Text style={styles.value}>{Number(facility.amount) > 0 ? `${facility.amount} ${currencySymbol}` : `0 ${currencySymbol}`}</Text>
-                            </View>
-                        ))}
+                        {facilities.map((facility: any, index: number) => {
+                            const fAmount = Number(facility.amount || 0);
+                            const totalFAmount = fAmount * ticketQty;
+                            const isIncluded = facility.is_free || facility.is_included;
+
+                            return (
+                                <View key={index} style={styles.infoRow}>
+                                    <Text style={[styles.label, { flex: 1 }]}>{facility.name || facility.facility_name || 'Facility'}</Text>
+                                    <View style={{ alignItems: 'flex-end', maxWidth: '40%' }}>
+                                        <Text style={[styles.value, { maxWidth: '100%' }]}>
+                                            {isIncluded
+                                                ? 'Included'
+                                                : `${fAmount} ${currencySymbol}`}
+                                        </Text>
+                                        {!isIncluded && fAmount > 0 && (
+                                            <Text style={[styles.value, { fontSize: moderateScale(12), color: '#888', marginTop: 2, maxWidth: '100%' }]}>
+                                                Total: {totalFAmount} {currencySymbol}
+                                            </Text>
+                                        )}
+                                    </View>
+                                </View>
+                            );
+                        })}
 
                         <View style={styles.divider} />
 
@@ -607,6 +658,14 @@ const makeStyles = (scale: (size: number) => number, verticalScale: (size: numbe
     },
     ticketSummary: {
         marginVertical: verticalScale(5),
+    },
+    ticketSummaryContainer: {
+        backgroundColor: '#F8F9FA',
+        borderRadius: 12,
+        padding: scale(12),
+        marginVertical: verticalScale(16),
+        borderWidth: 1,
+        borderColor: '#EFEFEF'
     },
     ticketRow: {
         flexDirection: 'row',

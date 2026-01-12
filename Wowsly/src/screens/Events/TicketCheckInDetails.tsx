@@ -536,9 +536,13 @@ const TicketCheckInDetails = () => {
                 <View style={styles.cardHeaderCenter}>
                     {/* Avatar Removed as per request */}
                     <Text style={styles.gridGuestName} numberOfLines={2}>{item.name}</Text>
+
                     <View style={styles.ticketBadge}>
-                        <Text style={styles.gridTicketCount}>1 × Ticket</Text>
+                        <Text style={styles.gridTicketCount}>
+                            Checked in: {item.check_in_count}
+                        </Text>
                     </View>
+
                     <Text style={styles.gridCheckInTime}>
                         {formatTime(item.check_in_time)}
                     </Text>

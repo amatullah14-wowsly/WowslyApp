@@ -103,13 +103,18 @@ export const EventDashboardContent = ({ eventData, userRole, eventId, isSplitVie
         }, [isSplitView])
     );
 
-    useEffect(() => {
-        if (targetId) {
+    useFocusEffect(
+        useCallback(() => {
+            if (!targetId) return;
+
+            console.log("Dashboard focused → refreshing event data");
+
             fetchDetails(targetId);
             fetchTicketList(targetId);
             fetchCheckinData(targetId);
-        }
-    }, [targetId]);
+
+        }, [targetId])
+    );
 
     const fetchDetails = async (id: string) => {
         try {
@@ -393,7 +398,7 @@ export const EventDashboardContent = ({ eventData, userRole, eventId, isSplitVie
                     isFoldable && !isSplitView && { width: '48%' },
                     isSplitView && { width: '100%', marginTop: verticalScale(12), borderRadius: moderateScale(12) }
                 ]}
-                onPress={() => navigation.navigate("GuestRegistration", { eventId: displayData.id })}
+                onPress={() => navigation.navigate("GuestRegistration", { eventId: displayData.id, eventName: displayData.title })}
             >
                 <Image source={require('../../assets/img/eventdashboard/registration.png')}
                     style={[styles.scanicon, { tintColor: '#FF8A3C' }]} />

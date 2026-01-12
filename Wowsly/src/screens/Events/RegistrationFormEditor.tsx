@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { StyleSheet, Text, View, TouchableOpacity, ScrollView, TextInput, Platform, KeyboardAvoidingView, Switch, Modal, Image, Alert, useWindowDimensions } from 'react-native'
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, useRoute } from '@react-navigation/native';
@@ -62,6 +62,8 @@ const RegistrationFormEditor = ({ isEmbedded = false, eventId: propEventId }: { 
     const [newQuestionType, setNewQuestionType] = useState('Short Answer');
     const [newQuestionLabel, setNewQuestionLabel] = useState('');
     const [showTypeDropdown, setShowTypeDropdown] = useState(false);
+    const [dropdownPos, setDropdownPos] = useState({ x: 0, y: 0, width: 0 });
+    const questionTypeButtonRef = useRef<View>(null);
 
     const [newOptions, setNewOptions] = useState<string[]>([]);
     const [newOptionText, setNewOptionText] = useState('');
@@ -794,30 +796,24 @@ const RegistrationFormEditor = ({ isEmbedded = false, eventId: propEventId }: { 
                             {/* Question Type Selector */}
                             <View style={[styles.inputContainer, { zIndex: 2000 }]} >
                                 <Text style={{ fontSize: moderateScale(FontSize.xs), color: '#666', marginBottom: verticalScale(5), fontWeight: '500' }}>Question Type</Text>
-                                <TouchableOpacity
-                                    style={[styles.textInput, { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }]}
-                                    onPress={() => setShowTypeDropdown(!showTypeDropdown)}
+                                <View
+                                    ref={questionTypeButtonRef}
+                                    style={{ flex: 1 }}
+                                    onLayout={() => { }} // Placeholder to keep view consistent if needed, but we use measure on press
                                 >
-                                    <Text style={{ color: '#333' }}>{newQuestionType}</Text>
-                                    <ChevronDownIcon width={moderateScale(20)} height={moderateScale(20)} color="#666" />
-                                </TouchableOpacity>
-
-                                {showTypeDropdown && (
-                                    <View style={styles.dropdownList}>
-                                        {questionTypes.map((type, index) => (
-                                            <TouchableOpacity
-                                                key={index}
-                                                style={styles.dropdownItem}
-                                                onPress={() => {
-                                                    setNewQuestionType(type);
-                                                    setShowTypeDropdown(false);
-                                                }}
-                                            >
-                                                <Text style={styles.dropdownText}>{type}</Text>
-                                            </TouchableOpacity>
-                                        ))}
-                                    </View>
-                                )}
+                                    <TouchableOpacity
+                                        style={[styles.textInput, { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }]}
+                                        onPress={() => {
+                                            questionTypeButtonRef.current?.measure((x, y, width, height, pageX, pageY) => {
+                                                setDropdownPos({ x: pageX, y: pageY + height, width });
+                                                setShowTypeDropdown(true);
+                                            });
+                                        }}
+                                    >
+                                        <Text style={{ color: '#333' }}>{newQuestionType}</Text>
+                                        <ChevronDownIcon width={moderateScale(20)} height={moderateScale(20)} color="#666" />
+                                    </TouchableOpacity>
+                                </View>
                             </View>
 
                             {/* Question Text Input */}
@@ -895,6 +891,48 @@ const RegistrationFormEditor = ({ isEmbedded = false, eventId: propEventId }: { 
                     <Text style={styles.saveFooterButtonText}>Save</Text>
                 </TouchableOpacity>
             </View>
+
+            {/* Floating Dropdown Modal */}
+            <Modal transparent visible={showTypeDropdown} animationType="fade" onRequestClose={() => setShowTypeDropdown(false)}>
+                <TouchableOpacity
+                    style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.1)' }}
+                    activeOpacity={1}
+                    onPress={() => setShowTypeDropdown(false)}
+                >
+                    <View
+                        style={{
+                            position: 'absolute',
+                            top: dropdownPos.y + 5, // Add a small gap
+                            left: dropdownPos.x,
+                            width: dropdownPos.width,
+                            backgroundColor: 'white',
+                            borderRadius: moderateScale(10),
+                            maxHeight: verticalScale(300),
+                            elevation: 10,
+                            shadowColor: '#000',
+                            shadowOffset: { width: 0, height: verticalScale(2) },
+                            shadowOpacity: 0.2,
+                            shadowRadius: moderateScale(8),
+                            overflow: 'hidden'
+                        }}
+                    >
+                        <ScrollView nestedScrollEnabled showsVerticalScrollIndicator={true}>
+                            {questionTypes.map((type, index) => (
+                                <TouchableOpacity
+                                    key={index}
+                                    style={{ padding: moderateScale(16), borderBottomWidth: 1, borderColor: '#f0f0f0' }}
+                                    onPress={() => {
+                                        setNewQuestionType(type);
+                                        setShowTypeDropdown(false);
+                                    }}
+                                >
+                                    <Text style={{ fontSize: moderateScale(16), color: '#333' }}>{type}</Text>
+                                </TouchableOpacity>
+                            ))}
+                        </ScrollView>
+                    </View>
+                </TouchableOpacity>
+            </Modal>
         </SafeAreaView >
     );
 
@@ -1185,15 +1223,17 @@ const makeStyles = (scale: (size: number) => number, verticalScale: (size: numbe
         backgroundColor: 'white',
         borderRadius: moderateScale(8),
         marginTop: verticalScale(5),
-        elevation: 5,
+        elevation: 10,
         position: 'absolute',
         top: '100%',
         left: 0,
         right: 0,
-        zIndex: 3000,
+        zIndex: 9999,
+        maxHeight: verticalScale(260),
+        overflow: 'hidden',
         shadowColor: "#000",
         shadowOffset: { width: 0, height: verticalScale(2) },
-        shadowOpacity: 0.1,
+        shadowOpacity: 0.2, // Slightly increased shadow
         shadowRadius: moderateScale(4),
     },
     dropdownItem: {
