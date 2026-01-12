@@ -5,7 +5,7 @@ SQLite.DEBUG(false);
 SQLite.enablePromise(true);
 
 const DB_NAME = 'wowsly.db';
-let db: SQLite.SQLiteDatabase | null = null;
+let db: any | null = null;
 
 // ======================================================
 // OPEN / CLOSE
@@ -157,6 +157,20 @@ export async function initDB() {
     );
   `);
 
+  // GUEST_FACILITIES — Matches Kotlin Room Schema exactly
+  await database.executeSql(`
+    CREATE TABLE IF NOT EXISTS guest_facilities (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      event_id INTEGER,
+      guest_uuid TEXT,
+      facilityId INTEGER,
+      name TEXT,
+      total_scans INTEGER,
+      used_scans INTEGER DEFAULT 0,
+      synced INTEGER DEFAULT 0
+    );
+  `);
+
   // ------------------------
   // MIGRATIONS (safe)
   // ------------------------
@@ -209,6 +223,11 @@ export async function initDB() {
   await safeAddIndex("facility", "idx_facility_facilityId", "facilityId");
   await safeAddIndex("facility", "idx_facility_eventId", "eventId");
 
+  // GUEST_FACILITIES INDICES
+  await safeAddIndex("guest_facilities", "idx_guest_facilities_guest_uuid", "guest_uuid");
+  await safeAddIndex("guest_facilities", "idx_guest_facilities_event_id", "event_id");
+  await safeAddIndex("guest_facilities", "idx_guest_facilities_composite", "event_id, guest_uuid, facilityId", true);
+
   // MIGRATE OLD DATA (if previous schema used total_scans / used_scans or availableScans/checkIn naming might differ)
   try {
     // If platform previously added total_scans / used_scans, migrate them over to availableScans/checkIn
@@ -250,6 +269,7 @@ export async function replaceAllGuestsForEvent(eventId: number, guestsArray: any
       console.log(`[DB] DELETING ALL tickets and facilities for event ${eventId}`);
       await db.executeSql(`DELETE FROM tickets WHERE event_id = ?;`, [eventId]);
       await db.executeSql(`DELETE FROM facility WHERE eventId = ?;`, [eventId]);
+      await db.executeSql(`DELETE FROM guest_facilities WHERE event_id = ?;`, [eventId]);
     }
 
     // 2. INSERT FRESH DATA in BATCHES
@@ -385,6 +405,29 @@ export async function replaceAllGuestsForEvent(eventId: number, guestsArray: any
         `INSERT INTO facility (guest_uuid, facilityId, name, availableScans, checkIn, eventId, ticket_id, synced)
          VALUES ${rowPlaceholders};`,
         params
+      );
+
+      // ⚡⚡⚡ KOTLIN FIX: POPULATE guest_facilities TABLE ⚡⚡⚡
+      const gfRowPlaceholders = chunk.map(() => `(?, ?, ?, ?, ?, ?, 1)`).join(', ');
+      const gfParams: any[] = [];
+      chunk.forEach(item => {
+        const f = item.facility;
+        const totalScans = parseInt(f.scan_quantity ?? f.quantity ?? f.total_scans ?? 1, 10) || 1;
+        const usedScans = parseInt(f.scanned_count ?? f.check_in_count ?? 0, 10);
+        gfParams.push(
+          item.eventId,
+          item.qrGuestUuid,
+          f.id,
+          f.name,
+          totalScans,
+          usedScans
+        );
+      });
+
+      await db.executeSql(
+        `INSERT OR REPLACE INTO guest_facilities (event_id, guest_uuid, facilityId, name, total_scans, used_scans, synced)
+         VALUES ${gfRowPlaceholders};`,
+        gfParams
       );
 
       // Log progress periodically
@@ -813,61 +856,60 @@ export async function insertFacilitiesBatch(allFacilities: { eventId: number, qr
 }
 
 
-export async function insertFacilityForGuest({
-  guest_uuid, facilityId, name, availableScans, checkIn, eventId, ticket_id
-}: { guest_uuid: string, facilityId: number, name: string, availableScans: number, checkIn: number, eventId?: number, ticket_id?: number }) {
+export async function insertFacilityForGuest(
+  eventId: number,
+  uuid: string,
+  facilityId: number,
+  name: string,
+  total: number
+) {
   const db = await openDB();
-
-  await db.executeSql(
-    `DELETE FROM facility WHERE guest_uuid = ? AND facilityId = ?`,
-    [guest_uuid, facilityId]
-  );
-
-  await db.executeSql(
-    `INSERT INTO facility (guest_uuid, facilityId, name, availableScans, checkIn, eventId, ticket_id, synced)
-     VALUES (?, ?, ?, ?, ?, ?, ?, 1)`,
-    [guest_uuid, facilityId, name, availableScans, checkIn, eventId, ticket_id]
-  );
+  // ⚡⚡⚡ KOTLIN LOGIC: Preserve used_scans if row already exists ⚡⚡⚡
+  return db.executeSql(`
+    INSERT OR REPLACE INTO guest_facilities
+    (event_id, guest_uuid, facilityId, name, total_scans, used_scans, synced)
+    VALUES (?, ?, ?, ?, ?, COALESCE(
+      (SELECT used_scans FROM guest_facilities WHERE event_id=? AND guest_uuid=? AND facilityId=?),
+      0
+    ), 1)
+  `, [eventId, uuid, facilityId, name, total, eventId, uuid, facilityId]);
 }
 
-export async function getFacilitiesForGuest(guestUuid: string) {
+export async function getFacilitiesForGuest(eventId: number, uuid: string) {
   const db = await openDB();
-  // Return rows with expected field names used by UI: facilityId, name, availableScans, checkIn
   const [res] = await db.executeSql(
-    `SELECT facilityId, name, availableScans, checkIn FROM facility WHERE guest_uuid = ?`,
-    [guestUuid]
+    `SELECT * FROM guest_facilities WHERE event_id=? AND guest_uuid=?`,
+    [eventId, uuid]
   );
 
   const arr = [];
   for (let i = 0; i < res.rows.length; i++) {
-    arr.push(res.rows.item(i));
+    const row = res.rows.item(i);
+    // Map back to format expected by UI if necessary
+    arr.push({
+      ...row,
+      availableScans: row.total_scans,
+      checkIn: row.used_scans
+    });
   }
   return arr;
 }
 
 export async function updateFacilityCheckInLocal(
-  guestUuid: string,
+  eventId: number,
+  uuid: string,
   facilityId: number,
-  increment: number = 1
+  count: number = 1
 ) {
   const db = await openDB();
+  const [res] = await db.executeSql(`
+    UPDATE guest_facilities
+    SET used_scans = used_scans + ?, synced = 0
+    WHERE event_id=? AND guest_uuid=? AND facilityId=?
+      AND used_scans + ? <= total_scans
+  `, [count, eventId, uuid, facilityId, count]);
 
-  // 🔒 Prevent over check-in using WHERE clause so rowsAffected is 0 if full
-  const [result] = await db.executeSql(
-    `
-    UPDATE facility
-    SET 
-      checkIn = checkIn + ?,
-      synced = 0
-    WHERE guest_uuid = ? 
-      AND facilityId = ?
-      AND checkIn + ? <= COALESCE(availableScans, 1)
-    `,
-    [increment, guestUuid, facilityId, increment]
-  );
-
-  // Return number of rows actually updated
-  return result.rowsAffected;
+  return res.rowsAffected;
 }
 
 

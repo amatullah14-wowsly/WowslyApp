@@ -26,7 +26,7 @@ const GuestPayment = () => {
     const ticketData = ticketResponse?.data || {};
 
     // 1. Calculate Ticket Qty
-    const ticketQty = Number(ticketData.tickets_bought || 1);
+    const ticketQty = Number(route.params?.quantity || ticketData.tickets_bought || 1);
 
     // 2. Base Ticket Price
     const ticketBaseTotal = Number(ticketData.per_ticket_price || ticketData.amount || 0) * ticketQty;
@@ -46,7 +46,8 @@ const GuestPayment = () => {
     }, 0);
 
     // 5. Final Payable Amount
-    const amountToPay = ticketBaseTotal + facilityTotal;
+    // 5. Final Payable Amount
+    const amountToPay = ticketBaseTotal + facilityTotal + (sendToWhatsapp ? 2 : 0);
 
     const currencySymbol = (ticketData.currency === 'rupees' || ticketData.currency === 'INR') ? '₹' : (ticketData.currency || '₹');
 
@@ -191,7 +192,7 @@ const GuestPayment = () => {
                                     {ticketName || ticketData.ticket_name || ticketData.title || 'Ticket'}
                                 </Text>
                                 {/* Quantity - Right Aligned */}
-                                <Text style={styles.ticketQuantity}>Qty: {ticketData.tickets_bought}</Text>
+                                <Text style={styles.ticketQuantity}>Qty: {ticketQty}</Text>
                             </View>
 
                             <View style={styles.ticketRow}>
@@ -201,7 +202,7 @@ const GuestPayment = () => {
                                 </Text>
                                 {/* Total Amount - Right Aligned */}
                                 <Text style={styles.itemTotal}>
-                                    Total: {Number(ticketData.per_ticket_price) * Number(ticketData.tickets_bought)} {currencySymbol}
+                                    Total: {Number(ticketData.per_ticket_price) * ticketQty} {currencySymbol}
                                 </Text>
                             </View>
                         </View>
@@ -230,6 +231,14 @@ const GuestPayment = () => {
                                 </View>
                             );
                         })}
+
+                        {/* WhatsApp Fee Row */}
+                        {sendToWhatsapp && (
+                            <View style={styles.infoRow}>
+                                <Text style={[styles.label, { flex: 1 }]}>WhatsApp Fee</Text>
+                                <Text style={styles.value}>2 {currencySymbol}</Text>
+                            </View>
+                        )}
 
                         <View style={styles.divider} />
 

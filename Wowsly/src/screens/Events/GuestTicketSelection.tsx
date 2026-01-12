@@ -101,7 +101,7 @@ const GuestTicketSelection = () => {
                 facilities: ticket.facilities || []
             }],
             send_to_whatsapp: sendToWhatsapp ? 1 : 0,
-            total_amount: (Number(ticket.amount || 0) * quantity) + (facilityTotal * quantity)
+            total_amount: (Number(ticket.amount || 0) * quantity) + (facilityTotal * quantity) + (sendToWhatsapp ? 2 : 0)
         };
 
         setLoading(true);
@@ -127,7 +127,8 @@ const GuestTicketSelection = () => {
                     sendToWhatsapp: sendToWhatsapp,
                     registeredBy: registeredBy,
                     eventName: eventName,
-                    ticketName: ticket.title
+                    ticketName: ticket.title,
+                    quantity: quantity
                 });
             } else {
                 // Direct success for free tickets

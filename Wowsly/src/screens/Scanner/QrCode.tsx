@@ -514,51 +514,37 @@ const QrCode = () => {
 
           // ⚡⚡⚡ MERGE LOCAL FACILITY COUNTS IF AVAILABLE ⚡⚡⚡
           // The facilities JSON in tickets table is static from download.
-          // We need real-time counts from 'facility' table.
+          // We need real-time counts from 'guest_facilities' table.
           try {
-            const dbFacilities = await getFacilitiesForGuest(ticket.qrGuestUuid || ticket.guest_uuid || ticket.qr_code);
+            const dbFacilities = await getFacilitiesForGuest(Number(eventId), ticket.qrGuestUuid || ticket.guest_uuid || ticket.qr_code);
             if (dbFacilities.length > 0) {
-              // Map static facilities to dynamic counts
-              // If facilities array is empty (maybe not saved in tickets json), use dbFacilities
-              if (facilities.length === 0) {
-                facilities = dbFacilities.map(f => ({
-                  id: f.facilityId,
-                  name: f.name,
-                  quantity: f.availableScans, // or whatever field used in UI
-                  scanned_count: f.checkIn // important
-                }));
-              } else {
-                // Merge counts
-                facilities = facilities.map((f: any) => {
-                  const match = dbFacilities.find(dbF => dbF.facilityId == f.id);
-                  if (match) {
-                    return {
-                      ...f,
-                      scanned_count: match.checkIn // Update used count
-                    };
-                  }
-                  return f;
-                });
-              }
-              console.log("DEBUG: Merged offline facilities:", JSON.stringify(facilities));
+              // Map dynamic counts to the format expected by the UI
+              facilities = dbFacilities.map(f => ({
+                id: f.facilityId,
+                name: f.name,
+                quantity: f.total_scans, // mapped from total_scans
+                scanned_count: f.used_scans // mapped from used_scans
+              }));
+              console.log("DEBUG: Loaded offline facilities from guest_facilities table:", JSON.stringify(facilities));
             }
           } catch (e) {
             console.log("Failed to load dynamic facilities offline", e);
           }
 
-          console.log("DEBUG: Offline Ticket Found:", JSON.stringify(ticket));
-          console.log(`DEBUG: total_entries: ${ticket.total_entries}, used_entries: ${ticket.used_entries}`);
+          const hasFacilities = facilities && facilities.length > 0;
 
-          console.log(`DEBUG: total_entries: ${ticket.total_entries}, used_entries: ${ticket.used_entries}`);
+          console.log("DEBUG: Offline Ticket Found:", JSON.stringify(ticket));
+          console.log(`DEBUG: total_entries: ${totalEntries}, used_entries: ${usedEntries}, hasFacilities: ${hasFacilities}`);
 
           if (usedEntries >= totalEntries) {
             const allFacilitiesUsed = hasFacilities && facilities.every((f: any) => {
-              const available = f.quantity ?? f.availableScans ?? 1;
-              const scanned = f.scanned_count ?? f.checkIn ?? 0;
+              const available = parseInt(String(f.quantity ?? f.availableScans ?? 1), 10);
+              const scanned = parseInt(String(f.scanned_count ?? f.checkIn ?? 0), 10);
               return scanned >= available;
             });
 
             if (!hasFacilities || allFacilitiesUsed) {
+              console.log("Offline: Ticket and all facilities exhausted.");
               showStatus('Already Scanned', 'warning');
               setGuestData({
                 name: ticket.guest_name || "Guest",
@@ -574,12 +560,26 @@ const QrCode = () => {
               return;
             }
 
-            console.log("Offline: Main ticket used but facilities remain. Allowing facility scan.");
+            console.log("Offline: Main ticket used but facilities remain. Forcing facility selection.");
+            setGuestData({
+              name: ticket.guest_name || "Guest",
+              ticketId: ticket.qr_code || "N/A",
+              status: "SELECT FACILITY",
+              isValid: true,
+              totalEntries,
+              usedEntries,
+              facilities,
+              guestId: ticket.guest_id || ticket.id,
+              qrCode: ticket.qr_code || qrGuestUuid,
+              uuid: ticket.qrGuestUuid || ticket.guest_uuid || ticket.qr_code
+            });
+            openSheet();
+            return;
           }
 
-          // ⚡⚡⚡ MULTI-ENTRY OR ALREADY USED LOGIC ⚡⚡⚡
-          // If already full (but facilities exist), we MUST open sheet, NOT auto check-in main ticket.
-          if (totalEntries > 1 || usedEntries >= totalEntries) {
+          // ⚡⚡⚡ MULTI-ENTRY LOGIC ⚡⚡⚡
+          // If totalEntries > 1, let the user select quantity (even for first entry)
+          if (totalEntries > 1) {
             // DO NOT auto-increment yet. Let the user select quantity.
             setGuestData({
               name: ticket.guest_name || "Guest",
@@ -591,14 +591,11 @@ const QrCode = () => {
               facilities,
               guestId: ticket.guest_id || ticket.id,
               qrCode: ticket.qr_code || qrGuestUuid,
-              qrCode: ticket.qr_code || qrGuestUuid,
               uuid: ticket.qrGuestUuid || ticket.guest_uuid || ticket.qr_code
             });
             openSheet();
           } else {
             // Single entry AND Not Full
-            const hasFacilities = facilities && facilities.length > 0;
-
             if (hasFacilities) {
               // Open sheet if facilities exist (don't auto check-in main ticket without user seeing it)
               setGuestData({
@@ -610,7 +607,6 @@ const QrCode = () => {
                 usedEntries,
                 facilities,
                 guestId: ticket.guest_id || ticket.id,
-                qrCode: ticket.qr_code || qrGuestUuid,
                 qrCode: ticket.qr_code || qrGuestUuid,
                 uuid: ticket.qrGuestUuid || ticket.guest_uuid || ticket.qr_code
               });
@@ -988,13 +984,13 @@ const QrCode = () => {
 
         try {
           // STRICT: Do not insert/overwrite facility. It must exist from download.
-          // Directly update the check-in count.
-          const rowsAffected = await updateFacilityCheckInLocal(uuid, facilityId, checkInCount);
+          // Directly update the check-in count in guest_facilities.
+          const rowsAffected = await updateFacilityCheckInLocal(Number(eventId), uuid, facilityId, checkInCount);
 
           if (!rowsAffected || rowsAffected === 0) {
             // This happens if:
             // 1. Facility doesn't exist (wasn't downloaded)
-            // 2. Already fully checked in (checkIn + 1 > availableScans)
+            // 2. Already fully checked in (used_scans + step > total_scans)
             showStatus("Facility check-in failed or limit reached", "error");
             return;
           }

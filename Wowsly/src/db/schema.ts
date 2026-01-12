@@ -53,3 +53,16 @@ export const createCheckinsTable = `
     synced INTEGER DEFAULT 0
   );
 `;
+
+export const createGuestFacilitiesTable = `
+  CREATE TABLE IF NOT EXISTS guest_facilities (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    event_id INTEGER,
+    guest_uuid TEXT,
+    facilityId INTEGER,
+    name TEXT,
+    total_scans INTEGER,
+    used_scans INTEGER DEFAULT 0,
+    synced INTEGER DEFAULT 0
+  );
+`;

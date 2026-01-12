@@ -81,25 +81,33 @@ const GuestDetailsModal: React.FC<GuestDetailsModalProps> = ({
     const fetchFacilities = async () => {
         if (offline) {
             const uuid = getGuestUUID(guestData);
-            if (!uuid) return;
+            if (!uuid || !eventId) return;
 
-            const localFacilities = await getFacilitiesForGuest(uuid);
-            console.log("OFFLINE FACILITIES:", uuid, localFacilities);
+            try {
+                const dbFacilities = await getFacilitiesForGuest(Number(eventId), uuid);
+                console.log("OFFLINE FACILITIES:", uuid, dbFacilities);
 
-            // FIX: Set FLAT list of facilities directly (Guest owns facilities)
-            const flatFacilities = localFacilities.map(f => ({
-                id: f.facilityId,
-                name: f.name
-            }));
-            setFacilities(flatFacilities);
+                // FIX: Set FLAT list of facilities directly (Guest owns facilities)
+                if (dbFacilities.length > 0) {
+                    const mapped = dbFacilities.map(f => ({
+                        id: f.facilityId,
+                        name: f.name,
+                        quantity: f.total_scans,
+                        scanned_count: f.used_scans
+                    }));
+                    setFacilities(mapped);
 
-            // Set availability status
-            setFacilityStatus(
-                localFacilities.map(f => ({
-                    id: f.facilityId,
-                    available_scans: Math.max(0, (f.availableScans || 0) - (f.checkIn || 0))
-                }))
-            );
+                    // Set availability status
+                    setFacilityStatus(
+                        dbFacilities.map(f => ({
+                            id: f.facilityId,
+                            available_scans: Math.max(0, (f.total_scans || 0) - (f.used_scans || 0))
+                        }))
+                    );
+                }
+            } catch (e) {
+                console.error("Failed to fetch facilities offline:", e);
+            }
         }
         // Online: Do nothing. Facilities come from verifyQrCode response.
     };
@@ -146,7 +154,7 @@ const GuestDetailsModal: React.FC<GuestDetailsModalProps> = ({
     const refreshOfflineData = async (uuid: string) => {
         const { getGuestByUuid, getFacilitiesForGuest } = require('../db');
         const dbGuest = await getGuestByUuid(uuid);
-        const dbFacilities = await getFacilitiesForGuest(uuid);
+        const dbFacilities = await getFacilitiesForGuest(Number(eventId), uuid); // Pass eventId
 
         if (dbGuest) {
             setGuestData((prev: any) => ({
@@ -161,7 +169,7 @@ const GuestDetailsModal: React.FC<GuestDetailsModalProps> = ({
             setFacilityStatus(
                 dbFacilities.map((f: any) => ({
                     id: f.facilityId,
-                    available_scans: Math.max(0, (f.availableScans || 0) - (f.checkIn || 0))
+                    available_scans: Math.max(0, (f.total_scans || 0) - (f.used_scans || 0)) // Use total_scans and used_scans
                 }))
             );
         }
@@ -657,7 +665,6 @@ const GuestDetailsModal: React.FC<GuestDetailsModalProps> = ({
                                                             if (selectedScanningOption === 'check_in') {
                                                                 // STRICT GATE ENTRY (Using performGateCheckIn)
                                                                 const { performGateCheckIn } = require('../db');
-                                                                // REFACTORED: Guest-based identity only, scoped by Event
                                                                 const rowsAffected = await performGateCheckIn(Number(eventId), uuid);
 
                                                                 if (rowsAffected === 0) {
@@ -666,110 +673,71 @@ const GuestDetailsModal: React.FC<GuestDetailsModalProps> = ({
                                                                     return;
                                                                 }
 
-                                                                // ⚡⚡⚡ OFFLINE STATE REFRESH (CRITICAL) ⚡⚡⚡
-                                                                Toast.show({ type: 'success', text1: 'Success', text2: 'Checked in locally' });
-
-                                                                // ⚡⚡⚡ OFFLINE STATE REFRESH (CRITICAL) ⚡⚡⚡
                                                                 Toast.show({ type: 'success', text1: 'Success', text2: 'Checked in locally' });
 
                                                                 // INLINE FIX: Explicit refresh to prove DB update
                                                                 const { getGuestByUuid, getFacilitiesForGuest } = require('../db');
                                                                 const dbGuest = await getGuestByUuid(uuid);
-                                                                console.log("DB GUEST AFTER CHECKIN", dbGuest);
 
                                                                 // Refresh Guest Data
                                                                 if (dbGuest) {
                                                                     setGuestData((prev: any) => ({
                                                                         ...prev,
                                                                         used_entries: dbGuest.used_entries,
-                                                                        checked_in_count: dbGuest.used_entries,   // 🔥 FIX: Ensure this is updated too
+                                                                        checked_in_count: dbGuest.used_entries,
                                                                         status: dbGuest.used_entries > 0 ? 'checked_in' : prev.status
                                                                     }));
                                                                 }
 
                                                                 // Refresh Facilities (Unlocking depends on used_entries)
-                                                                const dbFacilities = await getFacilitiesForGuest(uuid);
+                                                                const dbFacilities = await getFacilitiesForGuest(Number(eventId), uuid);
                                                                 setFacilityStatus(
                                                                     dbFacilities.map((f: any) => ({
                                                                         id: f.facilityId,
-                                                                        available_scans: Math.max(0, (f.availableScans || 0) - (f.checkIn || 0))
+                                                                        available_scans: Math.max(0, (f.total_scans || 0) - (f.used_scans || 0))
                                                                     }))
                                                                 );
 
                                                                 // 🔥 Kotlin behavior: AUTO SWITCH to first available facility
                                                                 const firstAvailable = dbFacilities.find((f: any) =>
-                                                                    (f.availableScans || 0) - (f.checkIn || 0) > 0
+                                                                    (f.total_scans || 0) - (f.used_scans || 0) > 0
                                                                 );
                                                                 if (firstAvailable) {
                                                                     setSelectedScanningOption(firstAvailable.facilityId);
                                                                 }
 
                                                                 DeviceEventEmitter.emit('REFRESH_GUEST_LIST');
-                                                                // Stay on 'quantity' step or go back?
-                                                                // Gate check in successful -> usually we want to SCAN FACILITIES now.
-                                                                // If we go back to 'initial' we lose the "Now scan facility" flow.
-                                                                // Kotlin stays on screen.
-                                                                // Keep step 'quantity' so user sees updated facility radios.
-                                                                // setCheckInStep('initial');
                                                                 setLoading(false);
                                                                 return;
                                                             } else {
                                                                 // Facility Check-In
-                                                                // Ensure main ticket is checked in first? (Already disabled in UI)
-                                                                const updated = await updateFacilityCheckInLocal(uuid, Number(selectedScanningOption), checkInQuantity);
+                                                                const updated = await updateFacilityCheckInLocal(Number(eventId), uuid, Number(selectedScanningOption), checkInQuantity);
 
                                                                 if (updated > 0) {
                                                                     Toast.show({ type: 'success', text1: 'Success', text2: 'Facility checked in locally' });
-
-                                                                    // ⚡⚡⚡ OFFLINE STATE REFRESH ⚡⚡⚡
                                                                     await refreshOfflineData(uuid);
-
-                                                                    DeviceEventEmitter.emit('REFRESH_GUEST_LIST'); // Ensure list refreshes
+                                                                    DeviceEventEmitter.emit('REFRESH_GUEST_LIST');
                                                                     setLoading(false);
-                                                                    return; // Stop here. Do NOT fall through to naive verification below.
+                                                                    return;
                                                                 } else {
                                                                     Toast.show({ type: 'error', text1: 'Check-in Failed', text2: 'Facility already checked in or not available' });
+                                                                    setLoading(false);
+                                                                    return;
                                                                 }
                                                             }
-
-                                                            // Refresh Data
-                                                            const updatedGuestData = {
-                                                                ...guestData,
-                                                                status: 'Checked In',
-                                                                used_entries: selectedScanningOption === 'check_in'
-                                                                    ? (Number(guestData?.used_entries) || 0) + checkInQuantity
-                                                                    : (Number(guestData?.used_entries) || 0)
-                                                            };
-                                                            setGuestData(updatedGuestData);
-
-                                                            if (selectedScanningOption !== 'check_in') {
-                                                                // Update local status state
-                                                                setFacilityStatus(prev => prev.map(f => {
-                                                                    if (String(f.id) === String(selectedScanningOption)) {
-                                                                        return { ...f, available_scans: Math.max(0, f.available_scans - checkInQuantity) };
-                                                                    }
-                                                                    return f;
-                                                                }));
-                                                            }
-
-                                                            DeviceEventEmitter.emit('REFRESH_GUEST_LIST'); // Notify list to refresh from DB
-                                                            setCheckInStep('initial');
-                                                            setLoading(false);
-                                                            return;
                                                         }
 
-                                                        // Standard Payload base
+                                                        // ONLINE LOGIC (Bypassed if offline)
                                                         let payload: any = {
                                                             event_id: Number(eventId),
                                                             guest_id: guestData?.id || guestData?.guest_id,
                                                             category_check_in_count: "",
                                                             other_category_check_in_count: 0,
-                                                            ticket_id: guestData?.ticket_data?.ticket_id || guestData?.ticket_id, // ALWAYS Main Ticket ID
+                                                            ticket_id: guestData?.ticket_data?.ticket_id || guestData?.ticket_id,
                                                             check_in_count: checkInQuantity
                                                         };
 
                                                         if (selectedScanningOption !== 'check_in') {
-                                                            // Facility Check-in: Add guest_facility_id
                                                             payload.guest_facility_id = String(selectedScanningOption);
                                                         }
 
@@ -779,66 +747,20 @@ const GuestDetailsModal: React.FC<GuestDetailsModalProps> = ({
                                                             Toast.show({ type: 'success', text1: 'Success', text2: 'Checked in successfully' });
 
                                                             // Refresh data locally
-                                                            const uuid = guestData.qrGuestUuid || guestData.guest_uuid || guestData.uuid;
+                                                            const uuid = getGuestUUID(guestData);
                                                             if (selectedScanningOption === 'check_in' && uuid) {
                                                                 try {
-                                                                    // Sync main check-in to DB
                                                                     await updateTicketStatusLocal(uuid, 'checked_in', 1, false);
-
-                                                                    // ⚡⚡⚡ OFFLINE STATE REFRESH (CRITICAL) ⚡⚡⚡
-                                                                    // Recalculate used_entries from DB so UI unlocks facilities
-                                                                    const { getGuestByUuid, getFacilitiesForGuest } = require('../db');
-
-                                                                    const dbGuest = await getGuestByUuid(uuid);
-                                                                    const dbFacilities = await getFacilitiesForGuest(uuid);
-
-                                                                    if (dbGuest) {
-                                                                        setGuestData((prev: any) => ({
-                                                                            ...prev,
-                                                                            used_entries: dbGuest.used_entries,
-                                                                            status: dbGuest.used_entries > 0 ? 'checked_in' : prev.status
-                                                                        }));
-                                                                    }
-
-                                                                    setFacilityStatus(
-                                                                        dbFacilities.map((f: any) => ({
-                                                                            id: f.facilityId,
-                                                                            available_scans: Math.max(0, (f.availableScans || 0) - (f.checkIn || 0))
-                                                                        }))
-                                                                    );
-
+                                                                    await refreshOfflineData(uuid);
                                                                 } catch (err) {
                                                                     console.log('Error updating local ticket:', err);
                                                                 }
+                                                            } else if (uuid) {
+                                                                await refreshOfflineData(uuid);
                                                             }
-
-                                                            // Optimistic Update
-                                                            const updatedGuestData = {
-                                                                ...guestData,
-                                                                status: 'Checked In',
-                                                                // Only increment used_entries if main check-in
-                                                                used_entries: selectedScanningOption === 'check_in'
-                                                                    ? (Number(guestData?.used_entries) || 0) + checkInQuantity
-                                                                    : (Number(guestData?.used_entries) || 0)
-                                                            };
-                                                            setGuestData(updatedGuestData);
-
-                                                            // Optimistic Facility Status Update
-                                                            if (selectedScanningOption !== 'check_in') {
-                                                                setFacilityStatus(prev => prev.map(f => {
-                                                                    if (String(f.id) === String(selectedScanningOption)) {
-                                                                        return { ...f, available_scans: Math.max(0, f.available_scans - checkInQuantity) };
-                                                                    }
-                                                                    return f;
-                                                                }));
-                                                            }
-
-                                                            await fetchFacilities(); // Refresh facilities to check subsequent availability
 
                                                             DeviceEventEmitter.emit('REFRESH_GUEST_LIST');
-
                                                             setCheckInStep('initial');
-                                                            // onClose(); // Keep modal open as per requirement
                                                         } else {
                                                             Toast.show({ type: 'error', text1: 'Check-in Failed', text2: res?.message || 'Unknown error' });
                                                         }
