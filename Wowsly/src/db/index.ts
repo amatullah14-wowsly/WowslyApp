@@ -249,7 +249,7 @@ export async function initDB() {
 // ======================================================
 // ATOMIC FULL SYNC: DELETE ALL + INSERT NEW
 // ======================================================
-export async function replaceAllGuestsForEvent(eventId: number, guestsArray: any[], isFullSync: boolean = true) {
+export async function replaceAllGuestsForEvent(eventId: number, guestsArray: any[], isFullSync: boolean = true, facilityLimits: Record<string, number> = {}) {
   if (!Array.isArray(guestsArray)) return;
   console.log(`[DB] replaceAllGuestsForEvent called. EventId: ${eventId}, Guests: ${guestsArray.length}, isFullSync: ${isFullSync}`);
 
@@ -387,8 +387,9 @@ export async function replaceAllGuestsForEvent(eventId: number, guestsArray: any
       const params: any[] = [];
       chunk.forEach(item => {
         const f = item.facility;
-        const totalScans = parseInt(f.scan_quantity ?? f.quantity ?? f.total_scans ?? 1, 10) || 1;
-        const usedScans = parseInt(f.scanned_count ?? f.check_in_count ?? 0, 10);
+        // ⚡⚡⚡ KOTLIN FIX: Prioritize facilityLimits[f.id] per definitive guide ⚡⚡⚡
+        const totalScans = (facilityLimits[f.id] ?? f.allowed_scans ?? f.max_usage ?? f.scan_quantity ?? f.quantity ?? f.total_scans ?? 1);
+        const usedScans = (f.scanned_count ?? f.check_in_count ?? 0);
 
         params.push(
           item.qrGuestUuid,
@@ -412,8 +413,9 @@ export async function replaceAllGuestsForEvent(eventId: number, guestsArray: any
       const gfParams: any[] = [];
       chunk.forEach(item => {
         const f = item.facility;
-        const totalScans = parseInt(f.scan_quantity ?? f.quantity ?? f.total_scans ?? 1, 10) || 1;
-        const usedScans = parseInt(f.scanned_count ?? f.check_in_count ?? 0, 10);
+        // ⚡⚡⚡ KOTLIN FIX: Prioritize facilityLimits[f.id] per definitive guide ⚡⚡⚡
+        const totalScans = (facilityLimits[f.id] ?? f.allowed_scans ?? f.max_usage ?? f.scan_quantity ?? f.quantity ?? f.total_scans ?? 1);
+        const usedScans = (f.scanned_count ?? f.check_in_count ?? 0);
         gfParams.push(
           item.eventId,
           item.qrGuestUuid,
@@ -767,12 +769,16 @@ export async function insertFacilities(eventId: number, guestUuid: string, facil
   if (!facilities || facilities.length === 0) return;
   const db = await openDB();
 
-  await db.transaction(async (tx) => {
+  await db.transaction(async (tx: any) => {
     for (const f of facilities) {
-      const totalScans = parseInt(
-        f.scan_quantity ?? f.quantity ?? f.total_scans ?? 1,
-        10
-      ) || 1;
+      const totalScans = (
+        f.allowed_scans ??
+        f.max_usage ??
+        f.scan_quantity ??
+        f.quantity ??
+        f.total_scans ??
+        1
+      );
 
       const usedScans = parseInt(
         f.scanned_count ?? f.check_in_count ?? 0,
@@ -823,7 +829,7 @@ export async function insertFacilitiesBatch(allFacilities: { eventId: number, qr
 
   // 3. INSERT NEW (Chunked Transaction)
   const INSERT_CHUNK_SIZE = 40;
-  await db.transaction(async (tx) => {
+  await db.transaction(async (tx: any) => {
     for (let i = 0; i < allFacilities.length; i += INSERT_CHUNK_SIZE) {
       const chunk = allFacilities.slice(i, i + INSERT_CHUNK_SIZE);
 
@@ -832,8 +838,8 @@ export async function insertFacilitiesBatch(allFacilities: { eventId: number, qr
       const params: any[] = [];
       chunk.forEach(item => {
         const f = item.facility;
-        const totalScans = parseInt(f.scan_quantity ?? f.quantity ?? f.total_scans ?? 1, 10) || 1;
-        const usedScans = parseInt(f.scanned_count ?? f.check_in_count ?? 0, 10);
+        const totalScans = (f.allowed_scans ?? f.max_usage ?? f.scan_quantity ?? f.quantity ?? f.total_scans ?? 1);
+        const usedScans = (f.scanned_count ?? f.check_in_count ?? 0);
 
         params.push(
           item.qrGuestUuid,

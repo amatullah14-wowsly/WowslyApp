@@ -149,6 +149,31 @@ export const downloadOfflineData = async (eventId, lastSynced = null) => {
     try {
         console.log("Starting offline data download for event:", eventId, "Last Synced:", lastSynced);
 
+        const facilityLimits = {};
+        try {
+            // ⚡⚡⚡ KOTLIN MATCHING: Fetch metadata for facility limits (/eventticket) ⚡⚡⚡
+            const ticketsRes = await getEventTickets(eventId, { include_hidden_tickets: 0, has_split_share: 0 });
+
+            // The API returns { status: true, data: [ { facilities: [...] }, ... ] }
+            const ticketData = ticketsRes?.data || [];
+
+            if (Array.isArray(ticketData)) {
+                ticketData.forEach(ticket => {
+                    if (Array.isArray(ticket.facilities)) {
+                        ticket.facilities.forEach(fac => {
+                            if (fac.id) {
+                                // Map using ID as key per definitive guide
+                                facilityLimits[fac.id] = Number(fac.scan_quantity || 1);
+                            }
+                        });
+                    }
+                });
+            }
+            console.log("Built facility scan limits mapping (ID-based):", JSON.stringify(facilityLimits));
+        } catch (metadataErr) {
+            console.warn("Failed to fetch ticket metadata for facility limits:", metadataErr.message);
+        }
+
         let allGuests = [];
         let page = 1;
         let hasMore = true;
@@ -200,7 +225,7 @@ export const downloadOfflineData = async (eventId, lastSynced = null) => {
         console.log(`Total unique guests fetched: ${allGuests.length}`);
 
         // ⚡⚡⚡ ATOMIC SYNC / UPSERT ⚡⚡⚡
-        await replaceAllGuestsForEvent(eventId, allGuests, isFullSync);
+        await replaceAllGuestsForEvent(eventId, allGuests, isFullSync, facilityLimits);
 
         // Return matching structure
         return {

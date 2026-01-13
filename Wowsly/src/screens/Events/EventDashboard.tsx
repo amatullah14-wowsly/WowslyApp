@@ -1,4 +1,4 @@
-import { StyleSheet, Text, View, Image, TouchableOpacity, ImageBackground, ScrollView, Animated, Easing, Modal, BackHandler, useWindowDimensions, FlatList } from 'react-native'
+import { StyleSheet, Text, View, Image, TouchableOpacity, ImageBackground, ScrollView, Animated, Easing, Modal, BackHandler, useWindowDimensions, FlatList, RefreshControl } from 'react-native'
 import { FontSize } from '../../constants/fontSizes';
 import { useScale } from '../../utils/useScale';
 import React, { useState, useEffect, useCallback, useMemo } from 'react'
@@ -38,6 +38,7 @@ export const EventDashboardContent = ({ eventData, userRole, eventId, isSplitVie
     // Resolve ID
     const targetId = eventId || eventData?.id;
 
+    const [refreshing, setRefreshing] = useState(false);
     const [details, setDetails] = useState<any>(null);
     const [guestCounts, setGuestCounts] = useState({ total: 0, checkedIn: 0 });
     const [ticketList, setTicketList] = useState<any[]>([]);
@@ -159,6 +160,22 @@ export const EventDashboardContent = ({ eventData, userRole, eventId, isSplitVie
         }
     };
 
+
+    const onRefresh = useCallback(async () => {
+        if (!targetId) return;
+        setRefreshing(true);
+        try {
+            await Promise.all([
+                fetchDetails(targetId),
+                fetchTicketList(targetId),
+                fetchCheckinData(targetId)
+            ]);
+        } catch (error) {
+            console.error("Refresh failed", error);
+        } finally {
+            setRefreshing(false);
+        }
+    }, [targetId]);
 
     const handleOpenCheckInModal = () => {
         if (!targetId) return;
@@ -595,6 +612,14 @@ export const EventDashboardContent = ({ eventData, userRole, eventId, isSplitVie
                     ListHeaderComponent={renderHeader}
                     ListFooterComponent={renderFooter}
                     showsVerticalScrollIndicator={false}
+                    refreshControl={
+                        <RefreshControl
+                            refreshing={refreshing}
+                            onRefresh={onRefresh}
+                            tintColor="#FF8A3C"
+                            colors={['#FF8A3C']}
+                        />
+                    }
                 />
             </SafeAreaView>
         </ResponsiveContainer>

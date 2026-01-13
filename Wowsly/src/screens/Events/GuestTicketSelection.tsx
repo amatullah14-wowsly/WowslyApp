@@ -3,7 +3,7 @@ import { StyleSheet, Text, View, TouchableOpacity, ScrollView, Image, SafeAreaVi
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { useScale } from '../../utils/useScale';
 import { FontSize } from '../../constants/fontSizes';
-import { getEventTickets, selectGuestTicket } from '../../api/event';
+import { getEventTickets, selectGuestTicket, getEventDetails } from '../../api/event';
 import BackButton from '../../components/BackButton';
 import Toast from 'react-native-toast-message';
 import { useTabletScale, useTabletModerateScale } from '../../utils/tabletScaling';
@@ -22,6 +22,7 @@ const GuestTicketSelection = () => {
     const [loading, setLoading] = useState(false);
     const [tickets, setTickets] = useState<any[]>([]);
     const [ticketQuantities, setTicketQuantities] = useState<Record<number, number>>({});
+    const [isMultipleTickets, setIsMultipleTickets] = useState(true);
 
     const [sendToWhatsapp, setSendToWhatsapp] = useState(true);
     const [selectedFacilities, setSelectedFacilities] = useState<number[]>([]);
@@ -35,15 +36,31 @@ const GuestTicketSelection = () => {
     const fetchTickets = async () => {
         setLoading(true);
         try {
-            const res = await getEventTickets(eventId, { include_hidden_tickets: 0, has_split_share: 0 });
-            if (res && res.data) {
-                setTickets(res.data);
-                if (res.data.length > 0) {
+            // Fetch tickets and event details in parallel
+            const [ticketsRes, detailsRes] = await Promise.all([
+                getEventTickets(eventId, { include_hidden_tickets: 0, has_split_share: 0 }),
+                getEventDetails(eventId)
+            ]);
+
+            if (detailsRes && detailsRes.data) {
+                const setting = detailsRes.data.is_multiple_tickets;
+                if (setting !== undefined) {
+                    setIsMultipleTickets(setting === 1 || setting === true);
+                }
+            }
+
+            if (ticketsRes && ticketsRes.data) {
+                setTickets(ticketsRes.data);
+
+                // Fallback: Check if is_multiple_tickets is in tickets response too
+                if (ticketsRes.is_multiple_tickets !== undefined) {
+                    setIsMultipleTickets(ticketsRes.is_multiple_tickets === 1 || ticketsRes.is_multiple_tickets === true);
+                }
+
+                if (ticketsRes.data.length > 0) {
                     // Initialize with 0 for all tickets
                     const initialQuantities: Record<number, number> = {};
-                    res.data.forEach((t: any) => initialQuantities[t.id] = 0);
-                    // Optionally set first ticket to 1 if user expects one to be selected by default, 
-                    // but according to the new UI, we start with 0.
+                    ticketsRes.data.forEach((t: any) => initialQuantities[t.id] = 0);
                     setTicketQuantities(initialQuantities);
                 }
             }
@@ -64,7 +81,22 @@ const GuestTicketSelection = () => {
                 Toast.show({ type: 'info', text1: `Max limit is ${ticket.max_ticket_limit}` });
                 return;
             }
-            setTicketQuantities(prev => ({ ...prev, [ticketId]: newQ }));
+
+            if (!isMultipleTickets && change > 0) {
+                // If multiple tickets are not allowed, reset all other tickets to 0
+                const updatedQuantities: Record<number, number> = {};
+                tickets.forEach(t => {
+                    updatedQuantities[t.id] = t.id === ticketId ? newQ : 0;
+                });
+                setTicketQuantities(updatedQuantities);
+
+                // If switching tickets, also reset selected facilities as they might be ticket-specific
+                if (currentQ === 0) {
+                    setSelectedFacilities([]);
+                }
+            } else {
+                setTicketQuantities(prev => ({ ...prev, [ticketId]: newQ }));
+            }
         }
     };
 
@@ -84,12 +116,25 @@ const GuestTicketSelection = () => {
         const optionalFacilitiesList = allFacilities.filter((f: any) => f.is_included === 0 && f.is_free === 0);
 
         // Facility Total Calculation
-        // Note: Current logic assumes selectedFacilities are global across all tickets
-        const facilityTotal = optionalFacilitiesList
-            .filter((f: any) => selectedFacilities.includes(f.id))
-            .reduce((sum: number, f: any) => sum + Number(f.price || 0), 0);
+        let facilityTotal = 0;
 
-        const totalTicketCount = selectedTickets.reduce((sum, t) => sum + (ticketQuantities[t.id] || 0), 0);
+        selectedTickets.forEach(ticket => {
+            const qty = ticketQuantities[ticket.id] || 0;
+
+            const ticketFacilities = (ticket.facilities || []).filter((f: any) =>
+                selectedFacilities.includes(f.id) && f.is_free == 0 && f.is_included == 0
+            );
+
+            const perTicketFacilityCost = ticketFacilities.reduce(
+                (sum: number, f: any) => sum + Number(f.price || 0),
+                0
+            );
+
+            facilityTotal += perTicketFacilityCost * qty;
+        });
+
+        const ticketTotal = selectedTickets.reduce((sum, t) => sum + (Number(t.amount || 0) * ticketQuantities[t.id]), 0);
+        const totalAmount = ticketTotal + facilityTotal + (sendToWhatsapp ? 2 : 0);
 
         const payload = {
             amount_currency: selectedTickets[0]?.currency || "rupees",
@@ -107,8 +152,7 @@ const GuestTicketSelection = () => {
                 facilities: t.facilities || []
             })),
             send_to_whatsapp: sendToWhatsapp ? 1 : 0,
-            total_amount: selectedTickets.reduce((sum, t) => sum + (Number(t.amount || 0) * ticketQuantities[t.id]), 0) +
-                (facilityTotal * totalTicketCount) + (sendToWhatsapp ? 2 : 0)
+            total_amount: totalAmount
         };
 
         setLoading(true);
@@ -138,7 +182,10 @@ const GuestTicketSelection = () => {
                         title: t.title,
                         quantity: ticketQuantities[t.id],
                         price: t.amount,
-                        currency: t.currency
+                        currency: t.currency,
+                        facilities: (t.facilities || []).filter((f: any) =>
+                            f.is_free === 1 || f.is_included === 1 || selectedFacilities.includes(f.id)
+                        )
                     }))
                 });
             } else {

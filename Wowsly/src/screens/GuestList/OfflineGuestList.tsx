@@ -379,7 +379,7 @@ const OfflineGuestList = () => {
                             return `${uuid}_${tId}_${index}`;
                         }}
                         renderItem={renderGuestItem}
-                        contentContainerStyle={[styles.listContent, { flexGrow: 1 }]}
+                        contentContainerStyle={styles.listContent}
                         getItemLayout={(data, index) => ({
                             length: verticalScale(80), // Approx height + marginBottom(12)
                             offset: verticalScale(80) * index,
@@ -407,7 +407,7 @@ const OfflineGuestList = () => {
                                 />
                             ) : null
                         }
-                        ListFooterComponentStyle={{ flex: 1, justifyContent: 'flex-end' }}
+                        ListFooterComponentStyle={{ paddingTop: verticalScale(16) }}
                     />
 
                     <GuestDetailsModal

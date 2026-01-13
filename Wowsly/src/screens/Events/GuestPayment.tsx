@@ -50,11 +50,29 @@ const GuestPayment = () => {
         currency: f.currency || ticketData.currency
     }));
 
-    // 4. Calculate Facility Total (Exclude free/included)
-    const facilityTotal = facilities.reduce((sum: number, f: any) => {
-        if (f.is_free || f.is_included) return sum;
-        return sum + (Number(f.amount || 0) * totalTicketQty);
-    }, 0);
+    // 4. Calculate Facility Total (Per ticket)
+    let facilityTotal = 0;
+
+    selectedTickets.forEach((ticket: any) => {
+        const qty = Number(ticket.quantity || 0);
+
+        (ticket.facilities || []).forEach((f: any) => {
+            if (f.is_free || f.is_included) return;
+
+            const price = Number(f.price || f.amount || 0);
+            facilityTotal += price * qty;
+        });
+    });
+
+    // Flatten facilities for UI display
+    const facilitiesList = selectedTickets.flatMap((ticket: any) =>
+        (ticket.facilities || []).map((f: any) => ({
+            ...f,
+            ticketId: ticket.id,
+            ticketQty: ticket.quantity,
+            amount: Number(f.price || f.amount || 0)
+        }))
+    );
 
     // 5. Final Payable Amount
     const amountToPay = ticketBaseTotal + facilityTotal + (sendToWhatsapp ? 2 : 0);
@@ -239,25 +257,28 @@ const GuestPayment = () => {
                         </View>
 
                         {/* Facilities (Dynamic) */}
-                        {facilities.map((facility: any, index: number) => {
+                        {facilitiesList.map((facility: any, index: number) => {
                             const fAmount = Number(facility.amount || 0);
-                            const totalFAmount = fAmount * totalTicketQty;
+                            const tQty = Number(facility.ticketQty || 0);
+                            const totalFAmount = fAmount * tQty;
                             const isIncluded = facility.is_free || facility.is_included;
 
                             return (
                                 <View key={index} style={styles.infoRow}>
-                                    <Text style={[styles.label, { flex: 1 }]}>{facility.name || facility.facility_name || 'Facility'}</Text>
+                                    <View style={{ flex: 1 }}>
+                                        <Text style={styles.label}>{facility.name || facility.facility_name || 'Facility'}</Text>
+                                        {!isIncluded && fAmount > 0 && (
+                                            <Text style={{ fontSize: moderateScale(11), color: '#999', marginTop: 2 }}>
+                                                {currencySymbol}{fAmount} × {tQty} tickets
+                                            </Text>
+                                        )}
+                                    </View>
                                     <View style={{ alignItems: 'flex-end', maxWidth: '40%' }}>
                                         <Text style={[styles.value, { maxWidth: '100%' }]}>
                                             {isIncluded
                                                 ? 'Included'
-                                                : `${fAmount} ${currencySymbol}`}
+                                                : `${totalFAmount} ${currencySymbol}`}
                                         </Text>
-                                        {!isIncluded && fAmount > 0 && (
-                                            <Text style={[styles.value, { fontSize: moderateScale(12), color: '#888', marginTop: 2, maxWidth: '100%' }]}>
-                                                Total: {totalFAmount} {currencySymbol}
-                                            </Text>
-                                        )}
                                     </View>
                                 </View>
                             );

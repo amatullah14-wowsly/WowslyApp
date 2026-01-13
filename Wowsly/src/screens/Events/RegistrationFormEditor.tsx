@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { StyleSheet, Text, View, TouchableOpacity, ScrollView, TextInput, Platform, KeyboardAvoidingView, Switch, Modal, Image, Alert, useWindowDimensions } from 'react-native'
+import { StyleSheet, Text, View, TouchableOpacity, ScrollView, TextInput, Platform, KeyboardAvoidingView, Switch, Modal, Image, Alert, useWindowDimensions, RefreshControl } from 'react-native'
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import BackButton from '../../components/BackButton';
@@ -48,6 +48,7 @@ const RegistrationFormEditor = ({ isEmbedded = false, eventId: propEventId }: { 
     const [buttonText, setButtonText] = useState('Registration');
     const [successMessage, setSuccessMessage] = useState('You have successfully registered for this event!!');
     const [emailValidation, setEmailValidation] = useState(false);
+    const [refreshing, setRefreshing] = useState(false);
 
     // Fields State
     const [formFields, setFormFields] = useState<FormField[]>([
@@ -77,73 +78,86 @@ const RegistrationFormEditor = ({ isEmbedded = false, eventId: propEventId }: { 
         'File Upload'
     ];
 
-    // Fetch Form Data on Mount
-    useEffect(() => {
-        const fetchForm = async () => {
-            if (!eventId) return;
+    const fetchForm = async () => {
+        if (!eventId) return;
 
-            // Fetch Event Details to get the active form ID
-            let activeFormId = null;
-            try {
-                const eventRes = await getEventDetails(eventId);
-                if (eventRes && eventRes.data) {
-                    activeFormId = eventRes.data.registration_form_id;
+        // Fetch Event Details to get the active form ID
+        let activeFormId = null;
+        try {
+            const eventRes = await getEventDetails(eventId);
+            if (eventRes && eventRes.data) {
+                activeFormId = eventRes.data.registration_form_id;
+            }
+        } catch (err) {
+            console.log("Error fetching event details:", err);
+        }
+
+        const statusRes = await getRegistrationFormStatus(eventId);
+
+        // Logic to check if any form exists
+        const hasFormList = statusRes && statusRes.form && Array.isArray(statusRes.form) && statusRes.form.length > 0;
+        const singleForm = statusRes && statusRes.data && statusRes.data.id;
+        const isFilled = statusRes && statusRes.is_filled === true;
+
+        if (!isFilled && !hasFormList && !singleForm) {
+            // NEW FORM FLOW
+            setFormFields([
+                { id: 'default_1', label: 'Name', placeholder: 'Name', type: 'text', isDefault: true, mandatory: 1, is_show: 1 },
+                { id: 'default_2', label: 'Country Code', placeholder: '+91', type: 'number', isDefault: true, mandatory: 1, is_show: 1 },
+                { id: 'default_3', label: 'Mobile Number', placeholder: 'Mobile Number', type: 'text', isDefault: true, mandatory: 1, is_show: 1 },
+                { id: 'default_4', label: 'Email', placeholder: 'Email', type: 'text', isDefault: true, mandatory: 1, is_show: 1 },
+            ]);
+            setFormId(null);
+            setFormTitle('Guest Registration Form');
+            setIsEditing(false);
+        } else {
+            // EXISTING FORM FLOW
+            console.log("Form exists, fetching details...");
+
+            let regFormId = activeFormId;
+            let foundForm = null;
+
+            if (hasFormList) {
+                if (regFormId) {
+                    foundForm = statusRes.form.find((f: any) => f.id == regFormId);
                 }
-            } catch (err) {
-                console.log("Error fetching event details:", err);
+                if (!foundForm) {
+                    // Default to first one if undefined or not found
+                    foundForm = statusRes.form[0];
+                    regFormId = foundForm.id;
+                }
+            } else if (singleForm) {
+                foundForm = statusRes.data;
+                regFormId = statusRes.data.id;
             }
 
-            const statusRes = await getRegistrationFormStatus(eventId);
+            if (regFormId && foundForm) {
+                setFormId(regFormId);
 
-            // Logic to check if any form exists
-            const hasFormList = statusRes && statusRes.form && Array.isArray(statusRes.form) && statusRes.form.length > 0;
-            const singleForm = statusRes && statusRes.data && statusRes.data.id;
-            const isFilled = statusRes && statusRes.is_filled === true;
+                // Directly populate
+                const data = foundForm;
+                setFormTitle(data.title || formTitle);
+                setButtonText(data.form_button_title || buttonText);
+                setSuccessMessage(data.form_registration_success_message || successMessage);
+                setEmailValidation(data.email_validation_required === 1);
 
-            if (!isFilled && !hasFormList && !singleForm) {
-                // NEW FORM FLOW
-                setFormFields([
-                    { id: 'default_1', label: 'Name', placeholder: 'Name', type: 'text', isDefault: true, mandatory: 1, is_show: 1 },
-                    { id: 'default_2', label: 'Country Code', placeholder: '+91', type: 'number', isDefault: true, mandatory: 1, is_show: 1 },
-                    { id: 'default_3', label: 'Mobile Number', placeholder: 'Mobile Number', type: 'text', isDefault: true, mandatory: 1, is_show: 1 },
-                    { id: 'default_4', label: 'Email', placeholder: 'Email', type: 'text', isDefault: true, mandatory: 1, is_show: 1 },
-                ]);
-                setFormId(null);
-                setFormTitle('Guest Registration Form');
-                setIsEditing(false);
-            } else {
-                // EXISTING FORM FLOW
-                console.log("Form exists, fetching details...");
-
-                let regFormId = activeFormId;
-                let foundForm = null;
-
-                if (hasFormList) {
-                    if (regFormId) {
-                        foundForm = statusRes.form.find((f: any) => f.id == regFormId);
-                    }
-                    if (!foundForm) {
-                        // Default to first one if undefined or not found
-                        foundForm = statusRes.form[0];
-                        regFormId = foundForm.id;
-                    }
-                } else if (singleForm) {
-                    foundForm = statusRes.data;
-                    regFormId = statusRes.data.id;
-                }
-
-                if (regFormId && foundForm) {
-                    setFormId(regFormId);
-
-                    // Directly populate
-                    const data = foundForm;
-                    setFormTitle(data.title || formTitle);
-                    setButtonText(data.form_button_title || buttonText);
-                    setSuccessMessage(data.form_registration_success_message || successMessage);
-                    setEmailValidation(data.email_validation_required === 1);
-
-                    if (data.fields && Array.isArray(data.fields)) {
-                        const mappedFields = data.fields.map((f: any) => ({
+                if (data.fields && Array.isArray(data.fields)) {
+                    const mappedFields = data.fields.map((f: any) => ({
+                        id: String(f.id),
+                        label: f.question,
+                        placeholder: f.question,
+                        type: f.type,
+                        isDefault: f.id <= 7531 || ['Name', 'Country Code', 'Mobile Number', 'Email'].includes(f.question),
+                        mandatory: f.mandatory,
+                        is_show: f.is_show,
+                        options: f.options
+                    }));
+                    setFormFields(mappedFields);
+                } else {
+                    // Fallback
+                    const formRes = await getRegistrationFormDetails(eventId, regFormId);
+                    if (formRes && formRes.data && formRes.data.fields) {
+                        const mappedFields = formRes.data.fields.map((f: any) => ({
                             id: String(f.id),
                             label: f.question,
                             placeholder: f.question,
@@ -154,29 +168,23 @@ const RegistrationFormEditor = ({ isEmbedded = false, eventId: propEventId }: { 
                             options: f.options
                         }));
                         setFormFields(mappedFields);
-                    } else {
-                        // Fallback
-                        const formRes = await getRegistrationFormDetails(eventId, regFormId);
-                        if (formRes && formRes.data && formRes.data.fields) {
-                            const mappedFields = formRes.data.fields.map((f: any) => ({
-                                id: String(f.id),
-                                label: f.question,
-                                placeholder: f.question,
-                                type: f.type,
-                                isDefault: f.id <= 7531 || ['Name', 'Country Code', 'Mobile Number', 'Email'].includes(f.question),
-                                mandatory: f.mandatory,
-                                is_show: f.is_show,
-                                options: f.options
-                            }));
-                            setFormFields(mappedFields);
-                        }
                     }
                 }
-                setIsEditing(autoEdit || false); // Start in PREVIEW mode unless autoEdit is requested
             }
-        };
+            setIsEditing(autoEdit || false); // Start in PREVIEW mode unless autoEdit is requested
+        }
+    };
+
+    // Fetch Form Data on Mount
+    useEffect(() => {
         fetchForm();
     }, [eventId, autoEdit]);
+
+    const onRefresh = async () => {
+        setRefreshing(true);
+        await fetchForm();
+        setRefreshing(false);
+    };
 
     const handleSave = async (fromAutosave = false, fieldsOverride: FormField[] | null = null) => {
         if (!eventId) {
@@ -582,7 +590,17 @@ const RegistrationFormEditor = ({ isEmbedded = false, eventId: propEventId }: { 
                 </View>
             )}
 
-            <ScrollView contentContainerStyle={[styles.content]}>
+            <ScrollView
+                contentContainerStyle={[styles.content]}
+                refreshControl={
+                    <RefreshControl
+                        refreshing={refreshing}
+                        onRefresh={onRefresh}
+                        tintColor="#FF8A3C"
+                        colors={['#FF8A3C']}
+                    />
+                }
+            >
 
                 {/* Clean Title Header */}
                 <View style={{ marginBottom: 20, marginTop: 10 }}>
@@ -699,7 +717,17 @@ const RegistrationFormEditor = ({ isEmbedded = false, eventId: propEventId }: { 
                     <View style={{ width: scale(40) }} />
                 </View>
             )}
-            <ScrollView contentContainerStyle={[styles.content, { paddingBottom: verticalScale(100) }]}>
+            <ScrollView
+                contentContainerStyle={[styles.content, { paddingBottom: verticalScale(100) }]}
+                refreshControl={
+                    <RefreshControl
+                        refreshing={refreshing}
+                        onRefresh={onRefresh}
+                        tintColor="#FF8A3C"
+                        colors={['#FF8A3C']}
+                    />
+                }
+            >
 
                 {/* Single Consolidated Card for Editor - Admin Style */}
                 <View style={[styles.card, { padding: scale(15) }]}>

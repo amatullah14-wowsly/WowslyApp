@@ -1,4 +1,4 @@
-import { StyleSheet, Text, View, TouchableOpacity, FlatList, ActivityIndicator, Image, Modal, ScrollView, TextInput } from 'react-native'
+import { StyleSheet, Text, View, TouchableOpacity, FlatList, ActivityIndicator, Image, Modal, ScrollView, TextInput, RefreshControl } from 'react-native'
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import DatePicker from 'react-native-date-picker'
 import React, { useState, useEffect, useCallback, useMemo } from 'react'
@@ -133,6 +133,7 @@ const RegistrationDashboard = () => {
     // Replies State
     const [replies, setReplies] = useState<any[]>([]);
     const [loading, setLoading] = useState(false);
+    const [refreshing, setRefreshing] = useState(false);
     const [currentPage, setCurrentPage] = useState(1);
     const [hasMore, setHasMore] = useState(true);
     const [searchQuery, setSearchQuery] = useState('');
@@ -294,6 +295,12 @@ const RegistrationDashboard = () => {
         } finally {
             setLoading(false);
         }
+    };
+
+    const onRefresh = async () => {
+        setRefreshing(true);
+        await fetchReplies(1);
+        setRefreshing(false);
     };
 
     const handleHeaderMenuSelect = (option: 'edit_form' | 'export_all' | 'export_date') => {
@@ -482,6 +489,14 @@ const RegistrationDashboard = () => {
                                     }
                                 }}
                                 onEndReachedThreshold={0.5}
+                                refreshControl={
+                                    <RefreshControl
+                                        refreshing={refreshing}
+                                        onRefresh={onRefresh}
+                                        tintColor="#FF8A3C"
+                                        colors={['#FF8A3C']}
+                                    />
+                                }
                                 ListFooterComponent={loading && replies.length > 0 ? <ActivityIndicator color="#FF8A3C" style={{ margin: scale(20) }} /> : null}
                                 ListEmptyComponent={!loading ? <Text style={styles.emptyText}>No replies found</Text> : null}
                             />

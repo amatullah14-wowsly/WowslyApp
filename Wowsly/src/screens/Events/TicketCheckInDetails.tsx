@@ -9,7 +9,8 @@ import {
     Modal,
     ScrollView,
     Image,
-    useWindowDimensions
+    useWindowDimensions,
+    RefreshControl
 } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { getTicketCheckInRecords, getTicketCheckInCount } from '../../api/event';
@@ -69,6 +70,7 @@ const TicketCheckInDetails = () => {
     const [records, setRecords] = useState<GuestRecord[]>([]);
     const [page, setPage] = useState(1);
     const [totalPages, setTotalPages] = useState(1);
+    const [refreshing, setRefreshing] = useState(false);
 
     // Modal state
     const [modalVisible, setModalVisible] = useState(false);
@@ -488,6 +490,20 @@ const TicketCheckInDetails = () => {
         }
     };
 
+    const onRefresh = async () => {
+        setRefreshing(true);
+        try {
+            await Promise.all([
+                fetchStats(),
+                fetchRecords(1)
+            ]);
+        } catch (error) {
+            console.error("Refresh failed", error);
+        } finally {
+            setRefreshing(false);
+        }
+    };
+
     const handleViewDetails = (guest: GuestRecord) => {
         setSelectedGuest(guest);
         setModalVisible(true);
@@ -625,6 +641,14 @@ const TicketCheckInDetails = () => {
                                 ) : null
                             }
                             ListFooterComponentStyle={{ flex: 1, justifyContent: 'flex-end' }}
+                            refreshControl={
+                                <RefreshControl
+                                    refreshing={refreshing}
+                                    onRefresh={onRefresh}
+                                    tintColor="#FF8A3C"
+                                    colors={['#FF8A3C']}
+                                />
+                            }
                         />
                     )}
                 </View>

@@ -11,6 +11,7 @@ import {
     ActivityIndicator,
     DeviceEventEmitter,
     useWindowDimensions,
+    RefreshControl,
 } from 'react-native';
 import FastImage from 'react-native-fast-image';
 import { RouteProp, useNavigation, useRoute, useFocusEffect } from '@react-navigation/native';
@@ -72,6 +73,7 @@ const OnlineGuestList = () => {
     const [modalVisible, setModalVisible] = useState(false);
     const [selectedGuestId, setSelectedGuestId] = useState<string | null>(null);
     const [lastUpdate, setLastUpdate] = useState(0);
+    const [refreshing, setRefreshing] = useState(false);
 
     // Performance & Locking refs
     const isFetching = useRef(false);
@@ -226,6 +228,13 @@ const OnlineGuestList = () => {
         }
     };
 
+    const onRefresh = async () => {
+        setRefreshing(true);
+        // fetchGuests already handles the state updates
+        await fetchGuests(1);
+        setRefreshing(false);
+    };
+
     /* ---------------------- Data Processing ---------------------- */
     // User requested to REMOVE client-side filtering and use guests directly.
     const displayedGuests = guests;
@@ -343,6 +352,14 @@ const OnlineGuestList = () => {
                                     ) : null
                                 }
                                 ListFooterComponentStyle={{ flex: 1, justifyContent: 'flex-end' }}
+                                refreshControl={
+                                    <RefreshControl
+                                        refreshing={refreshing}
+                                        onRefresh={onRefresh}
+                                        tintColor="#FF8A3C"
+                                        colors={['#FF8A3C']}
+                                    />
+                                }
                             />
                         )}
                     </GestureHandlerRootView>

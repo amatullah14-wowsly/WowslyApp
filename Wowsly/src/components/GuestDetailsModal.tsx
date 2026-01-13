@@ -92,7 +92,7 @@ const GuestDetailsModal: React.FC<GuestDetailsModalProps> = ({
                     const mapped = dbFacilities.map(f => ({
                         id: f.facilityId,
                         name: f.name,
-                        quantity: f.total_scans,
+                        quantity: f.allowed_scans ?? f.max_usage ?? f.quantity ?? f.total_scans ?? 1,
                         scanned_count: f.used_scans
                     }));
                     setFacilities(mapped);
@@ -101,7 +101,7 @@ const GuestDetailsModal: React.FC<GuestDetailsModalProps> = ({
                     setFacilityStatus(
                         dbFacilities.map(f => ({
                             id: f.facilityId,
-                            available_scans: Math.max(0, (f.total_scans || 0) - (f.used_scans || 0))
+                            available_scans: Math.max(0, (f.allowed_scans ?? f.max_usage ?? f.quantity ?? f.total_scans ?? 0) - (f.used_scans || 0))
                         }))
                     );
                 }
@@ -169,7 +169,7 @@ const GuestDetailsModal: React.FC<GuestDetailsModalProps> = ({
             setFacilityStatus(
                 dbFacilities.map((f: any) => ({
                     id: f.facilityId,
-                    available_scans: Math.max(0, (f.total_scans || 0) - (f.used_scans || 0)) // Use total_scans and used_scans
+                    available_scans: Math.max(0, (f.allowed_scans ?? f.max_usage ?? f.quantity ?? f.total_scans ?? 0) - (f.used_scans || 0))
                 }))
             );
         }
@@ -694,13 +694,13 @@ const GuestDetailsModal: React.FC<GuestDetailsModalProps> = ({
                                                                 setFacilityStatus(
                                                                     dbFacilities.map((f: any) => ({
                                                                         id: f.facilityId,
-                                                                        available_scans: Math.max(0, (f.total_scans || 0) - (f.used_scans || 0))
+                                                                        available_scans: Math.max(0, (f.allowed_scans ?? f.max_usage ?? f.quantity ?? f.total_scans ?? 0) - (f.used_scans || 0))
                                                                     }))
                                                                 );
 
                                                                 // 🔥 Kotlin behavior: AUTO SWITCH to first available facility
                                                                 const firstAvailable = dbFacilities.find((f: any) =>
-                                                                    (f.total_scans || 0) - (f.used_scans || 0) > 0
+                                                                    (f.allowed_scans ?? f.max_usage ?? f.quantity ?? f.total_scans ?? 0) - (f.used_scans || 0) > 0
                                                                 );
                                                                 if (firstAvailable) {
                                                                     setSelectedScanningOption(firstAvailable.facilityId);

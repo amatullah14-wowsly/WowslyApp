@@ -171,7 +171,7 @@ const QrCode = () => {
     ) {
       // Find the first facility that is NOT fully scanned
       const nextFac = guestData.facilities.find((f: any) => {
-        const available = f.quantity ?? f.total_scans ?? f.availableScans ?? 1;
+        const available = f.allowed_scans ?? f.max_usage ?? f.quantity ?? f.total_scans ?? f.availableScans ?? 1;
         const scanned = f.scanned_count ?? f.checkIn ?? f.used_scans ?? 0;
         return scanned < available;
       });
@@ -538,7 +538,7 @@ const QrCode = () => {
 
           if (usedEntries >= totalEntries) {
             const allFacilitiesUsed = hasFacilities && facilities.every((f: any) => {
-              const available = parseInt(String(f.quantity ?? f.availableScans ?? 1), 10);
+              const available = parseInt(String(f.allowed_scans ?? f.max_usage ?? f.quantity ?? f.availableScans ?? 1), 10);
               const scanned = parseInt(String(f.scanned_count ?? f.checkIn ?? 0), 10);
               return scanned >= available;
             });
@@ -765,7 +765,7 @@ const QrCode = () => {
             let allFacilitiesFull = true;
             if (newGuestData.facilities && newGuestData.facilities.length > 0) {
               allFacilitiesFull = newGuestData.facilities.every((f: any) => {
-                const available = f.quantity ?? f.total_scans ?? f.availableScans ?? 1;
+                const available = f.allowed_scans ?? f.max_usage ?? f.quantity ?? f.total_scans ?? f.availableScans ?? 1;
                 const scanned = f.scanned_count ?? f.checkIn ?? f.used_scans ?? 0;
                 return scanned >= available;
               });

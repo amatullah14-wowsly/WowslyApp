@@ -10,16 +10,17 @@ import {
     LayoutAnimation,
     Platform,
     UIManager,
-    Modal,
+    Pressable,
     ScrollView,
     Dimensions,
     useWindowDimensions,
-    TextInput
+    TextInput,
+    RefreshControl
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import BackButton from '../../components/BackButton';
-import { getTicketSoldUsers } from '../../api/event';
+import { getTicketSoldUsers, getTicketList } from '../../api/event';
 import { useScale } from '../../utils/useScale';
 import { FontSize } from '../../constants/fontSizes';
 import { useTabletScale, useTabletModerateScale } from '../../utils/tabletScaling';
@@ -78,9 +79,18 @@ const TicketsSoldRecords = () => {
     const [soldDataCache, setSoldDataCache] = useState<Record<string, SoldUser[]>>({});
     const [searchQuery, setSearchQuery] = useState('');
 
-    // Modal State
     const [modalVisible, setModalVisible] = useState(false);
     const [selectedUser, setSelectedUser] = useState<SoldUser | null>(null);
+    const [refreshing, setRefreshing] = useState(false);
+    const [localTickets, setLocalTickets] = useState<TicketType[]>(tickets || []);
+
+    useEffect(() => {
+        SystemNavigationBar.stickyImmersive();
+
+        return () => {
+            SystemNavigationBar.navigationShow();
+        };
+    }, []);
 
     const toggleExpand = async (ticket: TicketType) => {
         LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
@@ -118,6 +128,34 @@ const TicketsSoldRecords = () => {
         }
     }
 
+    const onRefresh = async () => {
+        setRefreshing(true);
+        try {
+            // 1. Refresh the ticket list itself (in case sold counts changed or new ticket types added)
+            const res = await getTicketList(eventId);
+            if (res?.data) {
+                setLocalTickets(res.data);
+            } else if (Array.isArray(res)) {
+                setLocalTickets(res);
+            }
+
+            // 2. If a ticket is currently expanded, refresh its users too
+            if (expandedTicketId) {
+                const expandedTicket = (res?.data || res || []).find((t: any) => String(t.id) === String(expandedTicketId));
+                if (expandedTicket) {
+                    await fetchSoldUsers(expandedTicket);
+                } else {
+                    // Expanded ticket no longer exists?
+                    setExpandedTicketId(null);
+                }
+            }
+        } catch (error) {
+            console.error("Refresh failed", error);
+        } finally {
+            setRefreshing(false);
+        }
+    };
+
     const formatTime = (timeString: string) => {
         if (!timeString) return '';
 
@@ -146,21 +184,27 @@ const TicketsSoldRecords = () => {
     const handleViewDetails = (user: SoldUser) => {
         setSelectedUser(user);
         setModalVisible(true);
-        SystemNavigationBar.stickyImmersive(); // Enforce immersive
+
+        // Show navigation bar while modal is open
+        SystemNavigationBar.navigationShow();
     };
 
     const closeModal = () => {
         setModalVisible(false);
         setSelectedUser(null);
-        SystemNavigationBar.stickyImmersive(); // Re-enforce on close
+
+        // Restore immersive after modal closes
+        setTimeout(() => {
+            SystemNavigationBar.stickyImmersive();
+        }, 300);
     };
 
     // Flatten logic
     const flatListData = useMemo(() => {
-        if (!tickets) return [];
+        if (!localTickets) return [];
         const data: FlatListItem[] = [];
 
-        tickets.forEach((ticket: TicketType) => {
+        localTickets.forEach((ticket: TicketType) => {
             // 1. Add Header
             data.push({ type: 'HEADER', data: ticket });
 
@@ -198,7 +242,7 @@ const TicketsSoldRecords = () => {
         });
 
         return data;
-    }, [tickets, expandedTicketId, soldDataCache, loadingUsers, searchQuery]);
+    }, [localTickets, expandedTicketId, soldDataCache, loadingUsers, searchQuery]);
 
     const UserCard = React.useCallback(({ item }: { item: SoldUser }) => (
         <View style={styles.gridCard}>
@@ -333,16 +377,21 @@ const TicketsSoldRecords = () => {
                     maxToRenderPerBatch={10}
                     windowSize={5}
                     removeClippedSubviews={true}
+                    refreshControl={
+                        <RefreshControl
+                            refreshing={refreshing}
+                            onRefresh={onRefresh}
+                            tintColor="#FF8A3C"
+                            colors={['#FF8A3C']}
+                        />
+                    }
                 />
 
-                {/* Details Modal */}
-                <Modal
-                    animationType="slide"
-                    transparent={true}
-                    visible={modalVisible}
-                    onRequestClose={closeModal}
-                >
+                {/* Details Overlay (Custom Modal) */}
+                {modalVisible && (
                     <View style={styles.modalOverlay}>
+                        <Pressable style={{ flex: 1 }} onPress={closeModal} />
+
                         <View style={styles.modalContainer}>
                             <View style={styles.modalHeader}>
                                 <Text style={styles.modalTitle}>Sold Ticket Details</Text>
@@ -354,31 +403,33 @@ const TicketsSoldRecords = () => {
                             {selectedUser && (
                                 <ScrollView contentContainerStyle={styles.modalBody}>
                                     <View style={styles.modalRow}>
-                                        <Text style={styles.modalLabel}>Name:</Text>
+                                        <Text style={styles.modalLabel}>Name</Text>
                                         <Text style={styles.modalValueMain}>{selectedUser.name}</Text>
                                     </View>
                                     <View style={styles.separator} />
 
                                     <View style={styles.modalRow}>
-                                        <Text style={styles.modalLabel}>Mobile:</Text>
-                                        <Text style={styles.modalValue}>+{selectedUser.dialing_code || 91} {selectedUser.mobile}</Text>
+                                        <Text style={styles.modalLabel}>Mobile</Text>
+                                        <Text style={styles.modalValue}>
+                                            +{selectedUser.dialing_code || 91} {selectedUser.mobile}
+                                        </Text>
                                     </View>
                                     <View style={styles.modalRow}>
-                                        <Text style={styles.modalLabel}>Registered By:</Text>
+                                        <Text style={styles.modalLabel}>Registered By</Text>
                                         <Text style={styles.modalValue}>{selectedUser.registered_by || 'Self'}</Text>
                                     </View>
                                     {selectedUser.invited_by && (
                                         <View style={styles.modalRow}>
-                                            <Text style={styles.modalLabel}>Invited By:</Text>
+                                            <Text style={styles.modalLabel}>Invited By</Text>
                                             <Text style={styles.modalValue}>{selectedUser.invited_by}</Text>
                                         </View>
                                     )}
                                     <View style={styles.modalRow}>
-                                        <Text style={styles.modalLabel}>Purchased:</Text>
+                                        <Text style={styles.modalLabel}>Purchased</Text>
                                         <Text style={styles.modalValue}>{selectedUser.tickets_bought} × Ticket(s)</Text>
                                     </View>
                                     <View style={styles.modalRow}>
-                                        <Text style={styles.modalLabel}>Time:</Text>
+                                        <Text style={styles.modalLabel}>Time</Text>
                                         <Text style={styles.modalValue}>
                                             {formatTime(selectedUser.created_at)}
                                         </Text>
@@ -393,7 +444,7 @@ const TicketsSoldRecords = () => {
                             </View>
                         </View>
                     </View>
-                </Modal>
+                )}
             </SafeAreaView>
         </ResponsiveContainer>
     );
@@ -601,9 +652,10 @@ const makeStyles = (scale: (size: number) => number, verticalScale: (size: numbe
 
     // Modal Styles
     modalOverlay: {
-        flex: 1,
+        ...StyleSheet.absoluteFillObject,
         backgroundColor: 'rgba(0,0,0,0.8)',
         justifyContent: 'flex-end',
+        zIndex: 1000,
     },
     modalContainer: {
         width: '100%',

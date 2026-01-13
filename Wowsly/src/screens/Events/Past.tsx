@@ -294,7 +294,7 @@ const Past = () => {
             style={{ marginTop: verticalScale(15) }}
             showsVerticalScrollIndicator={false}
             refreshControl={
-              <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#FF8A3C']} />
+              <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#FF8A3C']} tintColor="#FF8A3C" />
             }
             ListFooterComponent={
               <Pagination

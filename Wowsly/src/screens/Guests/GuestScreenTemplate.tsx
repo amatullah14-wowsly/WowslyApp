@@ -15,6 +15,7 @@ import {
   DeviceEventEmitter,
   ActivityIndicator,
   useWindowDimensions,
+  RefreshControl,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import Toast from 'react-native-toast-message';
@@ -209,6 +210,7 @@ const GuestScreenTemplate: React.FC<GuestScreenTemplateProps> = ({
   const [modalVisible, setModalVisible] = useState(false);
   const [selectedGuestId, setSelectedGuestId] = useState<string | null>(null);
   const [lastUpdate, setLastUpdate] = useState(0);
+  const [refreshing, setRefreshing] = useState(false);
 
   // Pagination State
   const [currentPage, setCurrentPage] = useState(1);
@@ -414,6 +416,12 @@ const GuestScreenTemplate: React.FC<GuestScreenTemplateProps> = ({
     setLoading(false);
   };
 
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await fetchGuests(1);
+    setRefreshing(false);
+  };
+
   const handleGuestPress = useCallback((guest: any) => {
     setSelectedGuestId((guest.id || '').toString());
     setModalVisible(true);
@@ -539,6 +547,14 @@ const GuestScreenTemplate: React.FC<GuestScreenTemplateProps> = ({
               windowSize={5}
               removeClippedSubviews={true}
               getItemLayout={getItemLayout}
+              refreshControl={
+                <RefreshControl
+                  refreshing={refreshing}
+                  onRefresh={onRefresh}
+                  tintColor="#FF8A3C"
+                  colors={['#FF8A3C']}
+                />
+              }
               ListEmptyComponent={
                 <View style={styles.emptyState}>
                   <Image source={NOGUESTS_ICON} style={styles.emptyIcon} />
